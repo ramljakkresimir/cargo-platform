@@ -37,6 +37,12 @@ export default function DashboardPage() {
         </div>
 
         <div className="dashboard-card">
+          <h3>My Profile</h3>
+          <p>Update your name, phone number, or change your password.</p>
+          <Link to="/profile" className="btn-secondary">Edit Profile</Link>
+        </div>
+
+        <div className="dashboard-card">
           <h3>Browse Cargo</h3>
           <p>Search for cargo posts from companies looking for transport.</p>
           <Link to="/cargo" className="btn-secondary">Browse Cargo</Link>

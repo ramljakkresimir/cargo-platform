@@ -1,7 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { User } from './user.entity';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class UsersService {
@@ -24,5 +30,30 @@ export class UsersService {
   async create(data: Partial<User>): Promise<User> {
     const user = this.userRepository.create(data);
     return this.userRepository.save(user);
+  }
+
+  async update(id: string, dto: UpdateProfileDto): Promise<User> {
+    const user = await this.findById(id);
+    if (!user) throw new NotFoundException('User not found');
+    Object.assign(user, dto);
+    return this.userRepository.save(user);
+  }
+
+  async changePassword(
+    id: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.userRepository.save(user);
+    return { message: 'Password changed successfully' };
   }
 }

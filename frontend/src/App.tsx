@@ -14,6 +14,7 @@ import VehicleListPage from './pages/VehicleListPage';
 import CargoDetailPage from './pages/CargoDetailPage';
 import VehicleDetailPage from './pages/VehicleDetailPage';
 import MyPostsPage from './pages/MyPostsPage';
+import ProfilePage from './pages/ProfilePage';
 
 export default function App() {
   return (
@@ -45,6 +46,9 @@ export default function App() {
             } />
             <Route path="/my-posts" element={
               <ProtectedRoute><MyPostsPage /></ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute><ProfilePage /></ProtectedRoute>
             } />
 
             {/* Default redirect */}
