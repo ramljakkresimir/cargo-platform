@@ -402,6 +402,37 @@ The original `"module": "nodenext"` was changed to `"module": "commonjs"` in the
 
 ---
 
+## Git Workflow
+
+### Repository
+- Remote: `https://github.com/ramljakkresimir/cargo-platform.git`
+- Default branch: `master`
+
+### Commit History (Session 6 — 2026-06-15)
+
+All commits were created in a single session from scratch (no prior git history). Files were grouped by feature and committed in dependency order so the log reads as a project narrative.
+
+| Hash | Commit |
+|------|--------|
+| `c437095` | `chore(monorepo): configure npm workspaces with concurrent startup scripts` |
+| `3819540` | `feat(auth): implement JWT authentication and user registration` |
+| `d29e916` | `feat(company): add company profile management` |
+| `ae90f20` | `feat(cargo): implement cargo post CRUD with search and owner-scoped listing` |
+| `14f49c3` | `feat(vehicle): implement vehicle post CRUD with search and owner-scoped listing` |
+| `9b8938f` | `feat(frontend): scaffold React app with auth context, routing, and API services` |
+| `8500091` | `feat(frontend): add all application pages including My Posts and inline editing` |
+| `b1ff3ad` | `fix(vite): pin frontend port to 5173 and enable strictPort` |
+| `ab73659` | `fix(cors): restrict CORS to canonical frontend origin and add backend bootstrap` |
+| `457be9a` | `docs(project): add CLAUDE.md development journal` |
+
+### Notes
+- `backend/.git` (an empty nested git repo accidentally created by NestJS scaffold) was removed before first commit so backend source is tracked by the root repo.
+- Sub-package lock files (`backend/package-lock.json`, `frontend/package-lock.json`) are gitignored; only the root `package-lock.json` is committed (canonical for npm workspaces).
+- `.claude/` (Claude Code internal state) is gitignored.
+- `backend/.env` is gitignored via `backend/.gitignore`; committed `backend/.env.example` instead.
+
+---
+
 ## TODO / Next Steps
 
 - [ ] Mark post as closed/expired from the UI — partially done; the edit form includes a Status field (active/closed); auto-expiry by date still needs a backend cron job
