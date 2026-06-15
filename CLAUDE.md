@@ -35,6 +35,7 @@ cargo-platform/
 │       ├── cargo-posts/      Cargo post CRUD + search
 │       ├── vehicle-posts/    Vehicle post CRUD + search
 │       ├── common/enums/     Shared PostStatus enum
+│       ├── common/dto/       Shared PaginationDto
 │       ├── app.module.ts     Root module wiring
 │       └── main.ts           Bootstrap, CORS, validation pipe
 │
@@ -43,7 +44,7 @@ cargo-platform/
         ├── context/          AuthContext (JWT + user state)
         ├── services/         Axios API clients per resource
         ├── components/       Navbar, ProtectedRoute
-        ├── pages/            10 pages (see list below)
+        ├── pages/            12 pages (see list below)
         └── types/            Shared TypeScript interfaces
 ```
 
@@ -148,6 +149,7 @@ All endpoints return JSON. Protected endpoints require:
 | DELETE | /cargo-posts/:id | Required | Delete (owner only)    |
 
 **Cargo filter query params:** `loadingLocation`, `unloadingLocation`, `loadingDate`, `cargoType`, `requiredVehicleType`  
+**Pagination params:** `page` (default: 1), `limit` (default: 10) — response shape: `{ data, total, page, limit, totalPages }`  
 **Note:** `/my` route must remain before `/:id` in the controller to avoid route conflict.
 
 ### Vehicle Posts
@@ -160,7 +162,17 @@ All endpoints return JSON. Protected endpoints require:
 | PATCH  | /vehicle-posts/:id  | Required | Update (owner only)    |
 | DELETE | /vehicle-posts/:id  | Required | Delete (owner only)    |
 
-**Vehicle filter query params:** `availableLocation`, `availableFromDate`, `vehicleType`, `destinationPreference`
+**Vehicle filter query params:** `availableLocation`, `availableFromDate`, `vehicleType`, `destinationPreference`  
+**Pagination params:** `page` (default: 1), `limit` (default: 10) — same response shape as cargo posts.
+
+### Users (protected)
+| Method | Path                      | Description                         |
+|--------|---------------------------|-------------------------------------|
+| GET    | /users/me                 | Get current user's profile          |
+| PATCH  | /users/me                 | Update firstName, lastName, phone   |
+| PATCH  | /users/change-password    | Change password (requires currentPassword + newPassword) |
+
+`passwordHash` is always stripped from responses via `@Exclude()` + `ClassSerializerInterceptor`.
 
 ---
 
@@ -179,6 +191,7 @@ All endpoints return JSON. Protected endpoints require:
 | /cargo/new      | CreateCargoPostPage    | Yes   | Post new cargo          |
 | /vehicles/new   | CreateVehiclePostPage  | Yes   | Post available vehicle  |
 | /my-posts       | MyPostsPage            | Yes   | All user's posts with view/edit/delete |
+| /profile        | ProfilePage            | Yes   | Edit personal info + change password   |
 
 ---
 
@@ -400,6 +413,33 @@ The original `"module": "nodenext"` was changed to `"module": "commonjs"` in the
 - [x] `frontend/vite.config.ts`: added `server.port = 5173` and `server.strictPort = true`
 - [x] `backend/src/main.ts`: CORS now allows only `http://localhost:5173` (removed 5174 workaround)
 
+### Session 7 — 2026-06-15
+
+#### Feature: Pagination for Post Lists
+- [x] Shared `PaginationDto` in `backend/src/common/dto/pagination.dto.ts` extended by both filter DTOs
+- [x] `GET /cargo-posts` and `GET /vehicle-posts` now accept `page` and `limit` query params
+- [x] Both list endpoints return `{ data, total, page, limit, totalPages }` instead of a bare array
+- [x] Pagination uses TypeORM QueryBuilder `skip` / `take` + `getManyAndCount()`
+- [x] `CargoListPage` and `VehicleListPage` rewritten with two-state filter pattern:
+  - `filters` (live form state) and `activeFilters` (committed on Search button)
+  - `useEffect([activeFilters, page])` so filter changes always reset to page 1
+  - Previous/Next buttons rendered only when `totalPages > 1`
+- [x] `PaginatedResult<T>` generic interface added to `frontend/src/types/index.ts`
+- [x] `.pagination` CSS added to `frontend/src/index.css`
+
+#### Feature: User Profile Page (`/profile`)
+- [x] `GET /users/me` — returns current user's profile (passwordHash excluded)
+- [x] `PATCH /users/me` — updates firstName, lastName, phone
+- [x] `PATCH /users/change-password` — verifies currentPassword with bcrypt, sets new hash
+- [x] `UsersController` created with all three endpoints (all protected by `JwtAuthGuard`)
+- [x] `UpdateProfileDto` and `ChangePasswordDto` added with class-validator decorators
+- [x] `ProfilePage` at `/profile` — two independent sections:
+  - Personal Information form (firstName, lastName, phone; email is read-only display)
+  - Change Password form (currentPassword, newPassword, confirmPassword with client-side match check)
+- [x] After successful profile update, `login(token, updatedUser)` is called to refresh AuthContext so Navbar name updates immediately without re-login
+- [x] Wrong current password returns HTTP 400 with `"Current password is incorrect"` message
+- [x] "Profile" link added to Navbar; "My Profile" card added to DashboardPage
+
 ---
 
 ## Git Workflow
@@ -436,8 +476,6 @@ All commits were created in a single session from scratch (no prior git history)
 ## TODO / Next Steps
 
 - [ ] Mark post as closed/expired from the UI — partially done; the edit form includes a Status field (active/closed); auto-expiry by date still needs a backend cron job
-- [ ] Pagination for post lists
-- [ ] User profile page (change password, update personal info)
 - [ ] Email validation / verification on registration
 - [ ] Scheduled task to auto-expire posts past their date
 - [ ] Better error messages from the API (validation error details)
