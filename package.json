@@ -9,6 +9,7 @@
   ],
 
   "scripts": {
+    "predev":   "node scripts/kill-ports.js",
     "dev":      "concurrently --kill-others-on-fail --names \"BACKEND,FRONTEND\" --prefix-colors \"blue.bold,green.bold\" \"npm run start:dev -w backend\" \"npm run dev -w frontend\"",
     "backend":  "npm run start:dev -w backend",
     "frontend": "npm run dev -w frontend",
