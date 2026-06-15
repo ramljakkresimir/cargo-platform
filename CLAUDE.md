@@ -337,6 +337,44 @@ The original `"module": "nodenext"` was changed to `"module": "commonjs"` in the
 - Post status is not automatically set to `expired` based on date — this would require a scheduled task (cron job) to be added later.
 - The `userId` field on the `Company` entity is also exposed in API responses. This is fine for an MVP but could be hidden in a production API.
 
+### Resolved: "Port 5173 is already in use" on repeated `npm run dev` — Session 8
+
+**Symptom:** `npm run dev` frequently fails with `Error: Port 5173 is already in use` even after the previous session appeared to have stopped.
+
+**Root cause — two compounding issues on Windows:**
+
+1. **Async race in tree-kill**: `concurrently` uses the `tree-kill` library to kill child processes on shutdown. On Windows, `tree-kill` runs `taskkill /pid <pid> /T /F` via `exec()` — which is **asynchronous**. When Ctrl+C arrives, `concurrently`'s own Node.js process also receives the signal and begins its own shutdown. Because the `exec()` call is non-blocking, `concurrently` can exit before `taskkill` ever actually runs, abandoning the kill attempt silently.
+
+2. **Terminal close doesn't propagate to deep grandchildren**: When a terminal window is closed (VS Code "Kill Terminal", X button, etc.), Windows sends `CTRL_CLOSE_EVENT` to console-attached processes. However, killing the console host does not guarantee all grandchildren receive or survive long enough to handle it. The Vite node process sits **4 levels deep** in the process chain:
+   ```
+   npm run dev
+   └── cmd.exe /s /c concurrently ...
+       └── concurrently (node)
+           └── cmd.exe /s /c "npm run dev -w frontend"
+               └── npm (node)
+                   └── cmd.exe /s /c "vite"
+                       └── vite (node)  ← holds port 5173
+   ```
+   Intermediate `cmd.exe /s /c` wrappers inserted by Windows npm can die without propagating the signal downward, leaving Vite alive as a headless orphan process.
+
+`strictPort: true` (added Session 5) was the right call — it makes the orphan problem visible immediately with a clear error rather than silently stealing port 5174.
+
+**Fix applied:**
+- `scripts/kill-ports.js`: Node.js script (no extra npm packages) that finds and kills any process listening on ports 3000 and 5173 before startup. On Windows uses `netstat -ano | findstr` + `taskkill /T /F /PID` (which kills the entire process tree). On Unix uses `lsof -ti :<port> | xargs kill -9`.
+- `package.json`: added `"predev": "node scripts/kill-ports.js"`. npm automatically runs `predev` before `dev` — no manual steps required.
+
+**How it works in practice:**
+```
+$ npm run dev
+> predev: node scripts/kill-ports.js
+[predev] Killed stale process tree (PID 14412) on port 5173   ← stale orphan cleaned
+[predev] Killed stale process tree (PID 17844) on port 3000   ← stale orphan cleaned
+> dev: concurrently ... "npm run start:dev -w backend" "npm run dev -w frontend"
+[BACKEND] ...
+[FRONTEND] VITE v8.x  ready in 700ms
+```
+When ports are already free (normal case), the script exits silently and `npm run dev` proceeds immediately.
+
 ### Resolved: Frontend available on two ports (5173 and 5174) — Session 5
 
 **Symptom:** The frontend was reachable on both `http://localhost:5173` and `http://localhost:5174` simultaneously, even when only one `npm run dev` was running. The backend CORS config had both ports as a workaround, causing CORS errors whenever the second port wasn't expected.
@@ -439,6 +477,15 @@ The original `"module": "nodenext"` was changed to `"module": "commonjs"` in the
 - [x] After successful profile update, `login(token, updatedUser)` is called to refresh AuthContext so Navbar name updates immediately without re-login
 - [x] Wrong current password returns HTTP 400 with `"Current password is incorrect"` message
 - [x] "Profile" link added to Navbar; "My Profile" card added to DashboardPage
+
+### Session 8 — 2026-06-15
+
+#### Fix: Stale port 5173 error on repeated `npm run dev`
+- [x] Investigated full Windows process tree created by concurrently + npm workspaces
+- [x] Confirmed root cause: async race in `tree-kill` and terminal-close not propagating to deep grandchild processes
+- [x] `scripts/kill-ports.js`: cross-platform Node.js script using `netstat` + `taskkill /T /F` (Windows) and `lsof` + `kill -9` (Unix) to clear ports 3000 and 5173 before startup
+- [x] `package.json`: `"predev"` script added — runs automatically before every `npm run dev` via npm lifecycle hooks, no manual steps
+- [x] Verified fix with three back-to-back start/stop cycles; predev correctly killed orphaned Vite and NestJS processes each time
 
 ---
 
