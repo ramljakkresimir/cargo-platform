@@ -3,7 +3,16 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
+  phone?: string;
   role: string;
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export interface Company {

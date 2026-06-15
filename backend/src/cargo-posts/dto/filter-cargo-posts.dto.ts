@@ -1,7 +1,7 @@
 import { IsOptional, IsString, IsDateString } from 'class-validator';
+import { PaginationDto } from '../../common/dto/pagination.dto';
 
-// All fields are optional — the frontend can send any combination of filters
-export class FilterCargoPostsDto {
+export class FilterCargoPostsDto extends PaginationDto {
   @IsOptional() @IsString()
   loadingLocation?: string;
 

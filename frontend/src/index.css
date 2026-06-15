@@ -331,6 +331,32 @@ h3 { font-size: 15px; font-weight: 600; color: #333; }
   font-size: 15px;
 }
 
+/* ── Pagination ───────────────────────────────────────────────────── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px 0 4px;
+}
+.pagination-info {
+  font-size: 14px;
+  color: #6b7280;
+  min-width: 120px;
+  text-align: center;
+}
+.pagination button {
+  padding: 7px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.pagination button:hover:not(:disabled) { background: #f9fafb; }
+.pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+
 @media (max-width: 640px) {
   .form-row { flex-direction: column; }
   .filter-grid { grid-template-columns: 1fr 1fr; }

@@ -1,12 +1,14 @@
 import api from './api';
 
 export const vehiclePostsService = {
-  getAll: (filters?: {
+  getAll: (params?: {
     availableLocation?: string;
     availableFromDate?: string;
     vehicleType?: string;
     destinationPreference?: string;
-  }) => api.get('/vehicle-posts', { params: filters }),
+    page?: number;
+    limit?: number;
+  }) => api.get('/vehicle-posts', { params }),
 
   getOne: (id: string) => api.get(`/vehicle-posts/${id}`),
 

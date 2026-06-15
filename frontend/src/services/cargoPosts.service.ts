@@ -1,13 +1,15 @@
 import api from './api';
 
 export const cargoPostsService = {
-  getAll: (filters?: {
+  getAll: (params?: {
     loadingLocation?: string;
     unloadingLocation?: string;
     loadingDate?: string;
     cargoType?: string;
     requiredVehicleType?: string;
-  }) => api.get('/cargo-posts', { params: filters }),
+    page?: number;
+    limit?: number;
+  }) => api.get('/cargo-posts', { params }),
 
   getOne: (id: string) => api.get(`/cargo-posts/${id}`),
 

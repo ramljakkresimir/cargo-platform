@@ -23,8 +23,10 @@ export class CargoPostsService {
     return this.cargoPostRepository.save(post);
   }
 
-  // Returns active posts, optionally filtered. Always joins company for contact info.
-  async findAll(filters: FilterCargoPostsDto): Promise<CargoPost[]> {
+  async findAll(filters: FilterCargoPostsDto) {
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? 10;
+
     const query = this.cargoPostRepository
       .createQueryBuilder('post')
       .leftJoinAndSelect('post.company', 'company')
@@ -54,7 +56,12 @@ export class CargoPostsService {
       });
     }
 
-    return query.getMany();
+    const [data, total] = await query
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async findOne(id: string): Promise<CargoPost> {

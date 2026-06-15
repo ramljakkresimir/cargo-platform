@@ -23,7 +23,10 @@ export class VehiclePostsService {
     return this.vehiclePostRepository.save(post);
   }
 
-  async findAll(filters: FilterVehiclePostsDto): Promise<VehiclePost[]> {
+  async findAll(filters: FilterVehiclePostsDto) {
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? 10;
+
     const query = this.vehiclePostRepository
       .createQueryBuilder('post')
       .leftJoinAndSelect('post.company', 'company')
@@ -49,7 +52,12 @@ export class VehiclePostsService {
       });
     }
 
-    return query.getMany();
+    const [data, total] = await query
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async findOne(id: string): Promise<VehiclePost> {
