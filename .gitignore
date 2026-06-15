@@ -1,0 +1,34 @@
+# ── Dependencies ─────────────────────────────────────────────────────
+node_modules/
+
+# ── Build artifacts ───────────────────────────────────────────────────
+dist/
+build/
+backend/dist/
+frontend/dist/
+
+# ── Environment files ─────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+# backend/.env is also covered by backend/.gitignore
+
+# ── Sub-package lock files (root lock file is canonical for workspaces)
+backend/package-lock.json
+frontend/package-lock.json
+
+# ── Claude Code internal state ────────────────────────────────────────
+.claude/
+
+# ── Logs ─────────────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+
+# ── OS ────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDE ───────────────────────────────────────────────────────────────
+.vscode/
+.idea/

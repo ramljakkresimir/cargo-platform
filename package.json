@@ -1,0 +1,21 @@
+{
+  "name": "cargo-platform",
+  "version": "1.0.0",
+  "private": true,
+
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+
+  "scripts": {
+    "dev":      "concurrently --kill-others-on-fail --names \"BACKEND,FRONTEND\" --prefix-colors \"blue.bold,green.bold\" \"npm run start:dev -w backend\" \"npm run dev -w frontend\"",
+    "backend":  "npm run start:dev -w backend",
+    "frontend": "npm run dev -w frontend",
+    "build":    "npm run build -w backend && npm run build -w frontend"
+  },
+
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
