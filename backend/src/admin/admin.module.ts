@@ -7,9 +7,13 @@ import { VehiclePost } from '../vehicle-posts/vehicle-post.entity';
 import { AdminService } from './admin.service';
 import { AdminController } from './admin.controller';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { PostsExpirationModule } from '../posts-expiration/posts-expiration.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Company, CargoPost, VehiclePost])],
+  imports: [
+    TypeOrmModule.forFeature([User, Company, CargoPost, VehiclePost]),
+    PostsExpirationModule,
+  ],
   providers: [AdminService, RolesGuard],
   controllers: [AdminController],
 })

@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Delete,
   Param,
@@ -13,6 +14,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { AdminService } from './admin.service';
+import { PostsExpirationService } from '../posts-expiration/posts-expiration.service';
 import { AdminUsersQueryDto, AdminPostsQueryDto } from './dto/admin-query.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UpdatePostStatusDto } from './dto/update-post-status.dto';
@@ -21,12 +23,21 @@ import { UpdatePostStatusDto } from './dto/update-post-status.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly postsExpirationService: PostsExpirationService,
+  ) {}
 
   // GET /admin/stats
   @Get('stats')
   getStats() {
     return this.adminService.getStats();
+  }
+
+  // POST /admin/posts/expire-old — manually trigger the expiration job
+  @Post('posts/expire-old')
+  expireOldPosts() {
+    return this.postsExpirationService.expireOldPosts();
   }
 
   // ── Users ──────────────────────────────────────────────────────────

@@ -35,6 +35,7 @@ export default function CargoDetailPage() {
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState('');
+  const [closeLoading, setCloseLoading] = useState(false);
 
   useEffect(() => {
     if (id) fetchPost(id);
@@ -65,6 +66,22 @@ export default function CargoDetailPage() {
       navigate('/cargo');
     } catch {
       setError('Failed to delete post.');
+    }
+  };
+
+  const handleClose = async () => {
+    if (!id || !confirm('Close this cargo post? It will no longer appear in public listings.')) return;
+    setCloseLoading(true);
+    setSaveSuccess('');
+    setSaveError('');
+    try {
+      const res = await cargoPostsService.update(id, { status: 'closed' });
+      setPost(res.data);
+      setSaveSuccess('Post closed successfully.');
+    } catch (err) {
+      setSaveError(extractErrorMessage(err, 'Failed to close post.'));
+    } finally {
+      setCloseLoading(false);
     }
   };
 
@@ -141,6 +158,11 @@ export default function CargoDetailPage() {
         </div>
         {isOwner && !isEditing && (
           <div className="action-buttons">
+            {post.status === 'active' && (
+              <button className="btn-secondary" onClick={handleClose} disabled={closeLoading}>
+                {closeLoading ? 'Closing...' : 'Close Post'}
+              </button>
+            )}
             <button className="btn-secondary" onClick={startEditing}>Edit Post</button>
             <button className="btn-danger" onClick={handleDelete}>Delete</button>
           </div>

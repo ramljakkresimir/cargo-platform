@@ -38,11 +38,12 @@ cargo-platform/
 │       ├── vehicle-posts/    Vehicle post CRUD + search
 │       ├── admin/            Admin CRUD for users/posts (role-protected)
 │       │   └── dto/          AdminUsersQueryDto, AdminPostsQueryDto, UpdateUserRoleDto, UpdatePostStatusDto
+│       ├── posts-expiration/ PostsExpirationService — daily cron + manual trigger
 │       ├── common/
 │       │   ├── enums/        Shared PostStatus enum
 │       │   ├── dto/          Shared PaginationDto
 │       │   └── filters/      GlobalExceptionFilter (consistent error shapes)
-│       ├── app.module.ts     Root module wiring
+│       ├── app.module.ts     Root module wiring (includes ScheduleModule.forRoot())
 │       └── main.ts           Bootstrap, CORS, ValidationPipe with exceptionFactory
 │
 └── frontend/                 Vite + React app (port 5173)
@@ -197,6 +198,7 @@ All `/admin/*` endpoints require `Authorization: Bearer <token>` where the token
 | GET    | /admin/vehicle-posts              | Paginated vehicle posts (search, status, page, limit) |
 | PATCH  | /admin/vehicle-posts/:id/status   | Change vehicle post status               |
 | DELETE | /admin/vehicle-posts/:id          | Delete vehicle post                      |
+| POST   | /admin/posts/expire-old           | Manually trigger post expiration job     |
 
 **Admin safety rules:**
 - Admin cannot delete their own account → 403
@@ -219,7 +221,7 @@ All `/admin/*` endpoints require `Authorization: Bearer <token>` where the token
 | /company               | CompanyProfilePage     | Yes    | Create/edit company     |
 | /cargo/new             | CreateCargoPostPage    | Yes    | Post new cargo          |
 | /vehicles/new          | CreateVehiclePostPage  | Yes    | Post available vehicle  |
-| /my-posts              | MyPostsPage            | Yes    | All user's posts with view/edit/delete |
+| /my-posts              | MyPostsPage            | Yes    | All user's posts with view/edit/close/delete |
 | /profile               | ProfilePage            | Yes    | Edit personal info + change password   |
 | /admin                 | AdminDashboardPage     | Admin  | Stats overview + quick links to admin sections |
 | /admin/users           | AdminUsersPage         | Admin  | List, search, change role, delete users |
@@ -372,8 +374,31 @@ The original `"module": "nodenext"` was changed to `"module": "commonjs"` in the
 - `@types/react-router-dom` v5 is installed alongside react-router-dom v7. They should not conflict due to `skipLibCheck: true`, but ideally remove `@types/react-router-dom` with `npm uninstall @types/react-router-dom` in the frontend folder.
 - `frontend/tsconfig.app.json` must stay comment-free plain JSON. Vite's internal tsconfig loader uses a strict JSON parser (not TypeScript's JSONC parser), so `/* block comments */` or duplicate keys will cause a startup error. *(Fixed session 3.)*
 - TypeORM `float` columns (weight, price, capacity) return JS numbers directly. If you ever need exact decimal precision (e.g. invoicing), switch to `{ type: 'numeric', precision: 10, scale: 2 }` with a transformer.
-- Post status is not automatically set to `expired` based on date — this would require a scheduled task (cron job) to be added later.
+- Post status auto-expiry: implemented via `PostsExpirationService` (daily cron at midnight). `expired` status is set only by the cron job or admin manual trigger — never by the owner's edit form (which only exposes active/closed).
 - The `userId` field on the `Company` entity is also exposed in API responses. This is fine for an MVP but could be hidden in a production API.
+
+### Resolved: npm workspaces hoisting conflict breaks backend after `@nestjs/schedule` install — Session 10
+
+**Symptom:** After `npm install @nestjs/schedule -w backend`, the backend started but immediately threw:
+```
+[PackageLoader] No driver (HTTP) has been selected. In order to take advantage of the default driver,
+please, ensure to install the "@nestjs/platform-express" package.
+```
+After fixing that, a follow-up error:
+```
+[PackageLoader] The "class-validator" package is missing.
+```
+
+**Root cause:** Installing `@nestjs/schedule` caused npm to re-evaluate workspace package hoisting. Because `@nestjs/schedule` has peer dependencies on `@nestjs/common` and `@nestjs/core`, npm hoisted all three to `root/node_modules/@nestjs/`. However, `@nestjs/platform-express`, `class-validator`, and `class-transformer` — which have no such peer-dep trigger — remained only in `backend/node_modules/`.
+
+When Node.js loads `root/node_modules/@nestjs/core/`, the module resolution for `require('@nestjs/platform-express')` searches upward from `root/node_modules/@nestjs/core/` — it cannot reach `backend/node_modules/` because that is a sibling path, not an ancestor. The result is a runtime "missing package" error even though the package is technically installed.
+
+**Fix applied:**
+- Added `@nestjs/platform-express`, `class-validator`, and `class-transformer` as `devDependencies` of the **root** `package.json`. This forces npm to hoist them to `root/node_modules/` alongside the other `@nestjs/*` packages.
+- No version changes — the same `^11.0.1` / `^0.15.1` / `^0.5.1` ranges as in `backend/package.json`.
+- After `npm install`, all four NestJS runtime packages (`common`, `core`, `platform-express`, `schedule`) and both class packages are at root level; backend-only tooling (`@nestjs/cli`, `@nestjs/config`, `@nestjs/jwt`, `@nestjs/passport`, etc.) stays in `backend/node_modules/`.
+
+**Why this is the correct pattern:** In npm workspaces, packages hoisted to root are resolved from all workspaces. Adding a package to root `devDependencies` is the standard way to "hint" npm to always hoist it — equivalent to Yarn's `nohoist` inverse. These packages are not used by the root workspace directly; they live there only to satisfy module resolution for the other packages that npm chose to hoist.
 
 ### Resolved: "Port 5173 is already in use" on repeated `npm run dev` — Session 8
 
@@ -567,6 +592,32 @@ After that, re-login so the frontend receives `role: "admin"` in the login respo
   - RegisterPage, LoginPage, ProfilePage (profile + password), CompanyProfilePage, CreateCargoPostPage, CreateVehiclePostPage, CargoDetailPage (edit), VehicleDetailPage (edit)
 - [x] Validated end-to-end: submitting blank registration form now returns `"Please provide a valid email address. Password must be at least 6 characters long."` instead of generic `"Registration failed"`
 
+### Session 10 — 2026-06-16
+
+#### Feature: Mark Post as Closed from the UI
+- [x] `CargoDetailPage`: "Close Post" button visible to owner when `post.status === 'active'` and not in edit mode; uses confirm dialog; PATCHes `{ status: 'closed' }` and updates state in place
+- [x] `VehicleDetailPage`: identical pattern
+- [x] `MyPostsPage`: inline "Close" action (orange, no navigation) for active rows in both cargo and vehicle tables; updates the row in local state via `.map()` on success
+- [x] Non-owners never see Close/Edit controls; backend ownership enforcement unchanged
+- [x] Status lifecycle: `active` → `closed` (owner-initiated) | `active` → `expired` (cron/admin only) — these are the only valid transitions from `active`
+
+#### Feature: Scheduled Task to Auto-Expire Old Posts
+- [x] `backend/src/posts-expiration/posts-expiration.service.ts` — `PostsExpirationService` with:
+  - `@Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)` scheduled job that runs daily at 00:00
+  - `expireOldPosts()` public method (reused by admin manual endpoint): bulk-updates cargo posts where `loadingDate < today AND status = 'active'` and vehicle posts where `availableFromDate < today AND status = 'active'` → sets status to `expired`; uses TypeORM QueryBuilder `update().set().where().execute()` for efficient bulk updates
+  - Returns `{ cargoPostsExpired, vehiclePostsExpired, message }`
+  - Logs run timestamp and counts on every scheduled execution
+- [x] `backend/src/posts-expiration/posts-expiration.module.ts` — module wrapping the service, exports it for AdminModule
+- [x] `backend/src/app.module.ts` — added `ScheduleModule.forRoot()` (required for cron to activate) and `PostsExpirationModule`
+- [x] `backend/src/admin/admin.module.ts` — imports `PostsExpirationModule`
+- [x] `backend/src/admin/admin.controller.ts` — added `POST /admin/posts/expire-old` route that calls `postsExpirationService.expireOldPosts()` and returns the count result
+- [x] Date boundary: `< today` (strict) so posts dated today are never auto-expired; posts from yesterday and earlier are eligible
+
+#### Fix: npm workspaces hoisting conflict after `@nestjs/schedule` install
+- [x] Root cause diagnosed: `@nestjs/schedule` install caused `@nestjs/common` and `@nestjs/core` to be hoisted to root, while `@nestjs/platform-express`, `class-validator`, `class-transformer` remained in `backend/node_modules/`; `@nestjs/core` at root can't find sibling packages in backend
+- [x] Fix: added `@nestjs/platform-express`, `class-validator`, `class-transformer` as root `devDependencies` so npm hoists them alongside the other `@nestjs/*` packages
+- [x] Verified: fresh `npm install` + backend startup shows "Nest application successfully started" with no PackageLoader errors
+
 ---
 
 ## Git Workflow
@@ -642,9 +693,9 @@ The frontend `extractErrorMessage(err, fallback)` utility in `frontend/src/utils
 
 ## TODO / Next Steps
 
-- [ ] Mark post as closed/expired from the UI — partially done; the edit form includes a Status field (active/closed); auto-expiry by date still needs a backend cron job
+- [x] Mark post as closed from the UI — "Close Post" button on detail pages + inline "Close" in My Posts
+- [x] Scheduled task to auto-expire posts past their date — daily cron at midnight via `@nestjs/schedule`
 - [ ] Email validation / verification on registration
-- [ ] Scheduled task to auto-expire posts past their date
 - [ ] Docker Compose setup for easy local start
 - [ ] Production migrations (TypeORM migration files)
 - [ ] Deploy to a VPS or cloud provider

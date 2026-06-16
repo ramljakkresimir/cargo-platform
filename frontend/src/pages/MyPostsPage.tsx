@@ -49,6 +49,16 @@ export default function MyPostsPage() {
     }
   };
 
+  const handleCloseCargo = async (id: string) => {
+    if (!confirm('Close this cargo post? It will no longer appear in public listings.')) return;
+    try {
+      const res = await cargoPostsService.update(id, { status: 'closed' });
+      setCargoPosts((prev) => prev.map((p) => (p.id === id ? res.data : p)));
+    } catch {
+      setCargoError('Failed to close cargo post.');
+    }
+  };
+
   const handleDeleteCargo = async (id: string) => {
     if (!confirm('Delete this cargo post?')) return;
     try {
@@ -56,6 +66,16 @@ export default function MyPostsPage() {
       setCargoPosts((prev) => prev.filter((p) => p.id !== id));
     } catch {
       setCargoError('Failed to delete cargo post.');
+    }
+  };
+
+  const handleCloseVehicle = async (id: string) => {
+    if (!confirm('Close this vehicle post? It will no longer appear in public listings.')) return;
+    try {
+      const res = await vehiclePostsService.update(id, { status: 'closed' });
+      setVehiclePosts((prev) => prev.map((p) => (p.id === id ? res.data : p)));
+    } catch {
+      setVehicleError('Failed to close vehicle post.');
     }
   };
 
@@ -137,6 +157,15 @@ export default function MyPostsPage() {
                         >
                           Edit
                         </button>
+                        {post.status === 'active' && (
+                          <button
+                            className="table-link"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#ea580c' }}
+                            onClick={() => handleCloseCargo(post.id)}
+                          >
+                            Close
+                          </button>
+                        )}
                         <button
                           className="table-link"
                           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#dc2626' }}
@@ -202,6 +231,15 @@ export default function MyPostsPage() {
                         >
                           Edit
                         </button>
+                        {post.status === 'active' && (
+                          <button
+                            className="table-link"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#ea580c' }}
+                            onClick={() => handleCloseVehicle(post.id)}
+                          >
+                            Close
+                          </button>
+                        )}
                         <button
                           className="table-link"
                           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#dc2626' }}
