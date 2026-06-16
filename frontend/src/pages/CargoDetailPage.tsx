@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { cargoPostsService } from '../services/cargoPosts.service';
 import { CargoPost } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 const CARGO_TYPES = ['general', 'palletized', 'bulk', 'liquid', 'refrigerated', 'hazardous', 'oversized'];
 const VEHICLE_TYPES = ['truck', 'van', 'semi_truck', 'refrigerated_truck', 'flatbed', 'tanker'];
@@ -117,8 +118,8 @@ export default function CargoDetailPage() {
       setPost(res.data);
       setIsEditing(false);
       setSaveSuccess('Post updated successfully.');
-    } catch (err: any) {
-      setSaveError(err.response?.data?.message || 'Failed to update post.');
+    } catch (err) {
+      setSaveError(extractErrorMessage(err, 'Failed to update post.'));
     } finally {
       setSaveLoading(false);
     }

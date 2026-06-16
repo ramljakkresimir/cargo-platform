@@ -5,6 +5,8 @@ export interface User {
   lastName: string;
   phone?: string;
   role: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface PaginatedResult<T> {

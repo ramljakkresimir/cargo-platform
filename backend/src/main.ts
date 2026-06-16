@@ -1,6 +1,7 @@
 import { NestFactory, Reflector } from '@nestjs/core';
-import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
+import { ValidationPipe, ClassSerializerInterceptor, BadRequestException } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -11,11 +12,21 @@ async function bootstrap() {
     credentials: true,
   });
 
+  // Global exception filter — normalizes all error responses to a consistent shape
+  app.useGlobalFilters(new GlobalExceptionFilter());
+
   // Validate all incoming request bodies against DTO class rules
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,   // strip properties that have no decorators
-      transform: true,   // auto-convert strings to numbers/booleans where typed
+      whitelist: true,
+      transform: true,
+      exceptionFactory: (validationErrors) => {
+        const errors = validationErrors.map((err) => ({
+          field: err.property,
+          messages: Object.values(err.constraints || {}),
+        }));
+        return new BadRequestException({ message: 'Validation failed', errors });
+      },
     }),
   );
 

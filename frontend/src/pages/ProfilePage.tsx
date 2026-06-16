@@ -1,6 +1,7 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { usersService } from '../services/users.service';
 import { useAuth } from '../context/AuthContext';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 export default function ProfilePage() {
   const { user, login, token } = useAuth();
@@ -68,8 +69,8 @@ export default function ProfilePage() {
       }
 
       setProfileSuccess('Profile updated successfully.');
-    } catch (err: any) {
-      setProfileError(err.response?.data?.message || 'Failed to update profile.');
+    } catch (err) {
+      setProfileError(extractErrorMessage(err, 'Failed to update profile.'));
     } finally {
       setProfileLoading(false);
     }
@@ -101,8 +102,8 @@ export default function ProfilePage() {
       });
       setPasswordSuccess('Password changed successfully.');
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    } catch (err: any) {
-      setPasswordError(err.response?.data?.message || 'Failed to change password.');
+    } catch (err) {
+      setPasswordError(extractErrorMessage(err, 'Failed to change password.'));
     } finally {
       setPasswordLoading(false);
     }

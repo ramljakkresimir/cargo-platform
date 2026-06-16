@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authService } from '../services/auth.service';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -27,8 +28,8 @@ export default function RegisterPage() {
     try {
       await authService.register(form);
       navigate('/login');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+    } catch (err) {
+      setError(extractErrorMessage(err, 'Registration failed. Please try again.'));
     } finally {
       setLoading(false);
     }

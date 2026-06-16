@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { vehiclePostsService } from '../services/vehiclePosts.service';
 import { VehiclePost } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 const VEHICLE_TYPES = ['truck', 'van', 'semi_truck', 'refrigerated_truck', 'flatbed', 'tanker'];
 const STATUSES = ['active', 'closed'];
@@ -107,8 +108,8 @@ export default function VehicleDetailPage() {
       setPost(res.data);
       setIsEditing(false);
       setSaveSuccess('Post updated successfully.');
-    } catch (err: any) {
-      setSaveError(err.response?.data?.message || 'Failed to update post.');
+    } catch (err) {
+      setSaveError(extractErrorMessage(err, 'Failed to update post.'));
     } finally {
       setSaveLoading(false);
     }

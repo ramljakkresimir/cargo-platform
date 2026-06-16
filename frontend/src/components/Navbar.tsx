@@ -26,6 +26,9 @@ export default function Navbar() {
             <Link to="/my-posts">My Posts</Link>
             <Link to="/company">Company</Link>
             <Link to="/profile">Profile</Link>
+            {user.role === 'admin' && (
+              <Link to="/admin" style={{ color: '#fbbf24' }}>Admin</Link>
+            )}
             <button className="btn-link" onClick={handleLogout}>
               Logout ({user.firstName})
             </button>

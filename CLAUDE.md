@@ -30,21 +30,29 @@ cargo-platform/
 ├── backend/                  NestJS API (port 3000)
 │   └── src/
 │       ├── auth/             Register, login, JWT strategy, guard
+│       │   ├── decorators/   @Roles() decorator
+│       │   └── guards/       JwtAuthGuard, RolesGuard
 │       ├── users/            User entity + service
 │       ├── companies/        Company profile CRUD
 │       ├── cargo-posts/      Cargo post CRUD + search
 │       ├── vehicle-posts/    Vehicle post CRUD + search
-│       ├── common/enums/     Shared PostStatus enum
-│       ├── common/dto/       Shared PaginationDto
+│       ├── admin/            Admin CRUD for users/posts (role-protected)
+│       │   └── dto/          AdminUsersQueryDto, AdminPostsQueryDto, UpdateUserRoleDto, UpdatePostStatusDto
+│       ├── common/
+│       │   ├── enums/        Shared PostStatus enum
+│       │   ├── dto/          Shared PaginationDto
+│       │   └── filters/      GlobalExceptionFilter (consistent error shapes)
 │       ├── app.module.ts     Root module wiring
-│       └── main.ts           Bootstrap, CORS, validation pipe
+│       └── main.ts           Bootstrap, CORS, ValidationPipe with exceptionFactory
 │
 └── frontend/                 Vite + React app (port 5173)
     └── src/
         ├── context/          AuthContext (JWT + user state)
-        ├── services/         Axios API clients per resource
-        ├── components/       Navbar, ProtectedRoute
-        ├── pages/            12 pages (see list below)
+        ├── services/         Axios API clients per resource (+ admin.service)
+        ├── components/       Navbar, ProtectedRoute, AdminRoute
+        ├── pages/            12 regular pages + 4 admin pages
+        │   └── admin/        AdminDashboardPage, AdminUsersPage, AdminCargoPostsPage, AdminVehiclePostsPage
+        ├── utils/            errorUtils.ts — extractErrorMessage / extractFieldErrors helpers
         └── types/            Shared TypeScript interfaces
 ```
 
@@ -174,24 +182,54 @@ All endpoints return JSON. Protected endpoints require:
 
 `passwordHash` is always stripped from responses via `@Exclude()` + `ClassSerializerInterceptor`.
 
+### Admin (protected — admin role required)
+All `/admin/*` endpoints require `Authorization: Bearer <token>` where the token belongs to a user with `role: "admin"`. Non-admins receive HTTP 403.
+
+| Method | Path                              | Description                              |
+|--------|-----------------------------------|------------------------------------------|
+| GET    | /admin/stats                      | Dashboard counts (users, posts, actives) |
+| GET    | /admin/users                      | Paginated user list (search, page, limit)|
+| PATCH  | /admin/users/:id/role             | Change user role ("user" or "admin")     |
+| DELETE | /admin/users/:id                  | Delete user + cascade (posts, company)   |
+| GET    | /admin/cargo-posts                | Paginated cargo posts (search, status, page, limit) |
+| PATCH  | /admin/cargo-posts/:id/status     | Change cargo post status                 |
+| DELETE | /admin/cargo-posts/:id            | Delete cargo post                        |
+| GET    | /admin/vehicle-posts              | Paginated vehicle posts (search, status, page, limit) |
+| PATCH  | /admin/vehicle-posts/:id/status   | Change vehicle post status               |
+| DELETE | /admin/vehicle-posts/:id          | Delete vehicle post                      |
+
+**Admin safety rules:**
+- Admin cannot delete their own account → 403
+- Admin cannot remove their own admin role if they are the only admin → 400
+- Deleting a user cascades: cargo posts → vehicle posts → company → user (no orphaned records)
+
 ---
 
 ## Frontend Pages
 
-| Route           | Component              | Auth? | Description             |
-|-----------------|------------------------|-------|-------------------------|
-| /login          | LoginPage              | No    | Sign-in form            |
-| /register       | RegisterPage           | No    | Registration form       |
-| /cargo          | CargoListPage          | No    | Browse + filter cargo   |
-| /cargo/:id      | CargoDetailPage        | No    | Cargo post details + inline edit (owner only) |
-| /vehicles       | VehicleListPage        | No    | Browse + filter vehicles|
-| /vehicles/:id   | VehicleDetailPage      | No    | Vehicle post details + inline edit (owner only) |
-| /dashboard      | DashboardPage          | Yes   | User home + quick links |
-| /company        | CompanyProfilePage     | Yes   | Create/edit company     |
-| /cargo/new      | CreateCargoPostPage    | Yes   | Post new cargo          |
-| /vehicles/new   | CreateVehiclePostPage  | Yes   | Post available vehicle  |
-| /my-posts       | MyPostsPage            | Yes   | All user's posts with view/edit/delete |
-| /profile        | ProfilePage            | Yes   | Edit personal info + change password   |
+| Route                  | Component              | Auth?  | Description             |
+|------------------------|------------------------|--------|-------------------------|
+| /login                 | LoginPage              | No     | Sign-in form            |
+| /register              | RegisterPage           | No     | Registration form       |
+| /cargo                 | CargoListPage          | No     | Browse + filter cargo   |
+| /cargo/:id             | CargoDetailPage        | No     | Cargo post details + inline edit (owner only) |
+| /vehicles              | VehicleListPage        | No     | Browse + filter vehicles|
+| /vehicles/:id          | VehicleDetailPage      | No     | Vehicle post details + inline edit (owner only) |
+| /dashboard             | DashboardPage          | Yes    | User home + quick links |
+| /company               | CompanyProfilePage     | Yes    | Create/edit company     |
+| /cargo/new             | CreateCargoPostPage    | Yes    | Post new cargo          |
+| /vehicles/new          | CreateVehiclePostPage  | Yes    | Post available vehicle  |
+| /my-posts              | MyPostsPage            | Yes    | All user's posts with view/edit/delete |
+| /profile               | ProfilePage            | Yes    | Edit personal info + change password   |
+| /admin                 | AdminDashboardPage     | Admin  | Stats overview + quick links to admin sections |
+| /admin/users           | AdminUsersPage         | Admin  | List, search, change role, delete users |
+| /admin/cargo-posts     | AdminCargoPostsPage    | Admin  | List, search, filter, change status, delete cargo posts |
+| /admin/vehicle-posts   | AdminVehiclePostsPage  | Admin  | List, search, filter, change status, delete vehicle posts |
+
+**Admin routes** are wrapped in `<AdminRoute>` which:
+- Redirects to `/login` if not authenticated
+- Shows an "Access Denied" message if authenticated but not admin (role ≠ "admin")
+- Renders the page if authenticated admin
 
 ---
 
@@ -487,6 +525,48 @@ When ports are already free (normal case), the script exits silently and `npm ru
 - [x] `package.json`: `"predev"` script added — runs automatically before every `npm run dev` via npm lifecycle hooks, no manual steps
 - [x] Verified fix with three back-to-back start/stop cycles; predev correctly killed orphaned Vite and NestJS processes each time
 
+### Session 9 — 2026-06-16
+
+#### Feature: Admin Panel
+- [x] `backend/src/auth/decorators/roles.decorator.ts` — `@Roles(...roles)` decorator using `SetMetadata`
+- [x] `backend/src/auth/guards/roles.guard.ts` — `RolesGuard` reads `@Roles()` metadata and throws 403 if user lacks the required role
+- [x] All admin endpoints under `GET|PATCH|DELETE /admin/*` protected by both `JwtAuthGuard` and `RolesGuard` with `@Roles('admin')`
+- [x] `backend/src/admin/admin.module.ts` + `admin.service.ts` + `admin.controller.ts` — full CRUD for users, cargo posts, vehicle posts
+- [x] `GET /admin/stats` returns total and active counts for users, cargo posts, vehicle posts
+- [x] `GET /admin/users` — paginated list searchable by email, firstName, lastName, phone; `passwordHash` never exposed
+- [x] `PATCH /admin/users/:id/role` — change any user's role; prevents removing own admin role if last admin
+- [x] `DELETE /admin/users/:id` — cascade delete (cargo posts → vehicle posts → company → user); prevents self-deletion
+- [x] `GET /admin/cargo-posts` / `GET /admin/vehicle-posts` — paginated, searchable by location/company name, filterable by status
+- [x] `PATCH /admin/cargo-posts/:id/status` / `PATCH /admin/vehicle-posts/:id/status` — change status
+- [x] `DELETE /admin/cargo-posts/:id` / `DELETE /admin/vehicle-posts/:id` — delete post
+- [x] `frontend/src/components/AdminRoute.tsx` — shows "Access Denied" for non-admins, redirects unauthenticated to `/login`
+- [x] `frontend/src/pages/admin/AdminDashboardPage.tsx` — stat cards + quick links
+- [x] `frontend/src/pages/admin/AdminUsersPage.tsx` — search, paginate, change role, delete (with confirm dialog)
+- [x] `frontend/src/pages/admin/AdminCargoPostsPage.tsx` — search, status filter, paginate, inline status change, delete; links to public detail page
+- [x] `frontend/src/pages/admin/AdminVehiclePostsPage.tsx` — same pattern for vehicle posts
+- [x] `frontend/src/services/admin.service.ts` — Axios calls for all 10 admin endpoints
+- [x] Navbar shows "Admin" link (amber color) only when `user.role === 'admin'`
+- [x] `User` TypeScript interface updated to include optional `createdAt` / `updatedAt` fields
+- [x] Admin routes added to `App.tsx`; `AppModule` updated to import `AdminModule`
+
+**How to create the first admin user:**  
+Since there is no public registration endpoint for admins, promote a user via SQL:
+```sql
+UPDATE users SET role = 'admin' WHERE email = 'your@email.com';
+```
+After that, re-login so the frontend receives `role: "admin"` in the login response.
+
+#### Feature: Consistent API Error Messages
+- [x] `backend/src/common/filters/http-exception.filter.ts` — `GlobalExceptionFilter` normalises every error response to `{ statusCode, message, errors?, path, timestamp }`
+- [x] `ValidationPipe` in `main.ts` now uses `exceptionFactory` to produce field-specific errors:
+  ```json
+  { "statusCode": 400, "message": "Validation failed", "errors": [{ "field": "email", "messages": ["Please provide a valid email address"] }], "path": "/auth/register", "timestamp": "..." }
+  ```
+- [x] `frontend/src/utils/errorUtils.ts` — `extractErrorMessage(err, fallback)` flattens either the `errors[]` array or `message` string; `extractFieldErrors(err)` returns a `Record<field, message>` for per-field UI display
+- [x] All frontend form pages updated to use `extractErrorMessage`:
+  - RegisterPage, LoginPage, ProfilePage (profile + password), CompanyProfilePage, CreateCargoPostPage, CreateVehiclePostPage, CargoDetailPage (edit), VehicleDetailPage (edit)
+- [x] Validated end-to-end: submitting blank registration form now returns `"Please provide a valid email address. Password must be at least 6 characters long."` instead of generic `"Registration failed"`
+
 ---
 
 ## Git Workflow
@@ -520,13 +600,53 @@ All commits were created in a single session from scratch (no prior git history)
 
 ---
 
+## Role-Based Access Control
+
+The app uses a simple two-tier role system stored in the `users.role` column:
+
+| Role    | Access                                                  |
+|---------|---------------------------------------------------------|
+| `user`  | Standard user — can browse posts, manage own posts/company/profile |
+| `admin` | All `user` access + full access to `/admin/*` endpoints |
+
+**Guards used:**
+- `JwtAuthGuard` — verifies the JWT and populates `req.user` from the database
+- `RolesGuard` + `@Roles('admin')` — checks `req.user.role` after JWT validation
+
+**Frontend detection:** the login response always includes `role` in the user object, stored in `localStorage`. `AdminRoute` and the Navbar Admin link check `user.role === 'admin'`.
+
+---
+
+## API Error Response Format
+
+All errors from the backend follow a consistent shape (enforced by `GlobalExceptionFilter`):
+
+```json
+{
+  "statusCode": 400,
+  "message": "Validation failed",
+  "errors": [
+    { "field": "email", "messages": ["Please provide a valid email address"] },
+    { "field": "password", "messages": ["Password must be at least 6 characters long"] }
+  ],
+  "path": "/auth/register",
+  "timestamp": "2026-06-16T12:00:00.000Z"
+}
+```
+
+`errors` is only present for validation failures. For other errors (401, 403, 404, 409, 500) only `statusCode`, `message`, `path`, and `timestamp` are returned.
+
+The frontend `extractErrorMessage(err, fallback)` utility in `frontend/src/utils/errorUtils.ts` handles both shapes — it joins all field messages if `errors` is present, otherwise falls back to `message`.
+
+---
+
 ## TODO / Next Steps
 
 - [ ] Mark post as closed/expired from the UI — partially done; the edit form includes a Status field (active/closed); auto-expiry by date still needs a backend cron job
 - [ ] Email validation / verification on registration
 - [ ] Scheduled task to auto-expire posts past their date
-- [ ] Better error messages from the API (validation error details)
-- [ ] Admin panel (manage users, posts)
 - [ ] Docker Compose setup for easy local start
 - [ ] Production migrations (TypeORM migration files)
 - [ ] Deploy to a VPS or cloud provider
+- [ ] Admin: ability to view/edit a single user's company profile
+- [ ] Admin: bulk-action on posts (e.g. close all expired)

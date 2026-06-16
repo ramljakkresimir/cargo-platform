@@ -1,6 +1,7 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { companiesService } from '../services/companies.service';
 import { Company } from '../types';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 const COMPANY_TYPES = [
   { value: 'transport', label: 'Transport Company' },
@@ -83,8 +84,8 @@ export default function CompanyProfilePage() {
         setIsEditing(false);
         setSuccess('Company profile created successfully.');
       }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save company profile.');
+    } catch (err) {
+      setError(extractErrorMessage(err, 'Failed to save company profile.'));
     } finally {
       setSaving(false);
     }

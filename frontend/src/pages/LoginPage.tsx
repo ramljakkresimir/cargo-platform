@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authService } from '../services/auth.service';
 import { useAuth } from '../context/AuthContext';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -22,8 +23,8 @@ export default function LoginPage() {
       const { access_token, user } = response.data;
       login(access_token, user);
       navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed. Please try again.');
+    } catch (err) {
+      setError(extractErrorMessage(err, 'Login failed. Please try again.'));
     } finally {
       setLoading(false);
     }

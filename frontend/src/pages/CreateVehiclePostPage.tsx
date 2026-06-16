@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { vehiclePostsService } from '../services/vehiclePosts.service';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 const VEHICLE_TYPES = ['truck', 'van', 'semi_truck', 'refrigerated_truck', 'flatbed', 'tanker'];
 
@@ -42,7 +43,7 @@ export default function CreateVehiclePostPage() {
       await vehiclePostsService.create(payload);
       navigate('/vehicles');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create vehicle post.');
+      setError(extractErrorMessage(err, 'Failed to create vehicle post.'));
     } finally {
       setLoading(false);
     }

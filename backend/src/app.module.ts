@@ -6,6 +6,7 @@ import { UsersModule } from './users/users.module';
 import { CompaniesModule } from './companies/companies.module';
 import { CargoPostsModule } from './cargo-posts/cargo-posts.module';
 import { VehiclePostsModule } from './vehicle-posts/vehicle-posts.module';
+import { AdminModule } from './admin/admin.module';
 import { User } from './users/user.entity';
 import { Company } from './companies/company.entity';
 import { CargoPost } from './cargo-posts/cargo-post.entity';
@@ -38,6 +39,7 @@ import { VehiclePost } from './vehicle-posts/vehicle-post.entity';
     CompaniesModule,
     CargoPostsModule,
     VehiclePostsModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

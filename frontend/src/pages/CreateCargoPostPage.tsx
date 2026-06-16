@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cargoPostsService } from '../services/cargoPosts.service';
+import { extractErrorMessage } from '../utils/errorUtils';
 
 const CARGO_TYPES = ['general', 'palletized', 'bulk', 'liquid', 'refrigerated', 'hazardous', 'oversized'];
 const VEHICLE_TYPES = ['truck', 'van', 'semi_truck', 'refrigerated_truck', 'flatbed', 'tanker'];
@@ -48,8 +49,8 @@ export default function CreateCargoPostPage() {
 
       await cargoPostsService.create(payload);
       navigate('/cargo');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create cargo post.');
+    } catch (err) {
+      setError(extractErrorMessage(err, 'Failed to create cargo post.'));
     } finally {
       setLoading(false);
     }

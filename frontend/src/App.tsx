@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -15,6 +16,10 @@ import CargoDetailPage from './pages/CargoDetailPage';
 import VehicleDetailPage from './pages/VehicleDetailPage';
 import MyPostsPage from './pages/MyPostsPage';
 import ProfilePage from './pages/ProfilePage';
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import AdminUsersPage from './pages/admin/AdminUsersPage';
+import AdminCargoPostsPage from './pages/admin/AdminCargoPostsPage';
+import AdminVehiclePostsPage from './pages/admin/AdminVehiclePostsPage';
 
 export default function App() {
   return (
@@ -49,6 +54,20 @@ export default function App() {
             } />
             <Route path="/profile" element={
               <ProtectedRoute><ProfilePage /></ProtectedRoute>
+            } />
+
+            {/* Admin routes — require login + admin role */}
+            <Route path="/admin" element={
+              <AdminRoute><AdminDashboardPage /></AdminRoute>
+            } />
+            <Route path="/admin/users" element={
+              <AdminRoute><AdminUsersPage /></AdminRoute>
+            } />
+            <Route path="/admin/cargo-posts" element={
+              <AdminRoute><AdminCargoPostsPage /></AdminRoute>
+            } />
+            <Route path="/admin/vehicle-posts" element={
+              <AdminRoute><AdminVehiclePostsPage /></AdminRoute>
             } />
 
             {/* Default redirect */}
