@@ -1,9 +1,13 @@
-import { IsString, IsOptional, IsNumber, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsDateString, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateVehiclePostDto {
-  @IsString()
-  availableLocation: string;
+  @IsUUID()
+  originCityId: string;
+
+  @IsOptional()
+  @IsUUID()
+  destinationCityId?: string;
 
   @IsDateString()
   availableFromDate: string;
@@ -15,10 +19,6 @@ export class CreateVehiclePostDto {
   @IsNumber()
   @Type(() => Number)
   capacity?: number;
-
-  @IsOptional()
-  @IsString()
-  destinationPreference?: string;
 
   @IsOptional()
   @IsString()

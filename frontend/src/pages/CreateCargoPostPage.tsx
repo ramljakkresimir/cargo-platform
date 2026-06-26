@@ -2,6 +2,8 @@ import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cargoPostsService } from '../services/cargoPosts.service';
 import { extractErrorMessage } from '../utils/errorUtils';
+import { City } from '../types';
+import CityAutocomplete from '../components/CityAutocomplete';
 
 const CARGO_TYPES = ['general', 'palletized', 'bulk', 'liquid', 'refrigerated', 'hazardous', 'oversized'];
 const VEHICLE_TYPES = ['truck', 'van', 'semi_truck', 'refrigerated_truck', 'flatbed', 'tanker'];
@@ -9,9 +11,9 @@ const VEHICLE_TYPES = ['truck', 'van', 'semi_truck', 'refrigerated_truck', 'flat
 export default function CreateCargoPostPage() {
   const navigate = useNavigate();
 
+  const [loadingCity, setLoadingCity] = useState<City | null>(null);
+  const [unloadingCity, setUnloadingCity] = useState<City | null>(null);
   const [form, setForm] = useState({
-    loadingLocation: '',
-    unloadingLocation: '',
     loadingDate: '',
     cargoType: '',
     weight: '',
@@ -31,13 +33,15 @@ export default function CreateCargoPostPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!loadingCity) { setError('Please select a loading city.'); return; }
+    if (!unloadingCity) { setError('Please select an unloading city.'); return; }
     setError('');
     setLoading(true);
 
     try {
       const payload: any = {
-        loadingLocation: form.loadingLocation,
-        unloadingLocation: form.unloadingLocation,
+        loadingCityId: loadingCity.id,
+        unloadingCityId: unloadingCity.id,
         loadingDate: form.loadingDate,
       };
       if (form.cargoType) payload.cargoType = form.cargoType;
@@ -70,23 +74,21 @@ export default function CreateCargoPostPage() {
           <h2>Route Details</h2>
           <div className="form-row">
             <div className="form-group">
-              <label>Loading Location *</label>
-              <input
-                name="loadingLocation"
-                value={form.loadingLocation}
-                onChange={handleChange}
-                placeholder="e.g. Sarajevo, BiH"
-                required
+              <label>Loading City *</label>
+              <CityAutocomplete
+                value={loadingCity}
+                onChange={setLoadingCity}
+                placeholder="e.g. Sarajevo"
+                required={false}
               />
             </div>
             <div className="form-group">
-              <label>Unloading Location *</label>
-              <input
-                name="unloadingLocation"
-                value={form.unloadingLocation}
-                onChange={handleChange}
-                placeholder="e.g. Zagreb, Croatia"
-                required
+              <label>Unloading City *</label>
+              <CityAutocomplete
+                value={unloadingCity}
+                onChange={setUnloadingCity}
+                placeholder="e.g. Zagreb"
+                required={false}
               />
             </div>
           </div>
@@ -118,7 +120,7 @@ export default function CreateCargoPostPage() {
               <select name="requiredVehicleType" value={form.requiredVehicleType} onChange={handleChange}>
                 <option value="">-- Any vehicle --</option>
                 {VEHICLE_TYPES.map((t) => (
-                  <option key={t} value={t}>{t.replace('_', ' ')}</option>
+                  <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
                 ))}
               </select>
             </div>

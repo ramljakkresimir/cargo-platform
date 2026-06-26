@@ -2,10 +2,10 @@ import api from './api';
 
 export const vehiclePostsService = {
   getAll: (params?: {
-    availableLocation?: string;
+    originCityId?: string;
+    destinationCityId?: string;
     availableFromDate?: string;
     vehicleType?: string;
-    destinationPreference?: string;
     page?: number;
     limit?: number;
   }) => api.get('/vehicle-posts', { params }),
@@ -13,11 +13,11 @@ export const vehiclePostsService = {
   getOne: (id: string) => api.get(`/vehicle-posts/${id}`),
 
   create: (data: {
-    availableLocation: string;
+    originCityId: string;
+    destinationCityId?: string;
     availableFromDate: string;
     vehicleType: string;
     capacity?: number;
-    destinationPreference?: string;
     note?: string;
   }) => api.post('/vehicle-posts', data),
 

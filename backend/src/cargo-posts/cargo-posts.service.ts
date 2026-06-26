@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -10,17 +11,32 @@ import { PostStatus } from '../common/enums/post-status.enum';
 import { CreateCargoPostDto } from './dto/create-cargo-post.dto';
 import { UpdateCargoPostDto } from './dto/update-cargo-post.dto';
 import { FilterCargoPostsDto } from './dto/filter-cargo-posts.dto';
+import { CitiesService } from '../cities/cities.service';
 
 @Injectable()
 export class CargoPostsService {
   constructor(
     @InjectRepository(CargoPost)
     private readonly cargoPostRepository: Repository<CargoPost>,
+    private readonly citiesService: CitiesService,
   ) {}
 
   async create(companyId: string, dto: CreateCargoPostDto): Promise<CargoPost> {
-    const post = this.cargoPostRepository.create({ ...dto, companyId });
-    return this.cargoPostRepository.save(post);
+    const loadingCity = await this.citiesService.findById(dto.loadingCityId).catch(() => {
+      throw new BadRequestException(`Loading city not found: ${dto.loadingCityId}`);
+    });
+    const unloadingCity = await this.citiesService.findById(dto.unloadingCityId).catch(() => {
+      throw new BadRequestException(`Unloading city not found: ${dto.unloadingCityId}`);
+    });
+
+    const post = this.cargoPostRepository.create({
+      ...dto,
+      companyId,
+      loadingLocation: `${loadingCity.name}, ${loadingCity.country}`,
+      unloadingLocation: `${unloadingCity.name}, ${unloadingCity.country}`,
+    });
+    const saved = await this.cargoPostRepository.save(post);
+    return this.findOne(saved.id);
   }
 
   async findAll(filters: FilterCargoPostsDto) {
@@ -30,20 +46,27 @@ export class CargoPostsService {
     const query = this.cargoPostRepository
       .createQueryBuilder('post')
       .leftJoinAndSelect('post.company', 'company')
+      .leftJoinAndSelect('post.loadingCity', 'loadingCity')
+      .leftJoinAndSelect('post.unloadingCity', 'unloadingCity')
       .where('post.status = :status', { status: PostStatus.ACTIVE })
       .orderBy('post.createdAt', 'DESC');
 
-    if (filters.loadingLocation) {
-      // ILIKE is PostgreSQL case-insensitive LIKE
+    if (filters.loadingCityId) {
+      query.andWhere('post.loadingCityId = :lcId', { lcId: filters.loadingCityId });
+    } else if (filters.loadingLocation) {
       query.andWhere('post.loadingLocation ILIKE :ll', {
         ll: `%${filters.loadingLocation}%`,
       });
     }
-    if (filters.unloadingLocation) {
+
+    if (filters.unloadingCityId) {
+      query.andWhere('post.unloadingCityId = :ucId', { ucId: filters.unloadingCityId });
+    } else if (filters.unloadingLocation) {
       query.andWhere('post.unloadingLocation ILIKE :ul', {
         ul: `%${filters.unloadingLocation}%`,
       });
     }
+
     if (filters.loadingDate) {
       query.andWhere('post.loadingDate = :ld', { ld: filters.loadingDate });
     }
@@ -67,10 +90,16 @@ export class CargoPostsService {
   async findOne(id: string): Promise<CargoPost> {
     const post = await this.cargoPostRepository.findOne({
       where: { id },
-      relations: { company: true }, // TypeORM 1.x uses object form, not array
+      relations: { company: true },
     });
-    if (!post) {
-      throw new NotFoundException(`Cargo post ${id} not found`);
+    if (!post) throw new NotFoundException(`Cargo post ${id} not found`);
+
+    // Load city relations separately (TypeORM object-form relations don't support nested join arrays)
+    if (post.loadingCityId) {
+      post.loadingCity = await this.citiesService.findById(post.loadingCityId).catch(() => null);
+    }
+    if (post.unloadingCityId) {
+      post.unloadingCity = await this.citiesService.findById(post.unloadingCityId).catch(() => null);
     }
     return post;
   }
@@ -80,8 +109,23 @@ export class CargoPostsService {
     if (post.companyId !== companyId) {
       throw new ForbiddenException('You can only edit your own posts');
     }
+
+    if (dto.loadingCityId) {
+      const city = await this.citiesService.findById(dto.loadingCityId).catch(() => {
+        throw new BadRequestException(`Loading city not found: ${dto.loadingCityId}`);
+      });
+      post.loadingLocation = `${city.name}, ${city.country}`;
+    }
+    if (dto.unloadingCityId) {
+      const city = await this.citiesService.findById(dto.unloadingCityId).catch(() => {
+        throw new BadRequestException(`Unloading city not found: ${dto.unloadingCityId}`);
+      });
+      post.unloadingLocation = `${city.name}, ${city.country}`;
+    }
+
     Object.assign(post, dto);
-    return this.cargoPostRepository.save(post);
+    await this.cargoPostRepository.save(post);
+    return this.findOne(id);
   }
 
   async remove(id: string, companyId: string): Promise<{ message: string }> {
@@ -94,9 +138,19 @@ export class CargoPostsService {
   }
 
   async findByCompanyId(companyId: string): Promise<CargoPost[]> {
-    return this.cargoPostRepository.find({
+    const posts = await this.cargoPostRepository.find({
       where: { companyId },
       order: { createdAt: 'DESC' },
     });
+    // Hydrate city relations in bulk
+    for (const post of posts) {
+      if (post.loadingCityId) {
+        post.loadingCity = await this.citiesService.findById(post.loadingCityId).catch(() => null);
+      }
+      if (post.unloadingCityId) {
+        post.unloadingCity = await this.citiesService.findById(post.unloadingCityId).catch(() => null);
+      }
+    }
+    return posts;
   }
 }

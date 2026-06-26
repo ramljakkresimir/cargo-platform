@@ -2,18 +2,20 @@ import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { vehiclePostsService } from '../services/vehiclePosts.service';
 import { extractErrorMessage } from '../utils/errorUtils';
+import { City } from '../types';
+import CityAutocomplete from '../components/CityAutocomplete';
 
 const VEHICLE_TYPES = ['truck', 'van', 'semi_truck', 'refrigerated_truck', 'flatbed', 'tanker'];
 
 export default function CreateVehiclePostPage() {
   const navigate = useNavigate();
 
+  const [originCity, setOriginCity] = useState<City | null>(null);
+  const [destinationCity, setDestinationCity] = useState<City | null>(null);
   const [form, setForm] = useState({
-    availableLocation: '',
     availableFromDate: '',
     vehicleType: '',
     capacity: '',
-    destinationPreference: '',
     note: '',
   });
   const [error, setError] = useState('');
@@ -27,17 +29,18 @@ export default function CreateVehiclePostPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!originCity) { setError('Please select a current location city.'); return; }
     setError('');
     setLoading(true);
 
     try {
       const payload: any = {
-        availableLocation: form.availableLocation,
+        originCityId: originCity.id,
         availableFromDate: form.availableFromDate,
         vehicleType: form.vehicleType,
       };
+      if (destinationCity) payload.destinationCityId = destinationCity.id;
       if (form.capacity) payload.capacity = parseFloat(form.capacity);
-      if (form.destinationPreference) payload.destinationPreference = form.destinationPreference;
       if (form.note) payload.note = form.note;
 
       await vehiclePostsService.create(payload);
@@ -63,12 +66,11 @@ export default function CreateVehiclePostPage() {
           <div className="form-row">
             <div className="form-group">
               <label>Current Location *</label>
-              <input
-                name="availableLocation"
-                value={form.availableLocation}
-                onChange={handleChange}
-                placeholder="e.g. Mostar, BiH"
-                required
+              <CityAutocomplete
+                value={originCity}
+                onChange={setOriginCity}
+                placeholder="e.g. Mostar"
+                required={false}
               />
             </div>
             <div className="form-group">
@@ -89,7 +91,7 @@ export default function CreateVehiclePostPage() {
               <select name="vehicleType" value={form.vehicleType} onChange={handleChange} required>
                 <option value="">-- Select vehicle type --</option>
                 {VEHICLE_TYPES.map((t) => (
-                  <option key={t} value={t}>{t.replace('_', ' ')}</option>
+                  <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
                 ))}
               </select>
             </div>
@@ -108,11 +110,10 @@ export default function CreateVehiclePostPage() {
 
           <div className="form-group">
             <label>Destination Preference</label>
-            <input
-              name="destinationPreference"
-              value={form.destinationPreference}
-              onChange={handleChange}
-              placeholder="e.g. Croatia, Slovenia, Germany"
+            <CityAutocomplete
+              value={destinationCity}
+              onChange={setDestinationCity}
+              placeholder="e.g. Zagreb, Split…"
             />
           </div>
 

@@ -138,9 +138,9 @@ export default function MyPostsPage() {
                 {cargoPosts.map((post) => (
                   <tr key={post.id}>
                     <td>
-                      <strong>{post.loadingLocation}</strong>
+                      <strong>{post.loadingCity?.name || post.loadingLocation || '—'}</strong>
                       <span style={{ color: '#9ca3af', margin: '0 6px' }}>→</span>
-                      <strong>{post.unloadingLocation}</strong>
+                      <strong>{post.unloadingCity?.name || post.unloadingLocation || '—'}</strong>
                     </td>
                     <td>{post.loadingDate}</td>
                     <td>
@@ -214,9 +214,9 @@ export default function MyPostsPage() {
               <tbody>
                 {vehiclePosts.map((post) => (
                   <tr key={post.id}>
-                    <td><strong>{post.availableLocation}</strong></td>
+                    <td><strong>{post.originCity?.name || post.availableLocation || '—'}</strong></td>
                     <td>{post.vehicleType.replace(/_/g, ' ')}</td>
-                    <td style={{ color: '#6b7280' }}>{post.destinationPreference || '—'}</td>
+                    <td style={{ color: '#6b7280' }}>{post.destinationCity?.name || post.destinationPreference || '—'}</td>
                     <td>
                       <span className={`status-badge status-${post.status}`}>{post.status}</span>
                     </td>

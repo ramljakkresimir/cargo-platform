@@ -1,13 +1,25 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { cargoPostsService } from '../services/cargoPosts.service';
-import { CargoPost } from '../types';
+import { CargoPost, City } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { extractErrorMessage } from '../utils/errorUtils';
+import CityAutocomplete from '../components/CityAutocomplete';
 
 const CARGO_TYPES = ['general', 'palletized', 'bulk', 'liquid', 'refrigerated', 'hazardous', 'oversized'];
 const VEHICLE_TYPES = ['truck', 'van', 'semi_truck', 'refrigerated_truck', 'flatbed', 'tanker'];
 const STATUSES = ['active', 'closed'];
+
+function locationLabel(post: CargoPost, type: 'loading' | 'unloading'): string {
+  if (type === 'loading') {
+    return post.loadingCity?.name
+      ? `${post.loadingCity.name}, ${post.loadingCity.country}`
+      : (post.loadingLocation || '—');
+  }
+  return post.unloadingCity?.name
+    ? `${post.unloadingCity.name}, ${post.unloadingCity.country}`
+    : (post.unloadingLocation || '—');
+}
 
 export default function CargoDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -20,9 +32,9 @@ export default function CargoDetailPage() {
   const [error, setError] = useState('');
 
   const [isEditing, setIsEditing] = useState(false);
+  const [editLoadingCity, setEditLoadingCity] = useState<City | null>(null);
+  const [editUnloadingCity, setEditUnloadingCity] = useState<City | null>(null);
   const [editForm, setEditForm] = useState({
-    loadingLocation: '',
-    unloadingLocation: '',
     loadingDate: '',
     cargoType: '',
     weight: '',
@@ -41,7 +53,6 @@ export default function CargoDetailPage() {
     if (id) fetchPost(id);
   }, [id]);
 
-  // Auto-open edit form when navigated from My Posts page
   useEffect(() => {
     if (post && location.state?.startEditing) {
       startEditing();
@@ -87,9 +98,9 @@ export default function CargoDetailPage() {
 
   const startEditing = () => {
     if (!post) return;
+    setEditLoadingCity(post.loadingCity || null);
+    setEditUnloadingCity(post.unloadingCity || null);
     setEditForm({
-      loadingLocation: post.loadingLocation,
-      unloadingLocation: post.unloadingLocation,
       loadingDate: post.loadingDate,
       cargoType: post.cargoType || '',
       weight: post.weight != null ? String(post.weight) : '',
@@ -113,14 +124,16 @@ export default function CargoDetailPage() {
   const handleEditSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!id) return;
+    if (!editLoadingCity) { setSaveError('Please select a loading city.'); return; }
+    if (!editUnloadingCity) { setSaveError('Please select an unloading city.'); return; }
     setSaveError('');
     setSaveSuccess('');
     setSaveLoading(true);
 
     try {
       const payload: Record<string, any> = {
-        loadingLocation: editForm.loadingLocation,
-        unloadingLocation: editForm.unloadingLocation,
+        loadingCityId: editLoadingCity.id,
+        unloadingCityId: editUnloadingCity.id,
         loadingDate: editForm.loadingDate,
         status: editForm.status,
       };
@@ -148,12 +161,15 @@ export default function CargoDetailPage() {
   if (error) return <div className="page-container"><div className="alert alert-error">{error}</div></div>;
   if (!post) return null;
 
+  const fromLabel = locationLabel(post, 'loading');
+  const toLabel = locationLabel(post, 'unloading');
+
   return (
     <div className="page-container">
       <div className="page-header">
         <div>
           <Link to="/cargo" className="back-link">← Back to Cargo</Link>
-          <h1>{post.loadingLocation} → {post.unloadingLocation}</h1>
+          <h1>{fromLabel} → {toLabel}</h1>
           <span className={`status-badge status-${post.status}`}>{post.status}</span>
         </div>
         {isOwner && !isEditing && (
@@ -179,21 +195,19 @@ export default function CargoDetailPage() {
             <h2>Route Details</h2>
             <div className="form-row">
               <div className="form-group">
-                <label>Loading Location *</label>
-                <input
-                  name="loadingLocation"
-                  value={editForm.loadingLocation}
-                  onChange={handleEditChange}
-                  required
+                <label>Loading City *</label>
+                <CityAutocomplete
+                  value={editLoadingCity}
+                  onChange={setEditLoadingCity}
+                  placeholder="Type to search…"
                 />
               </div>
               <div className="form-group">
-                <label>Unloading Location *</label>
-                <input
-                  name="unloadingLocation"
-                  value={editForm.unloadingLocation}
-                  onChange={handleEditChange}
-                  required
+                <label>Unloading City *</label>
+                <CityAutocomplete
+                  value={editUnloadingCity}
+                  onChange={setEditUnloadingCity}
+                  placeholder="Type to search…"
                 />
               </div>
             </div>
@@ -301,8 +315,8 @@ export default function CargoDetailPage() {
           <div className="detail-card">
             <h2>Cargo Information</h2>
             <div className="detail-grid">
-              <div><span className="label">Loading Location</span><p>{post.loadingLocation}</p></div>
-              <div><span className="label">Unloading Location</span><p>{post.unloadingLocation}</p></div>
+              <div><span className="label">Loading Location</span><p>{fromLabel}</p></div>
+              <div><span className="label">Unloading Location</span><p>{toLabel}</p></div>
               <div><span className="label">Loading Date</span><p>{post.loadingDate}</p></div>
               <div><span className="label">Cargo Type</span><p>{post.cargoType || '—'}</p></div>
               <div><span className="label">Weight</span><p>{post.weight ? `${post.weight} t` : '—'}</p></div>

@@ -1,24 +1,31 @@
-import { IsString, IsOptional, IsNumber, IsDateString, IsEnum } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsDateString, IsEnum, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PostStatus } from '../../common/enums/post-status.enum';
 
 export class UpdateVehiclePostDto {
-  @IsOptional() @IsString()
-  availableLocation?: string;
+  @IsOptional()
+  @IsUUID()
+  originCityId?: string;
 
-  @IsOptional() @IsDateString()
+  @IsOptional()
+  @IsUUID()
+  destinationCityId?: string;
+
+  @IsOptional()
+  @IsDateString()
   availableFromDate?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   vehicleType?: string;
 
-  @IsOptional() @IsNumber() @Type(() => Number)
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
   capacity?: number;
 
-  @IsOptional() @IsString()
-  destinationPreference?: string;
-
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   note?: string;
 
   @IsOptional()

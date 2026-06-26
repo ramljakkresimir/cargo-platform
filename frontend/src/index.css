@@ -357,6 +357,55 @@ h3 { font-size: 15px; font-weight: 600; color: #333; }
 .pagination button:hover:not(:disabled) { background: #f9fafb; }
 .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* ── City Autocomplete ────────────────────────────────────────────── */
+.city-autocomplete { position: relative; }
+.city-autocomplete-input-wrap { display: flex; align-items: center; gap: 6px; }
+.city-autocomplete-input-wrap input { flex: 1; }
+.city-clear-btn {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: #6b7280;
+  cursor: pointer;
+  line-height: 1;
+}
+.city-clear-btn:hover { background: #f3f4f6; color: #374151; }
+.city-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 200;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.city-option {
+  padding: 9px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #111;
+  border-bottom: 1px solid #f3f4f6;
+}
+.city-option:last-child { border-bottom: none; }
+.city-option:hover { background: #f0f7ff; }
+.city-option-country {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-left: 6px;
+}
+.city-no-results {
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #9ca3af;
+}
+
 @media (max-width: 640px) {
   .form-row { flex-direction: column; }
   .filter-grid { grid-template-columns: 1fr 1fr; }

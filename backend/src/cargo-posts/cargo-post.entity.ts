@@ -8,6 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Company } from '../companies/company.entity';
+import { City } from '../cities/city.entity';
 import { PostStatus } from '../common/enums/post-status.enum';
 
 @Entity('cargo_posts')
@@ -15,29 +16,41 @@ export class CargoPost {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // Explicit FK column — lets us read companyId without loading the full Company object
   @Column({ type: 'uuid' })
   companyId: string;
 
-  // @JoinColumn maps this relation to the companyId column above
   @ManyToOne(() => Company, (company) => company.cargoPosts)
   @JoinColumn({ name: 'companyId' })
   company: Company;
 
-  @Column()
+  // City relations — nullable so old posts without city IDs still load fine
+  @Column({ type: 'uuid', nullable: true })
+  loadingCityId: string | null;
+
+  @ManyToOne(() => City, { nullable: true, eager: false })
+  @JoinColumn({ name: 'loadingCityId' })
+  loadingCity: City | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  unloadingCityId: string | null;
+
+  @ManyToOne(() => City, { nullable: true, eager: false })
+  @JoinColumn({ name: 'unloadingCityId' })
+  unloadingCity: City | null;
+
+  // Legacy free-text fields — kept nullable for backward compatibility
+  @Column({ nullable: true })
   loadingLocation: string;
 
-  @Column()
+  @Column({ nullable: true })
   unloadingLocation: string;
 
-  // Store as a date string (YYYY-MM-DD); PostgreSQL date type is fine here
   @Column({ type: 'date' })
   loadingDate: string;
 
   @Column({ nullable: true })
   cargoType: string;
 
-  // Using float so TypeORM returns a JS number, not a string
   @Column({ type: 'float', nullable: true })
   weight: number;
 

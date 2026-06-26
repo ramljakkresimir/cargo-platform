@@ -1,14 +1,13 @@
-import { IsString, IsOptional, IsNumber, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsDateString, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateCargoPostDto {
-  @IsString()
-  loadingLocation: string;
+  @IsUUID()
+  loadingCityId: string;
 
-  @IsString()
-  unloadingLocation: string;
+  @IsUUID()
+  unloadingCityId: string;
 
-  // Accepts ISO date strings like "2026-07-15"
   @IsDateString()
   loadingDate: string;
 

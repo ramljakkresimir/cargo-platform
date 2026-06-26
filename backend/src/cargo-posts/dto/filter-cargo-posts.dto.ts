@@ -1,7 +1,14 @@
-import { IsOptional, IsString, IsDateString } from 'class-validator';
+import { IsOptional, IsString, IsDateString, IsUUID } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
 export class FilterCargoPostsDto extends PaginationDto {
+  @IsOptional() @IsUUID()
+  loadingCityId?: string;
+
+  @IsOptional() @IsUUID()
+  unloadingCityId?: string;
+
+  // Legacy text filters kept for backward compatibility
   @IsOptional() @IsString()
   loadingLocation?: string;
 

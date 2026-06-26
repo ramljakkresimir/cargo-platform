@@ -1,26 +1,45 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { cargoPostsService } from '../services/cargoPosts.service';
-import { CargoPost, PaginatedResult } from '../types';
+import { CargoPost, PaginatedResult, City } from '../types';
 import { useAuth } from '../context/AuthContext';
+import CityAutocomplete from '../components/CityAutocomplete';
 
 const LIMIT = 10;
 
-const emptyFilters = {
-  loadingLocation: '',
-  unloadingLocation: '',
+interface ActiveFilters {
+  loadingCityId: string;
+  unloadingCityId: string;
+  loadingDate: string;
+  cargoType: string;
+  requiredVehicleType: string;
+}
+
+const emptyActiveFilters: ActiveFilters = {
+  loadingCityId: '',
+  unloadingCityId: '',
   loadingDate: '',
   cargoType: '',
   requiredVehicleType: '',
 };
 
+function cityLabel(post: CargoPost, type: 'loading' | 'unloading'): string {
+  if (type === 'loading') {
+    return post.loadingCity?.name || post.loadingLocation || '—';
+  }
+  return post.unloadingCity?.name || post.unloadingLocation || '—';
+}
+
 export default function CargoListPage() {
   const { token } = useAuth();
 
-  // Display state for the filter form inputs
-  const [filters, setFilters] = useState(emptyFilters);
-  // Committed filters — updated only on Search/Clear; triggers the fetch effect
-  const [activeFilters, setActiveFilters] = useState(emptyFilters);
+  const [loadingCityFilter, setLoadingCityFilter] = useState<City | null>(null);
+  const [unloadingCityFilter, setUnloadingCityFilter] = useState<City | null>(null);
+  const [dateFilter, setDateFilter] = useState('');
+  const [cargoTypeFilter, setCargoTypeFilter] = useState('');
+  const [vehicleTypeFilter, setVehicleTypeFilter] = useState('');
+
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>(emptyActiveFilters);
   const [page, setPage] = useState(1);
 
   const [result, setResult] = useState<PaginatedResult<CargoPost> | null>(null);
@@ -35,10 +54,13 @@ export default function CargoListPage() {
     setLoading(true);
     setError('');
     try {
-      const clean = Object.fromEntries(
-        Object.entries(activeFilters).filter(([, v]) => v !== '')
-      );
-      const res = await cargoPostsService.getAll({ ...clean, page, limit: LIMIT });
+      const params: Record<string, any> = { page, limit: LIMIT };
+      if (activeFilters.loadingCityId) params.loadingCityId = activeFilters.loadingCityId;
+      if (activeFilters.unloadingCityId) params.unloadingCityId = activeFilters.unloadingCityId;
+      if (activeFilters.loadingDate) params.loadingDate = activeFilters.loadingDate;
+      if (activeFilters.cargoType) params.cargoType = activeFilters.cargoType;
+      if (activeFilters.requiredVehicleType) params.requiredVehicleType = activeFilters.requiredVehicleType;
+      const res = await cargoPostsService.getAll(params);
       setResult(res.data);
     } catch {
       setError('Failed to load cargo posts.');
@@ -47,20 +69,26 @@ export default function CargoListPage() {
     }
   };
 
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
-  };
-
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
     setPage(1);
-    setActiveFilters({ ...filters });
+    setActiveFilters({
+      loadingCityId: loadingCityFilter?.id || '',
+      unloadingCityId: unloadingCityFilter?.id || '',
+      loadingDate: dateFilter,
+      cargoType: cargoTypeFilter,
+      requiredVehicleType: vehicleTypeFilter,
+    });
   };
 
   const handleClear = () => {
-    setFilters(emptyFilters);
+    setLoadingCityFilter(null);
+    setUnloadingCityFilter(null);
+    setDateFilter('');
+    setCargoTypeFilter('');
+    setVehicleTypeFilter('');
     setPage(1);
-    setActiveFilters(emptyFilters);
+    setActiveFilters(emptyActiveFilters);
   };
 
   const posts = result?.data ?? [];
@@ -78,24 +106,44 @@ export default function CargoListPage() {
         <form onSubmit={handleSearch}>
           <div className="filter-grid">
             <div className="form-group">
-              <label>Loading Location</label>
-              <input name="loadingLocation" value={filters.loadingLocation} onChange={handleFilterChange} placeholder="e.g. Sarajevo" />
+              <label>Loading City</label>
+              <CityAutocomplete
+                value={loadingCityFilter}
+                onChange={setLoadingCityFilter}
+                placeholder="e.g. Sarajevo"
+              />
             </div>
             <div className="form-group">
-              <label>Unloading Location</label>
-              <input name="unloadingLocation" value={filters.unloadingLocation} onChange={handleFilterChange} placeholder="e.g. Zagreb" />
+              <label>Unloading City</label>
+              <CityAutocomplete
+                value={unloadingCityFilter}
+                onChange={setUnloadingCityFilter}
+                placeholder="e.g. Zagreb"
+              />
             </div>
             <div className="form-group">
               <label>Loading Date</label>
-              <input type="date" name="loadingDate" value={filters.loadingDate} onChange={handleFilterChange} />
+              <input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+              />
             </div>
             <div className="form-group">
               <label>Cargo Type</label>
-              <input name="cargoType" value={filters.cargoType} onChange={handleFilterChange} placeholder="e.g. general" />
+              <input
+                value={cargoTypeFilter}
+                onChange={(e) => setCargoTypeFilter(e.target.value)}
+                placeholder="e.g. general"
+              />
             </div>
             <div className="form-group">
               <label>Vehicle Type</label>
-              <input name="requiredVehicleType" value={filters.requiredVehicleType} onChange={handleFilterChange} placeholder="e.g. truck" />
+              <input
+                value={vehicleTypeFilter}
+                onChange={(e) => setVehicleTypeFilter(e.target.value)}
+                placeholder="e.g. truck"
+              />
             </div>
           </div>
           <div className="filter-actions">
@@ -132,8 +180,8 @@ export default function CargoListPage() {
               <tbody>
                 {posts.map((post) => (
                   <tr key={post.id}>
-                    <td>{post.loadingLocation}</td>
-                    <td>{post.unloadingLocation}</td>
+                    <td>{cityLabel(post, 'loading')}</td>
+                    <td>{cityLabel(post, 'unloading')}</td>
                     <td>{post.loadingDate}</td>
                     <td>{post.cargoType || '—'}</td>
                     <td>{post.weight || '—'}</td>
@@ -151,19 +199,13 @@ export default function CargoListPage() {
 
           {result && result.totalPages > 1 && (
             <div className="pagination">
-              <button
-                onClick={() => setPage((p) => p - 1)}
-                disabled={page <= 1}
-              >
+              <button onClick={() => setPage((p) => p - 1)} disabled={page <= 1}>
                 ← Previous
               </button>
               <span className="pagination-info">
                 Page {result.page} of {result.totalPages} &nbsp;·&nbsp; {result.total} results
               </span>
-              <button
-                onClick={() => setPage((p) => p + 1)}
-                disabled={page >= result.totalPages}
-              >
+              <button onClick={() => setPage((p) => p + 1)} disabled={page >= result.totalPages}>
                 Next →
               </button>
             </div>

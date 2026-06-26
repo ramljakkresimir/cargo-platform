@@ -4,11 +4,13 @@ import { CargoPost } from './cargo-post.entity';
 import { CargoPostsService } from './cargo-posts.service';
 import { CargoPostsController } from './cargo-posts.controller';
 import { CompaniesModule } from '../companies/companies.module';
+import { CitiesModule } from '../cities/cities.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([CargoPost]),
-    CompaniesModule, // Import so the controller can use CompaniesService
+    CompaniesModule,
+    CitiesModule,
   ],
   providers: [CargoPostsService],
   controllers: [CargoPostsController],

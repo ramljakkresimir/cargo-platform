@@ -33,12 +33,28 @@ export interface Company {
   updatedAt: string;
 }
 
+export interface City {
+  id: string;
+  name: string;
+  country: string;
+  region?: string;
+  latitude: number;
+  longitude: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CargoPost {
   id: string;
   companyId: string;
   company?: Company;
-  loadingLocation: string;
-  unloadingLocation: string;
+  loadingCityId?: string | null;
+  loadingCity?: City | null;
+  unloadingCityId?: string | null;
+  unloadingCity?: City | null;
+  // Legacy fields — may be null for new posts
+  loadingLocation?: string | null;
+  unloadingLocation?: string | null;
   loadingDate: string;
   cargoType?: string;
   weight?: number;
@@ -55,11 +71,16 @@ export interface VehiclePost {
   id: string;
   companyId: string;
   company?: Company;
-  availableLocation: string;
+  originCityId?: string | null;
+  originCity?: City | null;
+  destinationCityId?: string | null;
+  destinationCity?: City | null;
+  // Legacy fields — may be null for new posts
+  availableLocation?: string | null;
+  destinationPreference?: string | null;
   availableFromDate: string;
   vehicleType: string;
   capacity?: number;
-  destinationPreference?: string;
   note?: string;
   status: string;
   createdAt: string;

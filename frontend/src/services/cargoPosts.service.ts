@@ -2,8 +2,8 @@ import api from './api';
 
 export const cargoPostsService = {
   getAll: (params?: {
-    loadingLocation?: string;
-    unloadingLocation?: string;
+    loadingCityId?: string;
+    unloadingCityId?: string;
     loadingDate?: string;
     cargoType?: string;
     requiredVehicleType?: string;
@@ -14,8 +14,8 @@ export const cargoPostsService = {
   getOne: (id: string) => api.get(`/cargo-posts/${id}`),
 
   create: (data: {
-    loadingLocation: string;
-    unloadingLocation: string;
+    loadingCityId: string;
+    unloadingCityId: string;
     loadingDate: string;
     cargoType?: string;
     weight?: number;

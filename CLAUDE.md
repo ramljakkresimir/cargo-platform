@@ -1,5 +1,19 @@
 # CargoConnect BiH — Development Journal
 
+## Product Philosophy
+
+CargoConnect is a connection platform, not a transport management system.
+
+Every new feature must help users find transport or cargo faster, easier, or with more trust.
+
+Simplicity is preferred over enterprise complexity.
+
+The primary target users are small transport companies and owner-drivers in Bosnia and Herzegovina and Croatia.
+
+Features that increase marketplace liquidity — better matching, easier search, notifications, and trust — take priority over infrastructure improvements unless they block production.
+
+---
+
 ## Project Overview
 
 A full-stack logistics marketplace for the Bosnia and Herzegovina market.  
@@ -38,6 +52,8 @@ cargo-platform/
 │       ├── vehicle-posts/    Vehicle post CRUD + search
 │       ├── admin/            Admin CRUD for users/posts (role-protected)
 │       │   └── dto/          AdminUsersQueryDto, AdminPostsQueryDto, UpdateUserRoleDto, UpdatePostStatusDto
+│       ├── cities/           City entity, CitiesService, CitiesController (GET /cities)
+│       │   └── dto/          FilterCitiesDto
 │       ├── posts-expiration/ PostsExpirationService — daily cron + manual trigger
 │       ├── common/
 │       │   ├── enums/        Shared PostStatus enum
@@ -50,11 +66,12 @@ cargo-platform/
     └── src/
         ├── context/          AuthContext (JWT + user state)
         ├── services/         Axios API clients per resource (+ admin.service)
-        ├── components/       Navbar, ProtectedRoute, AdminRoute
+        ├── components/       Navbar, ProtectedRoute, AdminRoute, CityAutocomplete
         ├── pages/            12 regular pages + 4 admin pages
         │   └── admin/        AdminDashboardPage, AdminUsersPage, AdminCargoPostsPage, AdminVehiclePostsPage
+        ├── services/         Axios API clients (+ cities.service.ts added)
         ├── utils/            errorUtils.ts — extractErrorMessage / extractFieldErrors helpers
-        └── types/            Shared TypeScript interfaces
+        └── types/            Shared TypeScript interfaces (City added, CargoPost/VehiclePost updated)
 ```
 
 ---
@@ -94,38 +111,56 @@ TypeORM `synchronize: true` auto-creates/updates all tables in development.
 | createdAt   | timestamp |                                |
 | updatedAt   | timestamp |                                |
 
+### cities
+| Column    | Type      | Notes                                   |
+|-----------|-----------|-----------------------------------------|
+| id        | uuid (PK) | auto-generated                          |
+| name      | varchar   |                                         |
+| country   | varchar   | `BA`, `HR`, etc.                        |
+| region    | varchar   | nullable                                |
+| latitude  | float     |                                         |
+| longitude | float     |                                         |
+| createdAt | timestamp |                                         |
+| updatedAt | timestamp |                                         |
+
+Unique constraint on `(name, country)`. Seeded via `npm run seed:cities`.
+
 ### cargo_posts
-| Column              | Type      | Notes                     |
-|---------------------|-----------|---------------------------|
-| id                  | uuid (PK) |                           |
-| companyId           | uuid (FK) | → companies.id            |
-| loadingLocation     | varchar   |                           |
-| unloadingLocation   | varchar   |                           |
-| loadingDate         | date      |                           |
-| cargoType           | varchar   | nullable                  |
-| weight              | float     | nullable, in tonnes       |
-| dimensions          | varchar   | nullable (e.g. "3x2x2m") |
-| requiredVehicleType | varchar   | nullable                  |
-| price               | float     | nullable, in EUR          |
-| note                | text      | nullable                  |
-| status              | varchar   | active / closed / expired |
-| createdAt           | timestamp |                           |
-| updatedAt           | timestamp |                           |
+| Column              | Type      | Notes                                  |
+|---------------------|-----------|----------------------------------------|
+| id                  | uuid (PK) |                                        |
+| companyId           | uuid (FK) | → companies.id                         |
+| loadingCityId       | uuid (FK) | → cities.id, nullable                  |
+| unloadingCityId     | uuid (FK) | → cities.id, nullable                  |
+| loadingLocation     | varchar   | nullable — legacy/denormalized copy    |
+| unloadingLocation   | varchar   | nullable — legacy/denormalized copy    |
+| loadingDate         | date      |                                        |
+| cargoType           | varchar   | nullable                               |
+| weight              | float     | nullable, in tonnes                    |
+| dimensions          | varchar   | nullable (e.g. "3x2x2m")              |
+| requiredVehicleType | varchar   | nullable                               |
+| price               | float     | nullable, in EUR                       |
+| note                | text      | nullable                               |
+| status              | varchar   | active / closed / expired              |
+| createdAt           | timestamp |                                        |
+| updatedAt           | timestamp |                                        |
 
 ### vehicle_posts
-| Column                | Type      | Notes                     |
-|-----------------------|-----------|---------------------------|
-| id                    | uuid (PK) |                           |
-| companyId             | uuid (FK) | → companies.id            |
-| availableLocation     | varchar   |                           |
-| availableFromDate     | date      |                           |
-| vehicleType           | varchar   | truck / van / semi_truck / etc. |
-| capacity              | float     | nullable, in tonnes       |
-| destinationPreference | varchar   | nullable                  |
-| note                  | text      | nullable                  |
-| status                | varchar   | active / closed / expired |
-| createdAt             | timestamp |                           |
-| updatedAt             | timestamp |                           |
+| Column                | Type      | Notes                                  |
+|-----------------------|-----------|----------------------------------------|
+| id                    | uuid (PK) |                                        |
+| companyId             | uuid (FK) | → companies.id                         |
+| originCityId          | uuid (FK) | → cities.id, nullable                  |
+| destinationCityId     | uuid (FK) | → cities.id, nullable                  |
+| availableLocation     | varchar   | nullable — legacy/denormalized copy    |
+| destinationPreference | varchar   | nullable — legacy/denormalized copy    |
+| availableFromDate     | date      |                                        |
+| vehicleType           | varchar   | truck / van / semi_truck / etc.        |
+| capacity              | float     | nullable, in tonnes                    |
+| note                  | text      | nullable                               |
+| status                | varchar   | active / closed / expired              |
+| createdAt             | timestamp |                                        |
+| updatedAt             | timestamp |                                        |
 
 ---
 
@@ -133,6 +168,14 @@ TypeORM `synchronize: true` auto-creates/updates all tables in development.
 
 All endpoints return JSON. Protected endpoints require:  
 `Authorization: Bearer <jwt_token>`
+
+### Cities (public)
+| Method | Path     | Description                                  |
+|--------|----------|----------------------------------------------|
+| GET    | /cities  | Search cities — params: `search`, `country`, `limit` (max 50, default 20) |
+
+Response: JSON array of `{ id, name, country, region, latitude, longitude }`.  
+Seed: `npm run seed:cities` — idempotent, uses name + country uniqueness. Seeded with 49 cities (BA + HR).
 
 ### Auth (public)
 | Method | Path             | Description          |
@@ -157,7 +200,8 @@ All endpoints return JSON. Protected endpoints require:
 | PATCH  | /cargo-posts/:id | Required | Update (owner only)    |
 | DELETE | /cargo-posts/:id | Required | Delete (owner only)    |
 
-**Cargo filter query params:** `loadingLocation`, `unloadingLocation`, `loadingDate`, `cargoType`, `requiredVehicleType`  
+**Cargo filter query params:** `loadingCityId`, `unloadingCityId` (preferred), or legacy text `loadingLocation`, `unloadingLocation`; also `loadingDate`, `cargoType`, `requiredVehicleType`  
+**Create/Update body:** `loadingCityId` (uuid, required on create), `unloadingCityId` (uuid, required on create), plus optional fields  
 **Pagination params:** `page` (default: 1), `limit` (default: 10) — response shape: `{ data, total, page, limit, totalPages }`  
 **Note:** `/my` route must remain before `/:id` in the controller to avoid route conflict.
 
@@ -171,7 +215,8 @@ All endpoints return JSON. Protected endpoints require:
 | PATCH  | /vehicle-posts/:id  | Required | Update (owner only)    |
 | DELETE | /vehicle-posts/:id  | Required | Delete (owner only)    |
 
-**Vehicle filter query params:** `availableLocation`, `availableFromDate`, `vehicleType`, `destinationPreference`  
+**Vehicle filter query params:** `originCityId`, `destinationCityId` (preferred), or legacy text `availableLocation`, `destinationPreference`; also `availableFromDate`, `vehicleType`  
+**Create/Update body:** `originCityId` (uuid, required on create), `destinationCityId` (uuid, optional), plus optional fields  
 **Pagination params:** `page` (default: 1), `limit` (default: 10) — same response shape as cargo posts.
 
 ### Users (protected)
@@ -618,6 +663,58 @@ After that, re-login so the frontend receives `role: "admin"` in the login respo
 - [x] Fix: added `@nestjs/platform-express`, `class-validator`, `class-transformer` as root `devDependencies` so npm hoists them alongside the other `@nestjs/*` packages
 - [x] Verified: fresh `npm install` + backend startup shows "Nest application successfully started" with no PackageLoader errors
 
+### Session 11 — 2026-06-26
+
+#### Feature: Normalized cities and city autocomplete (Phase 1 — location data quality)
+
+This is the foundation for future BlaBlaCar-style route matching. No routing APIs, PostGIS, or corridor logic added yet.
+
+**Backend — cities module:**
+- [x] `City` entity (`backend/src/cities/city.entity.ts`) with UUID PK, `name`, `country`, `region` (nullable), `latitude`, `longitude`, `createdAt`, `updatedAt`
+- [x] Unique index on `(name, country)` — prevents duplicate entries
+- [x] `CitiesModule`, `CitiesService`, `CitiesController`
+- [x] `GET /cities?search=&country=&limit=` — public endpoint, ILIKE partial match, max limit 50, default 20
+- [x] `backend/src/seeds/seed-cities.ts` — idempotent seed script (checks `name + country` uniqueness before insert)
+- [x] 49 cities seeded: all major BA and HR cities and route-relevant towns
+- [x] `npm run seed:cities` root script (proxies to `npm run seed:cities -w backend`)
+
+**Backend — cargo posts updated:**
+- [x] Added `loadingCityId` and `unloadingCityId` (nullable FK columns → cities.id) to `CargoPost` entity
+- [x] Old `loadingLocation` / `unloadingLocation` columns kept as nullable (backward compat for existing rows)
+- [x] `CreateCargoPostDto`: now requires `loadingCityId` + `unloadingCityId` UUIDs (old free-text fields removed)
+- [x] `UpdateCargoPostDto`: optional `loadingCityId` / `unloadingCityId`
+- [x] `FilterCargoPostsDto`: new `loadingCityId` / `unloadingCityId` params; legacy text params still accepted
+- [x] `CargoPostsService`: validates city IDs on create/update, joins loadingCity/unloadingCity in responses, also denormalizes city name into legacy text columns for backward compat
+- [x] `CargoPostsModule` imports `CitiesModule`
+
+**Backend — vehicle posts updated:**
+- [x] Added `originCityId` and `destinationCityId` (nullable FK columns → cities.id) to `VehiclePost` entity
+- [x] Old `availableLocation` / `destinationPreference` columns kept as nullable (backward compat)
+- [x] `CreateVehiclePostDto`: now requires `originCityId` UUID; `destinationCityId` is optional
+- [x] `UpdateVehiclePostDto`: optional `originCityId` / `destinationCityId`
+- [x] `FilterVehiclePostsDto`: new `originCityId` / `destinationCityId` params; legacy text params still accepted
+- [x] `VehiclePostsService`: validates city IDs, joins originCity/destinationCity in responses
+- [x] `VehiclePostsModule` imports `CitiesModule`
+- [x] `AppModule`: adds `City` to TypeORM entity list; imports `CitiesModule`
+
+**Frontend — cities service and autocomplete:**
+- [x] `City` type added to `frontend/src/types/index.ts`
+- [x] `CargoPost` and `VehiclePost` types updated with city relation fields
+- [x] `frontend/src/services/cities.service.ts` — Axios call to `GET /cities`
+- [x] `frontend/src/components/CityAutocomplete.tsx` — reusable dropdown with 250ms debounce, min 2 chars, clear button, dropdown closes on outside click
+- [x] CSS for autocomplete added to `frontend/src/index.css`
+
+**Frontend — pages updated:**
+- [x] `CreateCargoPostPage` — CityAutocomplete for loading and unloading city
+- [x] `CreateVehiclePostPage` — CityAutocomplete for origin and destination city
+- [x] `CargoDetailPage` — CityAutocomplete in edit form; detail view shows city name with fallback to legacy text
+- [x] `VehicleDetailPage` — same pattern for origin/destination
+- [x] `CargoListPage` — CityAutocomplete in filter form; table shows city name with legacy fallback
+- [x] `VehicleListPage` — same pattern
+- [x] `MyPostsPage` — tables show city name with legacy fallback
+
+**Note:** This is Phase 1 of location normalization. `latitude` / `longitude` columns exist on `City` entity but are not yet used. Future phases will use them for route corridor matching.
+
 ---
 
 ## Git Workflow
@@ -695,6 +792,8 @@ The frontend `extractErrorMessage(err, fallback)` utility in `frontend/src/utils
 
 - [x] Mark post as closed from the UI — "Close Post" button on detail pages + inline "Close" in My Posts
 - [x] Scheduled task to auto-expire posts past their date — daily cron at midnight via `@nestjs/schedule`
+- [x] Normalized city data with autocomplete (Phase 1) — cities table, seed, CityAutocomplete component
+- [ ] Route matching / corridor search (Phase 2) — use lat/lon to find overlapping routes
 - [ ] Email validation / verification on registration
 - [ ] Docker Compose setup for easy local start
 - [ ] Production migrations (TypeORM migration files)

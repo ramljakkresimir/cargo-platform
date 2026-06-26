@@ -1,12 +1,25 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { vehiclePostsService } from '../services/vehiclePosts.service';
-import { VehiclePost } from '../types';
+import { VehiclePost, City } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { extractErrorMessage } from '../utils/errorUtils';
+import CityAutocomplete from '../components/CityAutocomplete';
 
 const VEHICLE_TYPES = ['truck', 'van', 'semi_truck', 'refrigerated_truck', 'flatbed', 'tanker'];
 const STATUSES = ['active', 'closed'];
+
+function originLabel(post: VehiclePost): string {
+  return post.originCity?.name
+    ? `${post.originCity.name}, ${post.originCity.country}`
+    : (post.availableLocation || '—');
+}
+
+function destLabel(post: VehiclePost): string {
+  return post.destinationCity?.name
+    ? `${post.destinationCity.name}, ${post.destinationCity.country}`
+    : (post.destinationPreference || '—');
+}
 
 export default function VehicleDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -19,12 +32,12 @@ export default function VehicleDetailPage() {
   const [error, setError] = useState('');
 
   const [isEditing, setIsEditing] = useState(false);
+  const [editOriginCity, setEditOriginCity] = useState<City | null>(null);
+  const [editDestCity, setEditDestCity] = useState<City | null>(null);
   const [editForm, setEditForm] = useState({
-    availableLocation: '',
     availableFromDate: '',
     vehicleType: '',
     capacity: '',
-    destinationPreference: '',
     note: '',
     status: '',
   });
@@ -37,7 +50,6 @@ export default function VehicleDetailPage() {
     if (id) fetchPost(id);
   }, [id]);
 
-  // Auto-open edit form when navigated from My Posts page
   useEffect(() => {
     if (post && location.state?.startEditing) {
       startEditing();
@@ -83,12 +95,12 @@ export default function VehicleDetailPage() {
 
   const startEditing = () => {
     if (!post) return;
+    setEditOriginCity(post.originCity || null);
+    setEditDestCity(post.destinationCity || null);
     setEditForm({
-      availableLocation: post.availableLocation,
       availableFromDate: post.availableFromDate,
       vehicleType: post.vehicleType,
       capacity: post.capacity != null ? String(post.capacity) : '',
-      destinationPreference: post.destinationPreference || '',
       note: post.note || '',
       status: post.status,
     });
@@ -106,19 +118,20 @@ export default function VehicleDetailPage() {
   const handleEditSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!id) return;
+    if (!editOriginCity) { setSaveError('Please select a current location city.'); return; }
     setSaveError('');
     setSaveSuccess('');
     setSaveLoading(true);
 
     try {
       const payload: Record<string, any> = {
-        availableLocation: editForm.availableLocation,
+        originCityId: editOriginCity.id,
         availableFromDate: editForm.availableFromDate,
         vehicleType: editForm.vehicleType,
         status: editForm.status,
+        destinationCityId: editDestCity?.id || null,
       };
       if (editForm.capacity) payload.capacity = parseFloat(editForm.capacity);
-      if (editForm.destinationPreference) payload.destinationPreference = editForm.destinationPreference;
       if (editForm.note) payload.note = editForm.note;
 
       const res = await vehiclePostsService.update(id, payload);
@@ -143,7 +156,7 @@ export default function VehicleDetailPage() {
       <div className="page-header">
         <div>
           <Link to="/vehicles" className="back-link">← Back to Vehicles</Link>
-          <h1>{post.vehicleType} — {post.availableLocation}</h1>
+          <h1>{post.vehicleType} — {originLabel(post)}</h1>
           <span className={`status-badge status-${post.status}`}>{post.status}</span>
         </div>
         {isOwner && !isEditing && (
@@ -169,11 +182,10 @@ export default function VehicleDetailPage() {
             <div className="form-row">
               <div className="form-group">
                 <label>Current Location *</label>
-                <input
-                  name="availableLocation"
-                  value={editForm.availableLocation}
-                  onChange={handleEditChange}
-                  required
+                <CityAutocomplete
+                  value={editOriginCity}
+                  onChange={setEditOriginCity}
+                  placeholder="Type to search…"
                 />
               </div>
               <div className="form-group">
@@ -214,11 +226,10 @@ export default function VehicleDetailPage() {
             <div className="form-row">
               <div className="form-group">
                 <label>Destination Preference</label>
-                <input
-                  name="destinationPreference"
-                  value={editForm.destinationPreference}
-                  onChange={handleEditChange}
-                  placeholder="e.g. Croatia, Slovenia, Germany"
+                <CityAutocomplete
+                  value={editDestCity}
+                  onChange={setEditDestCity}
+                  placeholder="Optional"
                 />
               </div>
               <div className="form-group" style={{ maxWidth: '160px' }}>
@@ -257,10 +268,10 @@ export default function VehicleDetailPage() {
             <h2>Vehicle Information</h2>
             <div className="detail-grid">
               <div><span className="label">Vehicle Type</span><p>{post.vehicleType}</p></div>
-              <div><span className="label">Available Location</span><p>{post.availableLocation}</p></div>
+              <div><span className="label">Available Location</span><p>{originLabel(post)}</p></div>
               <div><span className="label">Available From</span><p>{post.availableFromDate}</p></div>
               <div><span className="label">Capacity</span><p>{post.capacity ? `${post.capacity} t` : '—'}</p></div>
-              <div><span className="label">Destination Preference</span><p>{post.destinationPreference || '—'}</p></div>
+              <div><span className="label">Destination Preference</span><p>{destLabel(post)}</p></div>
             </div>
             {post.note && (
               <div className="detail-note">
