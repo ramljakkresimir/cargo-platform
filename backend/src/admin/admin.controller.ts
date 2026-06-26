@@ -103,4 +103,10 @@ export class AdminController {
   deleteVehiclePost(@Param('id') id: string) {
     return this.adminService.deleteVehiclePost(id);
   }
+
+  // POST /admin/vehicle-posts/:id/regenerate-route-cities
+  @Post('vehicle-posts/:id/regenerate-route-cities')
+  regenerateRouteCities(@Param('id') id: string) {
+    return this.adminService.regenerateRouteCities(id);
+  }
 }

@@ -5,12 +5,14 @@ import { VehiclePostsService } from './vehicle-posts.service';
 import { VehiclePostsController } from './vehicle-posts.controller';
 import { CompaniesModule } from '../companies/companies.module';
 import { CitiesModule } from '../cities/cities.module';
+import { RoutingModule } from '../routing/routing.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([VehiclePost]),
     CompaniesModule,
     CitiesModule,
+    RoutingModule,
   ],
   providers: [VehiclePostsService],
   controllers: [VehiclePostsController],

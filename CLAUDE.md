@@ -54,6 +54,12 @@ cargo-platform/
 │       │   └── dto/          AdminUsersQueryDto, AdminPostsQueryDto, UpdateUserRoleDto, UpdatePostStatusDto
 │       ├── cities/           City entity, CitiesService, CitiesController (GET /cities)
 │       │   └── dto/          FilterCitiesDto
+│       ├── routing/          Route-city generation module
+│       │   ├── vehicle-post-route-city.entity.ts   Join table: which cities a vehicle route passes through
+│       │   ├── openroute.service.ts                OpenRouteService API client (driving-hgv)
+│       │   ├── routing.service.ts                  Abstraction over routing providers
+│       │   ├── route-city.service.ts               Projection + persistence + route-aware search helper
+│       │   └── routing.module.ts                   Exports RouteCityService, RoutingService
 │       ├── posts-expiration/ PostsExpirationService — daily cron + manual trigger
 │       ├── common/
 │       │   ├── enums/        Shared PostStatus enum
@@ -162,6 +168,23 @@ Unique constraint on `(name, country)`. Seeded via `npm run seed:cities`.
 | createdAt             | timestamp |                                        |
 | updatedAt             | timestamp |                                        |
 
+### vehicle_post_route_cities
+| Column                | Type      | Notes                                       |
+|-----------------------|-----------|---------------------------------------------|
+| id                    | uuid (PK) |                                             |
+| vehiclePostId         | uuid (FK) | → vehicle_posts.id, ON DELETE CASCADE       |
+| cityId                | uuid (FK) | → cities.id                                 |
+| orderIndex            | int       | position along the route (0 = first city)   |
+| distanceFromStartKm   | float     | km along route from origin to this city     |
+| distanceFromRouteKm   | float     | perpendicular distance from city to route   |
+| createdAt             | timestamp |                                             |
+| updatedAt             | timestamp |                                             |
+
+Unique constraint on `(vehiclePostId, cityId)`. Indexes on `(vehiclePostId, orderIndex)` and `cityId`.  
+Populated automatically when a vehicle post is created or updated (if origin/dest changed).  
+Generated via OpenRouteService driving-hgv route + @turf/turf nearest-point projection.  
+Fallback (when ORS API unavailable): only origin + destination are saved.
+
 ---
 
 ## API Endpoints
@@ -217,7 +240,9 @@ Seed: `npm run seed:cities` — idempotent, uses name + country uniqueness. Seed
 
 **Vehicle filter query params:** `originCityId`, `destinationCityId` (preferred), or legacy text `availableLocation`, `destinationPreference`; also `availableFromDate`, `vehicleType`  
 **Create/Update body:** `originCityId` (uuid, required on create), `destinationCityId` (uuid, optional), plus optional fields  
-**Pagination params:** `page` (default: 1), `limit` (default: 10) — same response shape as cargo posts.
+**Pagination params:** `page` (default: 1), `limit` (default: 10) — same response shape as cargo posts.  
+**Route-aware search:** When both `originCityId` AND `destinationCityId` are provided, the search uses `vehicle_post_route_cities` to find vehicles whose routes pass through both cities in order (originIndex < destinationIndex). Falls back to direct FK filter if no route cities exist for the post.  
+**`GET /vehicle-posts/:id` response** includes `routeCities: VehiclePostRouteCity[]` sorted by `orderIndex`.
 
 ### Users (protected)
 | Method | Path                      | Description                         |
@@ -243,7 +268,8 @@ All `/admin/*` endpoints require `Authorization: Bearer <token>` where the token
 | GET    | /admin/vehicle-posts              | Paginated vehicle posts (search, status, page, limit) |
 | PATCH  | /admin/vehicle-posts/:id/status   | Change vehicle post status               |
 | DELETE | /admin/vehicle-posts/:id          | Delete vehicle post                      |
-| POST   | /admin/posts/expire-old           | Manually trigger post expiration job     |
+| POST   | /admin/posts/expire-old                         | Manually trigger post expiration job       |
+| POST   | /admin/vehicle-posts/:id/regenerate-route-cities | Re-run route city generation for a post  |
 
 **Admin safety rules:**
 - Admin cannot delete their own account → 403
@@ -294,6 +320,11 @@ JWT_SECRET=your_super_secret_key_here
 JWT_EXPIRES_IN=7d
 
 PORT=3000
+
+# Routing — get a free key at https://openrouteservice.org/dev/#/signup
+OPENROUTESERVICE_API_KEY=
+ROUTING_PROVIDER=openrouteservice
+ROUTE_CITY_MAX_DISTANCE_KM=15
 ```
 
 ---
@@ -713,7 +744,53 @@ This is the foundation for future BlaBlaCar-style route matching. No routing API
 - [x] `VehicleListPage` — same pattern
 - [x] `MyPostsPage` — tables show city name with legacy fallback
 
-**Note:** This is Phase 1 of location normalization. `latitude` / `longitude` columns exist on `City` entity but are not yet used. Future phases will use them for route corridor matching.
+**Note:** This is Phase 1 of location normalization. `latitude` / `longitude` columns exist on `City` entity and are now used in Phase 2 for route corridor matching.
+
+### Session 12 — 2026-06-26
+
+#### Feature: Route-city generation and route-aware vehicle search (Phase 2 — corridor matching)
+
+**Backend — routing module (`backend/src/routing/`):**
+- [x] `vehicle-post-route-city.entity.ts` — join table: `vehiclePostId` (FK + CASCADE), `cityId` (FK), `orderIndex`, `distanceFromStartKm`, `distanceFromRouteKm`; unique on `(vehiclePostId, cityId)`, indexes on `(vehiclePostId, orderIndex)` and `cityId`
+- [x] `openroute.service.ts` — calls OpenRouteService `POST /v2/directions/driving-hgv/geojson`; reads `OPENROUTESERVICE_API_KEY` from env; returns `Coordinate[]` or null on failure (timeout 10 s)
+- [x] `routing.service.ts` — thin wrapper over `OpenRouteService`, returns `RouteResult | null`
+- [x] `route-city.service.ts`:
+  - `generateAndSave(vehiclePostId, originCity, destCity)` — fetches driving route, uses `@turf/turf` (`nearestPointOnLine`, `length`) to project all 49 seed cities onto the route, keeps cities within `ROUTE_CITY_MAX_DISTANCE_KM` (default 15), saves sorted by `orderIndex`; fallback to origin+destination if ORS fails
+  - `findByVehiclePostId(id)` — loads route cities with city relation, sorted by orderIndex
+  - `findPostIdsOnRoute(originCityId, destCityId)` — QueryBuilder with self-JOIN to find posts where origin orderIndex < dest orderIndex
+  - `deleteByVehiclePostId(id)` — clears route cities before regeneration
+  - `findCityById(id)` — used by admin service
+- [x] `routing.module.ts` — registers `VehiclePostRouteCity` and `City` via `TypeOrmModule.forFeature`; exports `RouteCityService`, `RoutingService`
+- [x] `VehiclePostRouteCity` added to `AppModule` entities list
+
+**Backend — vehicle posts updated:**
+- [x] `VehiclePostsService` now injects `RouteCityService`
+- [x] `create()` — after save, calls `routeCityService.generateAndSave()` in try-catch (failure doesn't block post creation)
+- [x] `update()` — detects origin/dest city change; if changed, calls `generateAndSave()` in try-catch
+- [x] `findOne()` — attaches `routeCities` to response via `routeCityService.findByVehiclePostId()`
+- [x] `findAll()` — route-aware mode when both `originCityId` + `destinationCityId` provided: calls `findPostIdsOnRoute()`, then filters with `IN (:...ids)`; returns empty result if no route matches
+- [x] `VehiclePostsModule` imports `RoutingModule`
+
+**Backend — admin updated:**
+- [x] `AdminModule` imports `RoutingModule`
+- [x] `AdminService` injects `RouteCityService`; `regenerateRouteCities(id)` finds origin/dest cities, calls `generateAndSave`, returns count
+- [x] `AdminController` exposes `POST /admin/vehicle-posts/:id/regenerate-route-cities`
+
+**Backend — packages installed:**
+- [x] `axios@^1.18.1` added to `backend/package.json` (used in `openroute.service.ts`)
+- [x] `@turf/turf@^6.5.0` added to `backend/package.json` (CJS-compatible; used with named imports)
+- [x] New env vars: `OPENROUTESERVICE_API_KEY` (empty = routing disabled), `ROUTING_PROVIDER`, `ROUTE_CITY_MAX_DISTANCE_KM=15`
+
+**Frontend:**
+- [x] `VehiclePostRouteCity` interface added to `frontend/src/types/index.ts`; `VehiclePost` extended with `routeCities?: VehiclePostRouteCity[]`
+- [x] `VehicleDetailPage` — new "Route Cities" card in detail view (below company card): shows cities as pill chips, endpoint and starting cities highlighted in blue
+- [x] `VehicleListPage` — when both city filters active (route-aware search mode): green info banner above results; "Matches route" badge on each result row
+
+**Architecture decisions:**
+- Circular import between `VehiclePost` ↔ `VehiclePostRouteCity` avoided by using TypeORM string-based entity reference (`@ManyToOne('VehiclePost', ...)`) in the route city entity; no changes to `vehicle-post.entity.ts`
+- Route city generation is non-blocking in `create()`/`update()` — failure is logged but post is still created/updated
+- Route-aware search degrades gracefully: if `findPostIdsOnRoute()` returns empty, response is `{ data: [], total: 0 }` (not a 500 error)
+- Only one routing provider implemented; `ROUTING_PROVIDER` env var is reserved for future providers (e.g., OSRM self-hosted)
 
 ---
 
@@ -793,7 +870,7 @@ The frontend `extractErrorMessage(err, fallback)` utility in `frontend/src/utils
 - [x] Mark post as closed from the UI — "Close Post" button on detail pages + inline "Close" in My Posts
 - [x] Scheduled task to auto-expire posts past their date — daily cron at midnight via `@nestjs/schedule`
 - [x] Normalized city data with autocomplete (Phase 1) — cities table, seed, CityAutocomplete component
-- [ ] Route matching / corridor search (Phase 2) — use lat/lon to find overlapping routes
+- [x] Route matching / corridor search (Phase 2) — ORS driving route + turf projection, route-aware vehicle search
 - [ ] Email validation / verification on registration
 - [ ] Docker Compose setup for easy local start
 - [ ] Production migrations (TypeORM migration files)

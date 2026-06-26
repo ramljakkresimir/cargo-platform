@@ -15,6 +15,7 @@ import { Company } from './companies/company.entity';
 import { CargoPost } from './cargo-posts/cargo-post.entity';
 import { VehiclePost } from './vehicle-posts/vehicle-post.entity';
 import { City } from './cities/city.entity';
+import { VehiclePostRouteCity } from './routing/vehicle-post-route-city.entity';
 
 @Module({
   imports: [
@@ -31,7 +32,7 @@ import { City } from './cities/city.entity';
         username: config.get<string>('DATABASE_USER'),
         password: config.get<string>('DATABASE_PASSWORD'),
         database: config.get<string>('DATABASE_NAME'),
-        entities: [User, Company, CargoPost, VehiclePost, City],
+        entities: [User, Company, CargoPost, VehiclePost, City, VehiclePostRouteCity],
         synchronize: true,
       }),
     }),

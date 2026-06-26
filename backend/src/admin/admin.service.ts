@@ -14,6 +14,7 @@ import { PostStatus } from '../common/enums/post-status.enum';
 import { AdminUsersQueryDto, AdminPostsQueryDto } from './dto/admin-query.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UpdatePostStatusDto } from './dto/update-post-status.dto';
+import { RouteCityService } from '../routing/route-city.service';
 
 @Injectable()
 export class AdminService {
@@ -26,6 +27,7 @@ export class AdminService {
     private readonly cargoPostRepo: Repository<CargoPost>,
     @InjectRepository(VehiclePost)
     private readonly vehiclePostRepo: Repository<VehiclePost>,
+    private readonly routeCityService: RouteCityService,
   ) {}
 
   async getStats() {
@@ -207,5 +209,23 @@ export class AdminService {
     if (!post) throw new NotFoundException('Vehicle post not found');
     await this.vehiclePostRepo.remove(post);
     return { message: 'Vehicle post deleted successfully' };
+  }
+
+  async regenerateRouteCities(id: string): Promise<{ message: string; routeCitiesCount: number }> {
+    const post = await this.vehiclePostRepo.findOne({ where: { id } });
+    if (!post) throw new NotFoundException('Vehicle post not found');
+    if (!post.originCityId) {
+      throw new BadRequestException('Vehicle post has no origin city — cannot generate route');
+    }
+
+    const originCity = await this.routeCityService.findCityById(post.originCityId);
+    if (!originCity) throw new BadRequestException('Origin city record not found');
+
+    const destCity = post.destinationCityId
+      ? await this.routeCityService.findCityById(post.destinationCityId)
+      : null;
+
+    const saved = await this.routeCityService.generateAndSave(id, originCity, destCity);
+    return { message: 'Route cities regenerated successfully', routeCitiesCount: saved.length };
   }
 }

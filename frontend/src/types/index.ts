@@ -67,6 +67,18 @@ export interface CargoPost {
   updatedAt: string;
 }
 
+export interface VehiclePostRouteCity {
+  id: string;
+  vehiclePostId: string;
+  cityId: string;
+  city: City;
+  orderIndex: number;
+  distanceFromStartKm: number;
+  distanceFromRouteKm: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface VehiclePost {
   id: string;
   companyId: string;
@@ -83,6 +95,7 @@ export interface VehiclePost {
   capacity?: number;
   note?: string;
   status: string;
+  routeCities?: VehiclePostRouteCity[];
   createdAt: string;
   updatedAt: string;
 }

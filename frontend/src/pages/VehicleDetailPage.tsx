@@ -1,7 +1,7 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { vehiclePostsService } from '../services/vehiclePosts.service';
-import { VehiclePost, City } from '../types';
+import { VehiclePost, VehiclePostRouteCity, City } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { extractErrorMessage } from '../utils/errorUtils';
 import CityAutocomplete from '../components/CityAutocomplete';
@@ -290,6 +290,36 @@ export default function VehicleDetailPage() {
                 <div><span className="label">Location</span><p>{post.company.city}, {post.company.country}</p></div>
                 {post.company.phone && <div><span className="label">Phone</span><p>{post.company.phone}</p></div>}
                 {post.company.email && <div><span className="label">Email</span><p>{post.company.email}</p></div>}
+              </div>
+            </div>
+          )}
+
+          {post.routeCities && post.routeCities.length > 0 && (
+            <div className="detail-card">
+              <h2>Route Cities</h2>
+              <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
+                Cities within 15 km of this vehicle's route, in order
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {post.routeCities.map((rc: VehiclePostRouteCity, i: number) => (
+                  <span
+                    key={rc.id}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '4px 10px',
+                      background: i === 0 || i === post.routeCities!.length - 1 ? '#dbeafe' : '#f3f4f6',
+                      border: `1px solid ${i === 0 || i === post.routeCities!.length - 1 ? '#93c5fd' : '#e5e7eb'}`,
+                      borderRadius: 20,
+                      fontSize: 13,
+                      fontWeight: i === 0 || i === post.routeCities!.length - 1 ? 600 : 400,
+                    }}
+                  >
+                    {rc.city?.name ?? '…'}
+                    <span style={{ color: '#9ca3af', fontSize: 11 }}>{rc.city?.country}</span>
+                  </span>
+                ))}
               </div>
             </div>
           )}

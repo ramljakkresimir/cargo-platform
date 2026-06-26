@@ -149,6 +149,18 @@ export default function VehicleListPage() {
 
       {!loading && posts.length > 0 && (
         <>
+          {activeFilters.originCityId && activeFilters.destinationCityId && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              marginBottom: 12, padding: '8px 12px',
+              background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 8,
+              fontSize: 13, color: '#065f46',
+            }}>
+              <span>✓</span>
+              <strong>Route-aware search active</strong>
+              — showing vehicles whose routes pass through both selected cities in order
+            </div>
+          )}
           <div className="table-wrapper">
             <table className="data-table">
               <thead>
@@ -165,7 +177,23 @@ export default function VehicleListPage() {
               <tbody>
                 {posts.map((post) => (
                   <tr key={post.id}>
-                    <td>{originLabel(post)}</td>
+                    <td>
+                      {originLabel(post)}
+                      {activeFilters.originCityId && activeFilters.destinationCityId && (
+                        <span style={{
+                          marginLeft: 8,
+                          padding: '2px 7px',
+                          background: '#d1fae5',
+                          color: '#065f46',
+                          borderRadius: 12,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          verticalAlign: 'middle',
+                        }}>
+                          Matches route
+                        </span>
+                      )}
+                    </td>
                     <td>{post.availableFromDate}</td>
                     <td>{post.vehicleType}</td>
                     <td>{post.capacity || '—'}</td>
