@@ -79,6 +79,11 @@ export interface VehiclePostRouteCity {
   updatedAt: string;
 }
 
+export interface RouteCoordinate {
+  lat: number;
+  lng: number;
+}
+
 export interface VehiclePost {
   id: string;
   companyId: string;
@@ -96,6 +101,7 @@ export interface VehiclePost {
   note?: string;
   status: string;
   routeCities?: VehiclePostRouteCity[];
+  routeGeoJson?: RouteCoordinate[] | null;
   createdAt: string;
   updatedAt: string;
 }

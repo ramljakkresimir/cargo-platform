@@ -165,6 +165,7 @@ Unique constraint on `(name, country)`. Seeded via `npm run seed:cities`.
 | capacity              | float     | nullable, in tonnes                    |
 | note                  | text      | nullable                               |
 | status                | varchar   | active / closed / expired              |
+| routeGeoJson          | jsonb     | nullable — `[{lat,lng}]` driving route from ORS |
 | createdAt             | timestamp |                                        |
 | updatedAt             | timestamp |                                        |
 
@@ -863,14 +864,89 @@ All errors from the backend follow a consistent shape (enforced by `GlobalExcept
 
 The frontend `extractErrorMessage(err, fallback)` utility in `frontend/src/utils/errorUtils.ts` handles both shapes — it joins all field messages if `errors` is present, otherwise falls back to `message`.
 
+### Session 13 — 2026-07-06
+
+#### Fix: Post expiration date comparison was using UTC date instead of local date
+
+**Root cause:** `PostsExpirationService.expireOldPosts()` used `new Date().toISOString().split('T')[0]` to compute "today". `toISOString()` always returns UTC time. If the server runs in CET (UTC+2), the cron fires at midnight CET = 22:00 UTC the previous day. At that moment, the UTC date is still yesterday, so `today` = yesterday's date. The WHERE clause `loadingDate < yesterday` would miss posts dated yesterday, leaving them active a full extra day.
+
+**Fix applied:**
+- `posts-expiration.service.ts`: replaced `toISOString().split('T')[0]` with local-date components:
+  ```typescript
+  const now = new Date();
+  const today = [now.getFullYear(), String(now.getMonth()+1).padStart(2,'0'), String(now.getDate()).padStart(2,'0')].join('-');
+  ```
+- Added a log line showing the comparison date at every run: `"Expiring active posts with date before: YYYY-MM-DD (local date)"`
+- Cron and admin manual endpoint both use the same `expireOldPosts()` method — both fixed.
+- Date boundary is still `< today` (strict): posts dated today remain active; posts dated yesterday or earlier are expired.
+
+**Manual verification (no ORS key needed):**
+1. Create a cargo post or vehicle post with `loadingDate` / `availableFromDate` set to yesterday (or any past date).
+2. Start the backend: `npm run backend`.
+3. Hit `POST /admin/posts/expire-old` (requires admin JWT). The response returns `{ cargoPostsExpired, vehiclePostsExpired }`.
+4. Check the backend log for: `Expiring active posts with date before: YYYY-MM-DD (local date)` and the count line.
+5. Verify the post status changed to `expired` via `GET /cargo-posts/:id` or `GET /vehicle-posts/:id`.
+6. For the scheduled cron: the cron fires at midnight server local time. Check logs the next morning for the scheduled-expiration log lines.
+
+#### Feature: Route map visualization for vehicle posts (Phase 3 — map display)
+
+**Backend — `vehicle_posts` table:**
+- [x] New `routeGeoJson` column: `{ type: 'jsonb', nullable: true }` — stores the ORS driving route as `{ lat, lng }[]`. TypeORM `synchronize: true` creates the column automatically on next backend start.
+- [x] `RouteCityService.generateAndSave()` return type changed from `Promise<VehiclePostRouteCity[]>` to `Promise<GenerateResult>` where `GenerateResult = { routeCities, routeCoordinates }`. The `routeCoordinates` are the raw ORS coordinates (or `null` when ORS is unavailable or post has no destination).
+- [x] New `Coordinate` import from `openroute.service.ts` and `GenerateResult` interface exported from `route-city.service.ts`.
+- [x] `VehiclePostsService.create()` — after `generateAndSave()`, saves `routeCoordinates` to `routeGeoJson` via `vehiclePostRepository.update()`.
+- [x] `VehiclePostsService.update()` — after `generateAndSave()` (when origin/dest changed), saves new coordinates; sets `routeGeoJson = null` if ORS failed (clears stale geometry).
+- [x] `AdminService.regenerateRouteCities()` — also updates `routeGeoJson` alongside route cities.
+- [x] Fallback behavior preserved: if ORS is unavailable, `routeGeoJson` stays `null` — post creation/update never fails.
+
+**Frontend — Leaflet map:**
+- [x] `leaflet@1.9.4` + `react-leaflet@5.0.0` installed in frontend workspace.
+- [x] `@types/leaflet` installed as devDependency in frontend workspace.
+- [x] Root `package.json` devDependencies: added `react@^19.2.6` and `react-dom@^19.2.6` to force npm to hoist them alongside react-leaflet (same workspace hoisting pattern as Session 10).
+- [x] `vite.config.ts`: added `resolve.dedupe: ['react', 'react-dom']` — prevents rolldown from failing to find React when importing from react-leaflet's hoisted location.
+- [x] `RouteCoordinate` interface added to `frontend/src/types/index.ts`; `VehiclePost` extended with `routeGeoJson?: RouteCoordinate[] | null`.
+- [x] `frontend/src/components/RouteMap.tsx` — reusable Leaflet map component:
+  - `leaflet/dist/leaflet.css` imported directly in the component
+  - Green circle (`#16a34a`) for origin marker, red circle (`#dc2626`) for destination — both via `L.divIcon()` (no PNG import needed, avoids Vite asset URL issues)
+  - Blue polyline (`#2563eb`, weight 4) for the route
+  - `MapContainer` with `bounds` auto-fitted to all route coordinates; `scrollWheelZoom: false`
+  - OpenStreetMap tiles with attribution
+  - If `coordinates.length < 2`, shows a styled `"Route map is not available"` message
+- [x] `VehicleDetailPage.tsx` — new "Route Map" card rendered below "Route Cities" in the detail view
+  - If `post.routeGeoJson` has ≥ 2 points, renders `<RouteMap>` with origin/destination labels
+  - If no geometry (ORS unavailable or no destination), shows the unavailable message; if no destination, adds a hint: "Set a destination city to enable route mapping."
+- [x] `index.css`: added `.route-map` and `.route-map-unavailable` styles; map height is 240px on mobile.
+
+**New env vars:** none — `OPENROUTESERVICE_API_KEY` already controls ORS access.
+
+**New npm packages:**
+- `leaflet@^1.9.4` — frontend
+- `react-leaflet@^5.0.0` — frontend
+- `@types/leaflet` — frontend devDependency
+
+**Architecture notes:**
+- `routeGeoJson` stores the full driving polyline (hundreds of points for long routes). For production, consider downsampling with turf's `simplify` or storing a PostGIS geometry type. For an MVP this is fine.
+- The map renders on every `VehicleDetailPage` load (including non-owners). It is a public read-only view.
+- No API key is exposed to the frontend — tiles come from OpenStreetMap (free, no key needed).
+
+**Manual verification:**
+1. Ensure `OPENROUTESERVICE_API_KEY` is set in `backend/.env`.
+2. Create a new vehicle post with both origin and destination cities.
+3. Navigate to `GET /vehicles/:id` — response should include `routeGeoJson: [{lat, lng}, ...]`.
+4. Open `/vehicles/:id` in the browser — a map should appear with the blue route polyline, green origin marker, and red destination marker.
+5. If ORS key is not set: the map card shows "Route map is not available for this post." — post creation still succeeds.
+6. Existing posts (without `routeGeoJson`): use `POST /admin/vehicle-posts/:id/regenerate-route-cities` to backfill route data.
+
 ---
 
 ## TODO / Next Steps
 
 - [x] Mark post as closed from the UI — "Close Post" button on detail pages + inline "Close" in My Posts
 - [x] Scheduled task to auto-expire posts past their date — daily cron at midnight via `@nestjs/schedule`
+- [x] Fix expiration timezone bug — was using UTC date; now uses local date components
 - [x] Normalized city data with autocomplete (Phase 1) — cities table, seed, CityAutocomplete component
 - [x] Route matching / corridor search (Phase 2) — ORS driving route + turf projection, route-aware vehicle search
+- [x] Route map visualization (Phase 3) — Leaflet map on VehicleDetailPage with polyline + markers
 - [ ] Email validation / verification on registration
 - [ ] Docker Compose setup for easy local start
 - [ ] Production migrations (TypeORM migration files)

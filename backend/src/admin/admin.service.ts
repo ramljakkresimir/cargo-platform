@@ -225,7 +225,8 @@ export class AdminService {
       ? await this.routeCityService.findCityById(post.destinationCityId)
       : null;
 
-    const saved = await this.routeCityService.generateAndSave(id, originCity, destCity);
-    return { message: 'Route cities regenerated successfully', routeCitiesCount: saved.length };
+    const { routeCities, routeCoordinates } = await this.routeCityService.generateAndSave(id, originCity, destCity);
+    await this.vehiclePostRepo.update(id, { routeGeoJson: routeCoordinates ?? null });
+    return { message: 'Route cities regenerated successfully', routeCitiesCount: routeCities.length };
   }
 }

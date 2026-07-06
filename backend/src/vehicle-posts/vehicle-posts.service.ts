@@ -47,14 +47,17 @@ export class VehiclePostsService {
     });
     const saved = await this.vehiclePostRepository.save(post);
 
-    // Generate route cities asynchronously — failure must not block post creation
+    // Generate route cities and geometry — failure must not block post creation
     const destCityObj = dto.destinationCityId
       ? await this.citiesService.findById(dto.destinationCityId).catch(() => null)
       : null;
     try {
-      await this.routeCityService.generateAndSave(saved.id, originCity, destCityObj);
+      const { routeCoordinates } = await this.routeCityService.generateAndSave(saved.id, originCity, destCityObj);
+      if (routeCoordinates && routeCoordinates.length > 0) {
+        await this.vehiclePostRepository.update(saved.id, { routeGeoJson: routeCoordinates });
+      }
     } catch (err: any) {
-      this.logger.warn(`Route city generation failed for post ${saved.id}: ${err?.message}`);
+      this.logger.warn(`Route generation failed for post ${saved.id}: ${err?.message}`);
     }
 
     return this.findOne(saved.id);
@@ -196,7 +199,9 @@ export class VehiclePostsService {
 
     if (routeChanged && newOriginCity) {
       try {
-        await this.routeCityService.generateAndSave(id, newOriginCity, newDestCity ?? null);
+        const { routeCoordinates } = await this.routeCityService.generateAndSave(id, newOriginCity, newDestCity ?? null);
+        // Always update geometry: set new coordinates or clear stale geometry when ORS failed
+        await this.vehiclePostRepository.update(id, { routeGeoJson: routeCoordinates ?? null });
       } catch (err: any) {
         this.logger.warn(`Route regeneration failed for post ${id}: ${err?.message}`);
       }

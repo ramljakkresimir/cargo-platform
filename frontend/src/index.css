@@ -406,10 +406,22 @@ h3 { font-size: 15px; font-weight: 600; color: #333; }
   color: #9ca3af;
 }
 
+.route-map { z-index: 0; }
+.route-map-unavailable {
+  padding: 24px;
+  text-align: center;
+  color: #9ca3af;
+  background: #f9fafb;
+  border: 1px dashed #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
 @media (max-width: 640px) {
   .form-row { flex-direction: column; }
   .filter-grid { grid-template-columns: 1fr 1fr; }
   .page-container { padding: 20px 16px; }
   .navbar { padding: 0 16px; }
   .navbar-links { gap: 12px; }
+  .route-map { height: 240px !important; }
 }

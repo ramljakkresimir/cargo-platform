@@ -5,6 +5,7 @@ import { VehiclePost, VehiclePostRouteCity, City } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { extractErrorMessage } from '../utils/errorUtils';
 import CityAutocomplete from '../components/CityAutocomplete';
+import RouteMap from '../components/RouteMap';
 
 const VEHICLE_TYPES = ['truck', 'van', 'semi_truck', 'refrigerated_truck', 'flatbed', 'tanker'];
 const STATUSES = ['active', 'closed'];
@@ -323,6 +324,24 @@ export default function VehicleDetailPage() {
               </div>
             </div>
           )}
+
+          <div className="detail-card">
+            <h2>Route Map</h2>
+            {post.routeGeoJson && post.routeGeoJson.length >= 2 ? (
+              <RouteMap
+                coordinates={post.routeGeoJson}
+                originName={originLabel(post)}
+                destinationName={post.destinationCity?.name ? destLabel(post) : undefined}
+              />
+            ) : (
+              <div className="route-map-unavailable">
+                Route map is not available for this post.
+                {!post.destinationCity && (
+                  <span> Set a destination city to enable route mapping.</span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

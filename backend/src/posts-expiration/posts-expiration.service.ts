@@ -23,19 +23,25 @@ export class PostsExpirationService {
     private readonly vehiclePostRepo: Repository<VehiclePost>,
   ) {}
 
-  // Runs every day at midnight
+  // Runs every day at midnight (server local time)
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async scheduledExpire() {
-    this.logger.log(`Running scheduled post expiration at ${new Date().toISOString()}`);
-    const result = await this.expireOldPosts();
-    this.logger.log(
-      `Expiration complete — cargo: ${result.cargoPostsExpired}, vehicles: ${result.vehiclePostsExpired}`,
-    );
+    this.logger.log('Scheduled post expiration triggered');
+    await this.expireOldPosts();
   }
 
   async expireOldPosts(): Promise<ExpireResult> {
-    // today in YYYY-MM-DD; posts with date BEFORE today are expired
-    const today = new Date().toISOString().split('T')[0];
+    // Use local date components, not toISOString() which returns UTC.
+    // If the server runs in CET (UTC+2), midnight CET = 22:00 UTC the previous day —
+    // toISOString() would give yesterday's date and miss posts that should expire today.
+    const now = new Date();
+    const today = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+    ].join('-');
+
+    this.logger.log(`Expiring active posts with date before: ${today} (local date)`);
 
     const cargoResult = await this.cargoPostRepo
       .createQueryBuilder()
@@ -53,10 +59,16 @@ export class PostsExpirationService {
       .andWhere('status = :status', { status: PostStatus.ACTIVE })
       .execute();
 
-    return {
+    const result: ExpireResult = {
       cargoPostsExpired: cargoResult.affected ?? 0,
       vehiclePostsExpired: vehicleResult.affected ?? 0,
       message: 'Expired posts updated successfully',
     };
+
+    this.logger.log(
+      `Expiration complete — today: ${today}, cargo expired: ${result.cargoPostsExpired}, vehicles expired: ${result.vehiclePostsExpired}`,
+    );
+
+    return result;
   }
 }

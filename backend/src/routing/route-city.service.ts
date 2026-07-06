@@ -6,6 +6,12 @@ import { point, lineString, nearestPointOnLine, length } from '@turf/turf';
 import { VehiclePostRouteCity } from './vehicle-post-route-city.entity';
 import { City } from '../cities/city.entity';
 import { RoutingService } from './routing.service';
+import { Coordinate } from './openroute.service';
+
+export interface GenerateResult {
+  routeCities: VehiclePostRouteCity[];
+  routeCoordinates: Coordinate[] | null;
+}
 
 @Injectable()
 export class RouteCityService {
@@ -24,7 +30,7 @@ export class RouteCityService {
     vehiclePostId: string,
     originCity: City,
     destCity: City | null,
-  ): Promise<VehiclePostRouteCity[]> {
+  ): Promise<GenerateResult> {
     await this.routeCityRepo.delete({ vehiclePostId });
 
     const maxDistKm = parseFloat(
@@ -32,7 +38,7 @@ export class RouteCityService {
     );
 
     if (!destCity) {
-      // No destination — just record the origin city
+      // No destination — just record the origin city; no route geometry
       const entity = this.routeCityRepo.create({
         vehiclePostId,
         cityId: originCity.id,
@@ -40,7 +46,8 @@ export class RouteCityService {
         distanceFromStartKm: 0,
         distanceFromRouteKm: 0,
       });
-      return this.routeCityRepo.save([entity]);
+      const routeCities = await this.routeCityRepo.save([entity]);
+      return { routeCities, routeCoordinates: null };
     }
 
     // Attempt to get a driving route
@@ -50,10 +57,11 @@ export class RouteCityService {
     );
 
     if (route && route.coordinates.length >= 2) {
-      return this.generateFromRoute(vehiclePostId, route.coordinates, maxDistKm);
+      const routeCities = await this.generateFromRoute(vehiclePostId, route.coordinates, maxDistKm);
+      return { routeCities, routeCoordinates: route.coordinates };
     }
 
-    // Fallback: save only origin + destination
+    // Fallback: save only origin + destination; no route geometry
     this.logger.warn(
       `Route fetch failed for vehicle post ${vehiclePostId} — using origin+destination fallback`,
     );
@@ -73,7 +81,8 @@ export class RouteCityService {
         distanceFromRouteKm: 0,
       }),
     ];
-    return this.routeCityRepo.save(fallback);
+    const routeCities = await this.routeCityRepo.save(fallback);
+    return { routeCities, routeCoordinates: null };
   }
 
   private async generateFromRoute(

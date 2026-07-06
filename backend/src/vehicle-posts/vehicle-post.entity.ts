@@ -60,6 +60,11 @@ export class VehiclePost {
   @Column({ type: 'varchar', default: PostStatus.ACTIVE })
   status: PostStatus;
 
+  // Driving route geometry from OpenRouteService — stored as [{lat, lng}] array.
+  // Null when ORS is unavailable or when the post has no destination city.
+  @Column({ type: 'jsonb', nullable: true })
+  routeGeoJson: { lat: number; lng: number }[] | null;
+
   @CreateDateColumn()
   createdAt: Date;
 
