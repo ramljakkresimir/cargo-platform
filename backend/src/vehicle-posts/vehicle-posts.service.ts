@@ -15,6 +15,15 @@ import { FilterVehiclePostsDto } from './dto/filter-vehicle-posts.dto';
 import { CitiesService } from '../cities/cities.service';
 import { RouteCityService } from '../routing/route-city.service';
 
+function getLocalDateString(): string {
+  const now = new Date();
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
 @Injectable()
 export class VehiclePostsService {
   private readonly logger = new Logger(VehiclePostsService.name);
@@ -30,6 +39,10 @@ export class VehiclePostsService {
     const originCity = await this.citiesService.findById(dto.originCityId).catch(() => {
       throw new BadRequestException(`Origin city not found: ${dto.originCityId}`);
     });
+
+    if (dto.availableFromDate < getLocalDateString()) {
+      throw new BadRequestException('Available from date cannot be in the past.');
+    }
 
     let destinationCityName: string | undefined;
     if (dto.destinationCityId) {
@@ -84,6 +97,7 @@ export class VehiclePostsService {
         .leftJoinAndSelect('post.originCity', 'originCity')
         .leftJoinAndSelect('post.destinationCity', 'destinationCity')
         .where('post.status = :status', { status: PostStatus.ACTIVE })
+        .andWhere('post.availableFromDate >= :today', { today: getLocalDateString() })
         .andWhere('post.id IN (:...ids)', { ids })
         .orderBy('post.createdAt', 'DESC');
 
@@ -109,6 +123,7 @@ export class VehiclePostsService {
       .leftJoinAndSelect('post.originCity', 'originCity')
       .leftJoinAndSelect('post.destinationCity', 'destinationCity')
       .where('post.status = :status', { status: PostStatus.ACTIVE })
+      .andWhere('post.availableFromDate >= :today', { today: getLocalDateString() })
       .orderBy('post.createdAt', 'DESC');
 
     if (filters.originCityId) {
@@ -192,6 +207,10 @@ export class VehiclePostsService {
         post.destinationPreference = null;
         newDestCity = null;
       }
+    }
+
+    if (dto.availableFromDate !== undefined && dto.availableFromDate < getLocalDateString() && dto.availableFromDate !== post.availableFromDate) {
+      throw new BadRequestException('Available from date cannot be in the past.');
     }
 
     Object.assign(post, dto);

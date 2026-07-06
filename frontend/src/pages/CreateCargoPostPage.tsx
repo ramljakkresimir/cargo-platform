@@ -35,6 +35,9 @@ export default function CreateCargoPostPage() {
     e.preventDefault();
     if (!loadingCity) { setError('Please select a loading city.'); return; }
     if (!unloadingCity) { setError('Please select an unloading city.'); return; }
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (form.loadingDate < todayStr) { setError('Loading date cannot be in the past.'); return; }
     setError('');
     setLoading(true);
 

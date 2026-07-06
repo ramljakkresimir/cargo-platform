@@ -120,6 +120,12 @@ export default function VehicleDetailPage() {
     e.preventDefault();
     if (!id) return;
     if (!editOriginCity) { setSaveError('Please select a current location city.'); return; }
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (editForm.availableFromDate < todayStr && editForm.availableFromDate !== post?.availableFromDate) {
+      setSaveError('Available from date cannot be in the past.');
+      return;
+    }
     setSaveError('');
     setSaveSuccess('');
     setSaveLoading(true);

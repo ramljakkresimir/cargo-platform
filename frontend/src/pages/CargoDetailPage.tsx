@@ -126,6 +126,12 @@ export default function CargoDetailPage() {
     if (!id) return;
     if (!editLoadingCity) { setSaveError('Please select a loading city.'); return; }
     if (!editUnloadingCity) { setSaveError('Please select an unloading city.'); return; }
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (editForm.loadingDate < todayStr && editForm.loadingDate !== post?.loadingDate) {
+      setSaveError('Loading date cannot be in the past.');
+      return;
+    }
     setSaveError('');
     setSaveSuccess('');
     setSaveLoading(true);

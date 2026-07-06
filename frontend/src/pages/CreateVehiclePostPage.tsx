@@ -30,6 +30,9 @@ export default function CreateVehiclePostPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!originCity) { setError('Please select a current location city.'); return; }
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (form.availableFromDate < todayStr) { setError('Available from date cannot be in the past.'); return; }
     setError('');
     setLoading(true);
 

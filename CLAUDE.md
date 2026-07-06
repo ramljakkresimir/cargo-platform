@@ -972,6 +972,55 @@ Authorization: Bearer <admin-jwt>
 ```
 This is idempotent — posts with geometry already set are skipped (WHERE routeGeoJson IS NULL).
 
+### Session 15 — 2026-07-06
+
+#### Fix: Past-dated posts could be created and appeared in public listings
+
+**Problems identified:**
+1. **No create/update validation**: Backend accepted `loadingDate` / `availableFromDate` values in the past. A post created with yesterday's date remained `active` indefinitely until the midnight cron ran.
+2. **Public listings showed stale active posts**: `GET /cargo-posts` and `GET /vehicle-posts` only filtered `status = active`. If the cron missed a post (or hadn't run yet that day), past-dated `active` posts appeared in public browse.
+3. **No frontend validation**: Create forms had no client-side guard, so the error only surfaced as a backend rejection (or not at all before this fix).
+
+**Fixes applied:**
+
+**Backend — `cargo-posts.service.ts`:**
+- `getLocalDateString()` helper added at module level (same local-date formula as `PostsExpirationService`)
+- `create()`: rejects with HTTP 400 `"Loading date cannot be in the past."` if `dto.loadingDate < today`
+- `update()`: rejects the same way, but only if the submitted date is **different** from the post's current date — this allows editing notes/status on a post whose date has already passed without blocking the operation
+- `findAll()`: added `.andWhere('post.loadingDate >= :today', { today })` so past-dated active posts never appear in public browse (belt-and-suspenders with expiration)
+
+**Backend — `vehicle-posts.service.ts`:**
+- Same `getLocalDateString()` helper added
+- `create()`: rejects with `"Available from date cannot be in the past."`
+- `update()`: same "only if date changed" guard
+- `findAll()`: `andWhere('post.availableFromDate >= :today', ...)` added to **both** the route-aware search path and the standard search path
+
+**Frontend — date validation on create forms:**
+- `CreateCargoPostPage`: checks `form.loadingDate < todayStr` before submit; shows `"Loading date cannot be in the past."` error above the form
+- `CreateVehiclePostPage`: checks `form.availableFromDate < todayStr` before submit; shows same style error
+
+**Frontend — date validation on edit forms:**
+- `CargoDetailPage` edit submit: guards the same way, but only fires if the new date differs from the post's existing date (`editForm.loadingDate !== post?.loadingDate`) — so owners can still save other changes on a post with an already-past date without hitting the error
+- `VehicleDetailPage` edit submit: same pattern for `availableFromDate`
+
+**Date comparison semantics:**
+- All comparisons use string comparison of `"YYYY-MM-DD"` strings (lexicographic order is correct for ISO dates)
+- "Today is valid" — only strictly past dates are rejected (`< today`, not `<= today`)
+- The `getLocalDateString()` helper uses `new Date()` local components (same fix as Session 13 timezone correction), not `toISOString()` which returns UTC
+
+**Why public listing filter + cron both needed:**
+- The cron is the authoritative expiry mechanism (changes status to `expired`)
+- The listing filter is a defense-in-depth measure: it hides any `active` post whose date has already passed, regardless of whether the cron has run yet
+- Together they ensure the marketplace shows only genuinely current offers
+
+**Expiration service (`PostsExpirationService`) itself was already correct** from the Session 13 fix — no changes needed there.
+
+**Manual verification:**
+1. Try creating a cargo or vehicle post with yesterday's date → should get HTTP 400 with the clear error message
+2. Browse `/cargo` or `/vehicles` — past-dated posts should not appear even if their status is still `active`
+3. A post with today's date should appear in listings and be createable
+4. Editing a post with a past date (to just change notes) should work; changing the date to another past date should be rejected
+
 ---
 
 ## TODO / Next Steps
@@ -982,6 +1031,7 @@ This is idempotent — posts with geometry already set are skipped (WHERE routeG
 - [x] Normalized city data with autocomplete (Phase 1) — cities table, seed, CityAutocomplete component
 - [x] Route matching / corridor search (Phase 2) — ORS driving route + turf projection, route-aware vehicle search
 - [x] Route map visualization (Phase 3) — Leaflet map on VehicleDetailPage with polyline + markers
+- [x] Prevent and hide past-dated posts — create/update validation + public listing date filter
 - [ ] Email validation / verification on registration
 - [ ] Docker Compose setup for easy local start
 - [ ] Production migrations (TypeORM migration files)

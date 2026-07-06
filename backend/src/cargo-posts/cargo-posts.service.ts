@@ -13,6 +13,15 @@ import { UpdateCargoPostDto } from './dto/update-cargo-post.dto';
 import { FilterCargoPostsDto } from './dto/filter-cargo-posts.dto';
 import { CitiesService } from '../cities/cities.service';
 
+function getLocalDateString(): string {
+  const now = new Date();
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
 @Injectable()
 export class CargoPostsService {
   constructor(
@@ -28,6 +37,10 @@ export class CargoPostsService {
     const unloadingCity = await this.citiesService.findById(dto.unloadingCityId).catch(() => {
       throw new BadRequestException(`Unloading city not found: ${dto.unloadingCityId}`);
     });
+
+    if (dto.loadingDate < getLocalDateString()) {
+      throw new BadRequestException('Loading date cannot be in the past.');
+    }
 
     const post = this.cargoPostRepository.create({
       ...dto,
@@ -49,6 +62,7 @@ export class CargoPostsService {
       .leftJoinAndSelect('post.loadingCity', 'loadingCity')
       .leftJoinAndSelect('post.unloadingCity', 'unloadingCity')
       .where('post.status = :status', { status: PostStatus.ACTIVE })
+      .andWhere('post.loadingDate >= :today', { today: getLocalDateString() })
       .orderBy('post.createdAt', 'DESC');
 
     if (filters.loadingCityId) {
@@ -121,6 +135,10 @@ export class CargoPostsService {
         throw new BadRequestException(`Unloading city not found: ${dto.unloadingCityId}`);
       });
       post.unloadingLocation = `${city.name}, ${city.country}`;
+    }
+
+    if (dto.loadingDate !== undefined && dto.loadingDate < getLocalDateString() && dto.loadingDate !== post.loadingDate) {
+      throw new BadRequestException('Loading date cannot be in the past.');
     }
 
     Object.assign(post, dto);
