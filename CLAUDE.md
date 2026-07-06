@@ -937,6 +937,41 @@ The frontend `extractErrorMessage(err, fallback)` utility in `frontend/src/utils
 5. If ORS key is not set: the map card shows "Route map is not available for this post." — post creation still succeeds.
 6. Existing posts (without `routeGeoJson`): use `POST /admin/vehicle-posts/:id/regenerate-route-cities` to backfill route data.
 
+### Session 14 — 2026-07-06
+
+#### Investigation: Route-aware matching and route map regression
+
+**Root cause (single underlying issue):** ORS timed out at exactly 10 seconds when the test vehicle post (Mostar→Zagreb) was created. Timestamps confirm this: post created at `14:36:22Z`, route cities created at `14:36:32Z` — exactly 10 seconds later, matching the ORS timeout. The fallback fired: only origin (Mostar) + destination (Zagreb) were stored with `distanceFromStartKm: 0` and `routeGeoJson: null`. This caused:
+- Route-aware search to fail for any intermediate city (only Mostar and Zagreb were in `vehicle_post_route_cities`)
+- Route map to show "not available" (routeGeoJson was null)
+
+**No code regression from Session 13** — the `generateAndSave()` return-type change and routeGeoJson persistence are correct. The issue was transient network latency at ORS when the post was created.
+
+**Geography clarification:** ORS driving-hgv routes Mostar→Zagreb via the Croatian coastal motorway (A1): Mostar → Split → Šibenik → Gospić → Karlovac → Zagreb. The route does NOT pass through Sarajevo or Zenica. Those are inland Bosnia cities on a different (longer) mountain route. Any test cases assuming Sarajevo is on the Mostar→Zagreb route should use Mostar→Split or Split→Zagreb instead.
+
+**Fixes applied:**
+
+- **`openroute.service.ts`**: ORS timeout increased from 10 s to 20 s; added 1 retry with 2-second delay on failure. Now attempts ORS twice before falling back — significantly reduces transient timeout failures.
+
+- **`admin.service.ts`**: Added `regenerateAllIncompleteRoutes()` — finds all vehicle posts where `routeGeoJson IS NULL AND destinationCityId IS NOT NULL` (i.e., posts that hit the ORS fallback) and re-runs `generateAndSave()` for each, saving updated route cities and `routeGeoJson`. Returns `{ processed, succeeded, failed, message }`.
+
+- **`admin.controller.ts`**: Added `POST /admin/vehicle-posts/regenerate-all-routes` — runs the above method in one call. Must be declared BEFORE `/:id/regenerate-route-cities` to avoid route shadowing.
+
+**Verified after fix:**
+- Route cities for Mostar→Zagreb post: 6 cities (Mostar, Split, Šibenik, Gospić, Karlovac, Zagreb), all with proper `distanceFromStartKm` values
+- `routeGeoJson`: 4642 coordinate points (full ORS driving polyline)
+- Route-aware search: Mostar→Split returns 1 result ✓; Split→Zagreb returns 1 result ✓; Zagreb→Mostar returns 0 ✓
+- Route map card: renders correctly when `routeGeoJson` has ≥ 2 points
+- Expiration: `POST /admin/posts/expire-old` returns `{ cargoPostsExpired: 0, vehiclePostsExpired: 0 }` with tomorrow-dated post (correct)
+- Build: both backend and frontend compile with 0 errors
+
+**How to recover future posts with missing route geometry:**
+```
+POST /admin/vehicle-posts/regenerate-all-routes
+Authorization: Bearer <admin-jwt>
+```
+This is idempotent — posts with geometry already set are skipped (WHERE routeGeoJson IS NULL).
+
 ---
 
 ## TODO / Next Steps

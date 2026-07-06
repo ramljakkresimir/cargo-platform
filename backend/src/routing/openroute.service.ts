@@ -25,37 +25,44 @@ export class OpenRouteService {
       return null;
     }
 
-    try {
-      const response = await axios.post(
-        'https://api.openrouteservice.org/v2/directions/driving-hgv/geojson',
-        {
-          coordinates: [
-            [origin.lng, origin.lat],
-            [destination.lng, destination.lat],
-          ],
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
+    const maxAttempts = 2;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const response = await axios.post(
+          'https://api.openrouteservice.org/v2/directions/driving-hgv/geojson',
+          {
+            coordinates: [
+              [origin.lng, origin.lat],
+              [destination.lng, destination.lat],
+            ],
           },
-          timeout: 10_000,
-        },
-      );
+          {
+            headers: {
+              Authorization: `Bearer ${this.apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            timeout: 20_000,
+          },
+        );
 
-      const coords: [number, number, number][] =
-        response.data?.features?.[0]?.geometry?.coordinates;
+        const coords: [number, number, number][] =
+          response.data?.features?.[0]?.geometry?.coordinates;
 
-      if (!coords || coords.length < 2) {
-        this.logger.warn('ORS returned empty route');
-        return null;
+        if (!coords || coords.length < 2) {
+          this.logger.warn('ORS returned empty route');
+          return null;
+        }
+
+        // ORS returns [lng, lat, elevation] — convert to { lat, lng }
+        return coords.map(([lng, lat]) => ({ lat, lng }));
+      } catch (err: any) {
+        this.logger.warn(`ORS route fetch failed (attempt ${attempt}/${maxAttempts}): ${err?.message ?? err}`);
+        if (attempt < maxAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
       }
-
-      // ORS returns [lng, lat, elevation] — convert to { lat, lng }
-      return coords.map(([lng, lat]) => ({ lat, lng }));
-    } catch (err: any) {
-      this.logger.warn(`ORS route fetch failed: ${err?.message ?? err}`);
-      return null;
     }
+
+    return null;
   }
 }

@@ -104,6 +104,12 @@ export class AdminController {
     return this.adminService.deleteVehiclePost(id);
   }
 
+  // POST /admin/vehicle-posts/regenerate-all-routes — fix all posts whose ORS call previously timed out
+  @Post('vehicle-posts/regenerate-all-routes')
+  regenerateAllRoutes() {
+    return this.adminService.regenerateAllIncompleteRoutes();
+  }
+
   // POST /admin/vehicle-posts/:id/regenerate-route-cities
   @Post('vehicle-posts/:id/regenerate-route-cities')
   regenerateRouteCities(@Param('id') id: string) {
