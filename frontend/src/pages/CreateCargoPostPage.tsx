@@ -4,9 +4,7 @@ import { cargoPostsService } from '../services/cargoPosts.service';
 import { extractErrorMessage } from '../utils/errorUtils';
 import { City } from '../types';
 import CityAutocomplete from '../components/CityAutocomplete';
-
-const CARGO_TYPES = ['general', 'palletized', 'bulk', 'liquid', 'refrigerated', 'hazardous', 'oversized'];
-const VEHICLE_TYPES = ['truck', 'van', 'semi_truck', 'refrigerated_truck', 'flatbed', 'tanker'];
+import { CARGO_TYPES, VEHICLE_TYPES } from '../constants/postTypes';
 
 export default function CreateCargoPostPage() {
   const navigate = useNavigate();
@@ -33,11 +31,11 @@ export default function CreateCargoPostPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!loadingCity) { setError('Please select a loading city.'); return; }
-    if (!unloadingCity) { setError('Please select an unloading city.'); return; }
+    if (!loadingCity) { setError('Odaberite mjesto utovara.'); return; }
+    if (!unloadingCity) { setError('Odaberite mjesto istovara.'); return; }
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    if (form.loadingDate < todayStr) { setError('Loading date cannot be in the past.'); return; }
+    if (form.loadingDate < todayStr) { setError('Datum utovara ne može biti u prošlosti.'); return; }
     setError('');
     setLoading(true);
 
@@ -57,47 +55,49 @@ export default function CreateCargoPostPage() {
       await cargoPostsService.create(payload);
       navigate('/cargo');
     } catch (err) {
-      setError(extractErrorMessage(err, 'Failed to create cargo post.'));
+      setError(extractErrorMessage(err, 'Objavljivanje oglasa nije uspjelo.'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="page-container">
+    <div className="page-container-form">
       <div className="page-header">
-        <h1>Post Cargo</h1>
-        <p>Publish your cargo to find transport companies</p>
+        <div>
+          <h1>Objavi teret</h1>
+          <p className="page-subtitle">Objavite teret za koji tražite prijevoz — traje samo minutu.</p>
+        </div>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
       <div className="form-card">
         <form onSubmit={handleSubmit}>
-          <h2>Route Details</h2>
+          <div className="form-section-title">Ruta</div>
           <div className="form-row">
             <div className="form-group">
-              <label>Loading City *</label>
+              <label>Mjesto utovara *</label>
               <CityAutocomplete
                 value={loadingCity}
                 onChange={setLoadingCity}
-                placeholder="e.g. Sarajevo"
+                placeholder="npr. Sarajevo"
                 required={false}
               />
             </div>
             <div className="form-group">
-              <label>Unloading City *</label>
+              <label>Mjesto istovara *</label>
               <CityAutocomplete
                 value={unloadingCity}
                 onChange={setUnloadingCity}
-                placeholder="e.g. Zagreb"
+                placeholder="npr. Zagreb"
                 required={false}
               />
             </div>
           </div>
 
           <div className="form-group" style={{ maxWidth: '300px' }}>
-            <label>Loading Date *</label>
+            <label>Datum utovara *</label>
             <input
               type="date"
               name="loadingDate"
@@ -107,23 +107,23 @@ export default function CreateCargoPostPage() {
             />
           </div>
 
-          <h2>Cargo Details</h2>
+          <div className="form-section-title">Detalji tereta</div>
           <div className="form-row">
             <div className="form-group">
-              <label>Cargo Type</label>
+              <label>Vrsta tereta</label>
               <select name="cargoType" value={form.cargoType} onChange={handleChange}>
-                <option value="">-- Select type --</option>
+                <option value="">-- Odaberite vrstu --</option>
                 {CARGO_TYPES.map((t) => (
-                  <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                  <option key={t.value} value={t.value}>{t.label}</option>
                 ))}
               </select>
             </div>
             <div className="form-group">
-              <label>Required Vehicle Type</label>
+              <label>Potrebno vozilo</label>
               <select name="requiredVehicleType" value={form.requiredVehicleType} onChange={handleChange}>
-                <option value="">-- Any vehicle --</option>
+                <option value="">-- Bilo koje vozilo --</option>
                 {VEHICLE_TYPES.map((t) => (
-                  <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
+                  <option key={t.value} value={t.value}>{t.label}</option>
                 ))}
               </select>
             </div>
@@ -131,56 +131,56 @@ export default function CreateCargoPostPage() {
 
           <div className="form-row">
             <div className="form-group">
-              <label>Weight (tonnes)</label>
+              <label>Težina (tone)</label>
               <input
                 type="number"
                 step="0.1"
                 name="weight"
                 value={form.weight}
                 onChange={handleChange}
-                placeholder="e.g. 5.5"
+                placeholder="npr. 5.5"
               />
             </div>
             <div className="form-group">
-              <label>Dimensions (LxWxH)</label>
+              <label>Dimenzije (DxŠxV)</label>
               <input
                 name="dimensions"
                 value={form.dimensions}
                 onChange={handleChange}
-                placeholder="e.g. 3x2x2m"
+                placeholder="npr. 3x2x2m"
               />
             </div>
           </div>
 
           <div className="form-group" style={{ maxWidth: '300px' }}>
-            <label>Price (EUR)</label>
+            <label>Cijena (EUR)</label>
             <input
               type="number"
               step="0.01"
               name="price"
               value={form.price}
               onChange={handleChange}
-              placeholder="e.g. 450"
+              placeholder="npr. 450"
             />
           </div>
 
           <div className="form-group">
-            <label>Additional Notes</label>
+            <label>Napomene</label>
             <textarea
               name="note"
               value={form.note}
               onChange={handleChange}
               rows={3}
-              placeholder="Any special requirements, handling instructions, etc."
+              placeholder="Posebni zahtjevi, upute za rukovanje, kontakt..."
             />
           </div>
 
           <div className="form-actions">
             <button type="button" className="btn-secondary" onClick={() => navigate('/cargo')}>
-              Cancel
+              Odustani
             </button>
-            <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? 'Publishing...' : 'Publish Cargo Post'}
+            <button type="submit" className="btn-primary-teal" disabled={loading}>
+              {loading ? 'Objavljivanje...' : 'Objavi teret'}
             </button>
           </div>
         </form>

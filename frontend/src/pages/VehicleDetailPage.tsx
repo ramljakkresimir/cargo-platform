@@ -6,9 +6,13 @@ import { useAuth } from '../context/AuthContext';
 import { extractErrorMessage } from '../utils/errorUtils';
 import CityAutocomplete from '../components/CityAutocomplete';
 import RouteMap from '../components/RouteMap';
+import StatusBadge from '../components/StatusBadge';
+import { VEHICLE_TYPES, vehicleTypeLabel } from '../constants/postTypes';
 
-const VEHICLE_TYPES = ['truck', 'van', 'semi_truck', 'refrigerated_truck', 'flatbed', 'tanker'];
-const STATUSES = ['active', 'closed'];
+const STATUSES = [
+  { value: 'active', label: 'Aktivno' },
+  { value: 'closed', label: 'Zatvoreno' },
+];
 
 function originLabel(post: VehiclePost): string {
   return post.originCity?.name
@@ -55,6 +59,7 @@ export default function VehicleDetailPage() {
     if (post && location.state?.startEditing) {
       startEditing();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post]);
 
   const fetchPost = async (postId: string) => {
@@ -62,33 +67,33 @@ export default function VehicleDetailPage() {
       const res = await vehiclePostsService.getOne(postId);
       setPost(res.data);
     } catch {
-      setError('Vehicle post not found.');
+      setError('Oglas vozila nije pronađen.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!id || !confirm('Delete this vehicle post?')) return;
+    if (!id || !confirm('Obrisati ovaj oglas vozila?')) return;
     try {
       await vehiclePostsService.remove(id);
       navigate('/vehicles');
     } catch {
-      setError('Failed to delete post.');
+      setError('Brisanje oglasa nije uspjelo.');
     }
   };
 
   const handleClose = async () => {
-    if (!id || !confirm('Close this vehicle post? It will no longer appear in public listings.')) return;
+    if (!id || !confirm('Zatvoriti ovaj oglas? Više se neće prikazivati u javnoj pretrazi.')) return;
     setCloseLoading(true);
     setSaveSuccess('');
     setSaveError('');
     try {
       const res = await vehiclePostsService.update(id, { status: 'closed' });
       setPost(res.data);
-      setSaveSuccess('Post closed successfully.');
+      setSaveSuccess('Oglas je uspješno zatvoren.');
     } catch (err) {
-      setSaveError(extractErrorMessage(err, 'Failed to close post.'));
+      setSaveError(extractErrorMessage(err, 'Zatvaranje oglasa nije uspjelo.'));
     } finally {
       setCloseLoading(false);
     }
@@ -119,11 +124,11 @@ export default function VehicleDetailPage() {
   const handleEditSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!id) return;
-    if (!editOriginCity) { setSaveError('Please select a current location city.'); return; }
+    if (!editOriginCity) { setSaveError('Odaberite trenutnu lokaciju.'); return; }
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     if (editForm.availableFromDate < todayStr && editForm.availableFromDate !== post?.availableFromDate) {
-      setSaveError('Available from date cannot be in the past.');
+      setSaveError('Datum dostupnosti ne može biti u prošlosti.');
       return;
     }
     setSaveError('');
@@ -144,9 +149,9 @@ export default function VehicleDetailPage() {
       const res = await vehiclePostsService.update(id, payload);
       setPost(res.data);
       setIsEditing(false);
-      setSaveSuccess('Post updated successfully.');
+      setSaveSuccess('Oglas je uspješno ažuriran.');
     } catch (err) {
-      setSaveError(extractErrorMessage(err, 'Failed to update post.'));
+      setSaveError(extractErrorMessage(err, 'Spremanje promjena nije uspjelo.'));
     } finally {
       setSaveLoading(false);
     }
@@ -154,7 +159,7 @@ export default function VehicleDetailPage() {
 
   const isOwner = user && post?.company?.userId === user.id;
 
-  if (loading) return <div className="page-container"><p>Loading...</p></div>;
+  if (loading) return <div className="page-container"><p className="loading">Učitavanje...</p></div>;
   if (error) return <div className="page-container"><div className="alert alert-error">{error}</div></div>;
   if (!post) return null;
 
@@ -162,19 +167,21 @@ export default function VehicleDetailPage() {
     <div className="page-container">
       <div className="page-header">
         <div>
-          <Link to="/vehicles" className="back-link">← Back to Vehicles</Link>
-          <h1>{post.vehicleType} — {originLabel(post)}</h1>
-          <span className={`status-badge status-${post.status}`}>{post.status}</span>
+          <Link to="/vehicles" className="back-link">← Natrag na vozila</Link>
+          <div className="detail-title-row">
+            <h1>{vehicleTypeLabel(post.vehicleType)} — {originLabel(post)}</h1>
+            <StatusBadge status={post.status} />
+          </div>
         </div>
         {isOwner && !isEditing && (
           <div className="action-buttons">
             {post.status === 'active' && (
               <button className="btn-secondary" onClick={handleClose} disabled={closeLoading}>
-                {closeLoading ? 'Closing...' : 'Close Post'}
+                {closeLoading ? 'Zatvaranje...' : 'Zatvori oglas'}
               </button>
             )}
-            <button className="btn-secondary" onClick={startEditing}>Edit Post</button>
-            <button className="btn-danger" onClick={handleDelete}>Delete</button>
+            <button className="btn-secondary" onClick={startEditing}>Uredi</button>
+            <button className="btn-danger" onClick={handleDelete}>Obriši</button>
           </div>
         )}
       </div>
@@ -183,20 +190,20 @@ export default function VehicleDetailPage() {
 
       {isEditing ? (
         <div className="form-card">
-          <h2>Edit Vehicle Post</h2>
+          <h2>Uredi oglas vozila</h2>
           {saveError && <div className="alert alert-error">{saveError}</div>}
           <form onSubmit={handleEditSubmit}>
             <div className="form-row">
               <div className="form-group">
-                <label>Current Location *</label>
+                <label>Trenutna lokacija *</label>
                 <CityAutocomplete
                   value={editOriginCity}
                   onChange={setEditOriginCity}
-                  placeholder="Type to search…"
+                  placeholder="Upišite naziv grada…"
                 />
               </div>
               <div className="form-group">
-                <label>Available From *</label>
+                <label>Dostupno od *</label>
                 <input
                   type="date"
                   name="availableFromDate"
@@ -209,48 +216,48 @@ export default function VehicleDetailPage() {
 
             <div className="form-row">
               <div className="form-group">
-                <label>Vehicle Type *</label>
+                <label>Vrsta vozila *</label>
                 <select name="vehicleType" value={editForm.vehicleType} onChange={handleEditChange} required>
-                  <option value="">-- Select vehicle type --</option>
+                  <option value="">-- Odaberite vrstu vozila --</option>
                   {VEHICLE_TYPES.map((t) => (
-                    <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
+                    <option key={t.value} value={t.value}>{t.label}</option>
                   ))}
                 </select>
               </div>
               <div className="form-group">
-                <label>Capacity (tonnes)</label>
+                <label>Kapacitet (t)</label>
                 <input
                   type="number"
                   step="0.1"
                   name="capacity"
                   value={editForm.capacity}
                   onChange={handleEditChange}
-                  placeholder="e.g. 20"
+                  placeholder="npr. 20"
                 />
               </div>
             </div>
 
             <div className="form-row">
               <div className="form-group">
-                <label>Destination Preference</label>
+                <label>Željeno odredište</label>
                 <CityAutocomplete
                   value={editDestCity}
                   onChange={setEditDestCity}
-                  placeholder="Optional"
+                  placeholder="Neobavezno"
                 />
               </div>
               <div className="form-group" style={{ maxWidth: '160px' }}>
                 <label>Status</label>
                 <select name="status" value={editForm.status} onChange={handleEditChange}>
                   {STATUSES.map((s) => (
-                    <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                    <option key={s.value} value={s.value}>{s.label}</option>
                   ))}
                 </select>
               </div>
             </div>
 
             <div className="form-group">
-              <label>Additional Notes</label>
+              <label>Napomene</label>
               <textarea
                 name="note"
                 value={editForm.note}
@@ -261,10 +268,10 @@ export default function VehicleDetailPage() {
 
             <div className="form-actions">
               <button type="button" className="btn-secondary" onClick={() => setIsEditing(false)}>
-                Cancel
+                Odustani
               </button>
               <button type="submit" className="btn-primary" disabled={saveLoading}>
-                {saveLoading ? 'Saving...' : 'Save Changes'}
+                {saveLoading ? 'Spremanje...' : 'Spremi promjene'}
               </button>
             </div>
           </form>
@@ -272,17 +279,17 @@ export default function VehicleDetailPage() {
       ) : (
         <div className="detail-layout">
           <div className="detail-card">
-            <h2>Vehicle Information</h2>
+            <h2>Podaci o vozilu</h2>
             <div className="detail-grid">
-              <div><span className="label">Vehicle Type</span><p>{post.vehicleType}</p></div>
-              <div><span className="label">Available Location</span><p>{originLabel(post)}</p></div>
-              <div><span className="label">Available From</span><p>{post.availableFromDate}</p></div>
-              <div><span className="label">Capacity</span><p>{post.capacity ? `${post.capacity} t` : '—'}</p></div>
-              <div><span className="label">Destination Preference</span><p>{destLabel(post)}</p></div>
+              <div><span className="label">Vrsta vozila</span><p>{vehicleTypeLabel(post.vehicleType)}</p></div>
+              <div><span className="label">Trenutna lokacija</span><p>{originLabel(post)}</p></div>
+              <div><span className="label">Dostupno od</span><p>{post.availableFromDate}</p></div>
+              <div><span className="label">Kapacitet</span><p>{post.capacity ? `${post.capacity} t` : '—'}</p></div>
+              <div><span className="label">Željeno odredište</span><p>{destLabel(post)}</p></div>
             </div>
             {post.note && (
               <div className="detail-note">
-                <span className="label">Notes</span>
+                <span className="label">Napomene</span>
                 <p>{post.note}</p>
               </div>
             )}
@@ -290,41 +297,31 @@ export default function VehicleDetailPage() {
 
           {post.company && (
             <div className="detail-card">
-              <h2>Contact / Company</h2>
+              <h2>Kontakt / Tvrtka</h2>
               <div className="detail-grid">
-                <div><span className="label">Company</span><p>{post.company.companyName}</p></div>
-                <div><span className="label">Type</span><p>{post.company.companyType}</p></div>
-                <div><span className="label">Location</span><p>{post.company.city}, {post.company.country}</p></div>
-                {post.company.phone && <div><span className="label">Phone</span><p>{post.company.phone}</p></div>}
-                {post.company.email && <div><span className="label">Email</span><p>{post.company.email}</p></div>}
+                <div><span className="label">Tvrtka</span><p>{post.company.companyName}</p></div>
+                <div><span className="label">Vrsta</span><p>{post.company.companyType}</p></div>
+                <div><span className="label">Lokacija</span><p>{post.company.city}, {post.company.country}</p></div>
+                {post.company.phone && <div><span className="label">Telefon</span><p>{post.company.phone}</p></div>}
+                {post.company.email && <div><span className="label">E-mail</span><p>{post.company.email}</p></div>}
               </div>
             </div>
           )}
 
           {post.routeCities && post.routeCities.length > 0 && (
             <div className="detail-card">
-              <h2>Route Cities</h2>
-              <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
-                Cities within 15 km of this vehicle's route, in order
+              <h2>Gradovi na ruti</h2>
+              <p className="route-cities-hint">
+                Gradovi unutar 15 km od rute ovog vozila, prema redoslijedu
               </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <div className="route-city-chips">
                 {post.routeCities.map((rc: VehiclePostRouteCity, i: number) => (
                   <span
                     key={rc.id}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      padding: '4px 10px',
-                      background: i === 0 || i === post.routeCities!.length - 1 ? '#dbeafe' : '#f3f4f6',
-                      border: `1px solid ${i === 0 || i === post.routeCities!.length - 1 ? '#93c5fd' : '#e5e7eb'}`,
-                      borderRadius: 20,
-                      fontSize: 13,
-                      fontWeight: i === 0 || i === post.routeCities!.length - 1 ? 600 : 400,
-                    }}
+                    className={`route-city-chip${i === 0 || i === post.routeCities!.length - 1 ? ' endpoint' : ''}`}
                   >
                     {rc.city?.name ?? '…'}
-                    <span style={{ color: '#9ca3af', fontSize: 11 }}>{rc.city?.country}</span>
+                    <span className="route-city-chip-country">{rc.city?.country}</span>
                   </span>
                 ))}
               </div>
@@ -332,7 +329,7 @@ export default function VehicleDetailPage() {
           )}
 
           <div className="detail-card">
-            <h2>Route Map</h2>
+            <h2>Karta rute</h2>
             {post.routeGeoJson && post.routeGeoJson.length >= 2 ? (
               <RouteMap
                 coordinates={post.routeGeoJson}
@@ -341,9 +338,9 @@ export default function VehicleDetailPage() {
               />
             ) : (
               <div className="route-map-unavailable">
-                Route map is not available for this post.
+                Karta rute nije dostupna za ovaj oglas.
                 {!post.destinationCity && (
-                  <span> Set a destination city to enable route mapping.</span>
+                  <span> Postavite odredišni grad kako biste omogućili prikaz rute.</span>
                 )}
               </div>
             )}

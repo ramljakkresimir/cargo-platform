@@ -4,11 +4,11 @@ import { Company } from '../types';
 import { extractErrorMessage } from '../utils/errorUtils';
 
 const COMPANY_TYPES = [
-  { value: 'transport', label: 'Transport Company' },
-  { value: 'freight_forwarder', label: 'Freight Forwarder' },
-  { value: 'manufacturer', label: 'Manufacturer' },
-  { value: 'trader', label: 'Trader' },
-  { value: 'other', label: 'Other' },
+  { value: 'transport', label: 'Prijevoznička tvrtka' },
+  { value: 'freight_forwarder', label: 'Špediter' },
+  { value: 'manufacturer', label: 'Proizvođač' },
+  { value: 'trader', label: 'Trgovac' },
+  { value: 'other', label: 'Ostalo' },
 ];
 
 export default function CompanyProfilePage() {
@@ -22,7 +22,7 @@ export default function CompanyProfilePage() {
   const [form, setForm] = useState({
     companyName: '',
     companyType: 'transport',
-    country: 'Bosnia and Herzegovina',
+    country: 'Bosna i Hercegovina',
     city: '',
     address: '',
     taxNumber: '',
@@ -53,7 +53,7 @@ export default function CompanyProfilePage() {
     } catch (err: any) {
       // 404 means no company yet — that's expected for new users
       if (err.response?.status !== 404) {
-        setError('Failed to load company profile.');
+        setError('Učitavanje profila tvrtke nije uspjelo.');
       }
     } finally {
       setLoading(false);
@@ -77,29 +77,34 @@ export default function CompanyProfilePage() {
         const res = await companiesService.updateMyCompany(form);
         setCompany(res.data);
         setIsEditing(false);
-        setSuccess('Company profile updated successfully.');
+        setSuccess('Profil tvrtke je uspješno ažuriran.');
       } else {
         const res = await companiesService.createCompany(form);
         setCompany(res.data);
         setIsEditing(false);
-        setSuccess('Company profile created successfully.');
+        setSuccess('Profil tvrtke je uspješno kreiran.');
       }
     } catch (err) {
-      setError(extractErrorMessage(err, 'Failed to save company profile.'));
+      setError(extractErrorMessage(err, 'Spremanje profila tvrtke nije uspjelo.'));
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <div className="page-container"><p>Loading...</p></div>;
+  if (loading) return <div className="page-container"><p className="loading">Učitavanje...</p></div>;
 
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Company Profile</h1>
+        <div>
+          <h1>Profil tvrtke</h1>
+          {!company && !isEditing && (
+            <p className="page-subtitle">Napravite profil tvrtke kako biste mogli objavljivati oglase.</p>
+          )}
+        </div>
         {company && !isEditing && (
           <button className="btn-secondary" onClick={() => setIsEditing(true)}>
-            Edit Profile
+            Uredi profil
           </button>
         )}
       </div>
@@ -111,17 +116,17 @@ export default function CompanyProfilePage() {
       {company && !isEditing && (
         <div className="detail-card">
           <div className="detail-grid">
-            <div><span className="label">Company Name</span><p>{company.companyName}</p></div>
-            <div><span className="label">Type</span><p>{company.companyType}</p></div>
-            <div><span className="label">Country</span><p>{company.country}</p></div>
-            <div><span className="label">City</span><p>{company.city}</p></div>
-            {company.address && <div><span className="label">Address</span><p>{company.address}</p></div>}
-            {company.taxNumber && <div><span className="label">Tax Number</span><p>{company.taxNumber}</p></div>}
-            {company.phone && <div><span className="label">Phone</span><p>{company.phone}</p></div>}
-            {company.email && <div><span className="label">Email</span><p>{company.email}</p></div>}
+            <div><span className="label">Naziv tvrtke</span><p>{company.companyName}</p></div>
+            <div><span className="label">Vrsta</span><p>{company.companyType}</p></div>
+            <div><span className="label">Država</span><p>{company.country}</p></div>
+            <div><span className="label">Grad</span><p>{company.city}</p></div>
+            {company.address && <div><span className="label">Adresa</span><p>{company.address}</p></div>}
+            {company.taxNumber && <div><span className="label">ID broj</span><p>{company.taxNumber}</p></div>}
+            {company.phone && <div><span className="label">Telefon</span><p>{company.phone}</p></div>}
+            {company.email && <div><span className="label">E-mail</span><p>{company.email}</p></div>}
             {company.description && (
               <div className="full-width">
-                <span className="label">Description</span>
+                <span className="label">Opis</span>
                 <p>{company.description}</p>
               </div>
             )}
@@ -132,15 +137,15 @@ export default function CompanyProfilePage() {
       {/* Create/Edit form */}
       {(!company || isEditing) && (
         <div className="form-card">
-          <h2>{company ? 'Edit Company Profile' : 'Create Company Profile'}</h2>
+          <h2>{company ? 'Uredi profil tvrtke' : 'Kreiraj profil tvrtke'}</h2>
           <form onSubmit={handleSubmit}>
             <div className="form-row">
               <div className="form-group">
-                <label>Company Name *</label>
+                <label>Naziv tvrtke *</label>
                 <input name="companyName" value={form.companyName} onChange={handleChange} required />
               </div>
               <div className="form-group">
-                <label>Company Type *</label>
+                <label>Vrsta tvrtke *</label>
                 <select name="companyType" value={form.companyType} onChange={handleChange} required>
                   {COMPANY_TYPES.map((t) => (
                     <option key={t.value} value={t.value}>{t.label}</option>
@@ -151,56 +156,56 @@ export default function CompanyProfilePage() {
 
             <div className="form-row">
               <div className="form-group">
-                <label>Country *</label>
+                <label>Država *</label>
                 <input name="country" value={form.country} onChange={handleChange} required />
               </div>
               <div className="form-group">
-                <label>City *</label>
+                <label>Grad *</label>
                 <input name="city" value={form.city} onChange={handleChange} required />
               </div>
             </div>
 
             <div className="form-row">
               <div className="form-group">
-                <label>Address</label>
+                <label>Adresa</label>
                 <input name="address" value={form.address} onChange={handleChange} />
               </div>
               <div className="form-group">
-                <label>Tax Number (ID broj)</label>
+                <label>ID broj</label>
                 <input name="taxNumber" value={form.taxNumber} onChange={handleChange} />
               </div>
             </div>
 
             <div className="form-row">
               <div className="form-group">
-                <label>Phone</label>
+                <label>Telefon</label>
                 <input name="phone" value={form.phone} onChange={handleChange} />
               </div>
               <div className="form-group">
-                <label>Business Email</label>
+                <label>Poslovni e-mail</label>
                 <input type="email" name="email" value={form.email} onChange={handleChange} />
               </div>
             </div>
 
             <div className="form-group">
-              <label>Description</label>
+              <label>Opis</label>
               <textarea
                 name="description"
                 value={form.description}
                 onChange={handleChange}
                 rows={3}
-                placeholder="Brief description of your business..."
+                placeholder="Kratak opis vaše djelatnosti..."
               />
             </div>
 
             <div className="form-actions">
               {isEditing && (
                 <button type="button" className="btn-secondary" onClick={() => setIsEditing(false)}>
-                  Cancel
+                  Odustani
                 </button>
               )}
               <button type="submit" className="btn-primary" disabled={saving}>
-                {saving ? 'Saving...' : company ? 'Save Changes' : 'Create Profile'}
+                {saving ? 'Spremanje...' : company ? 'Spremi promjene' : 'Kreiraj profil'}
               </button>
             </div>
           </form>

@@ -1,9 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 
+import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
@@ -29,6 +30,7 @@ export default function App() {
         <main>
           <Routes>
             {/* Public routes */}
+            <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/cargo" element={<CargoListPage />} />
@@ -69,9 +71,6 @@ export default function App() {
             <Route path="/admin/vehicle-posts" element={
               <AdminRoute><AdminVehiclePostsPage /></AdminRoute>
             } />
-
-            {/* Default redirect */}
-            <Route path="/" element={<Navigate to="/cargo" replace />} />
           </Routes>
         </main>
       </BrowserRouter>

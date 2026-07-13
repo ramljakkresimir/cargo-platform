@@ -12,7 +12,7 @@ export default function ProtectedRoute({ children }: Props) {
 
   // While we're reading the token from localStorage, show nothing to avoid flash
   if (isLoading) {
-    return <div className="loading">Loading...</div>;
+    return <div className="loading">Učitavanje...</div>;
   }
 
   if (!token) {

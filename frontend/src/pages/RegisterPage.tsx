@@ -29,7 +29,7 @@ export default function RegisterPage() {
       await authService.register(form);
       navigate('/login');
     } catch (err) {
-      setError(extractErrorMessage(err, 'Registration failed. Please try again.'));
+      setError(extractErrorMessage(err, 'Registracija nije uspjela. Pokušajte ponovo.'));
     } finally {
       setLoading(false);
     }
@@ -38,15 +38,15 @@ export default function RegisterPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1>Create Account</h1>
-        <p className="auth-subtitle">Join CargoConnect BiH</p>
+        <h1>Otvorite račun</h1>
+        <p className="auth-subtitle">Pridružite se CargoConnectu</p>
 
         {error && <div className="alert alert-error">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-row">
             <div className="form-group">
-              <label>First Name</label>
+              <label>Ime</label>
               <input
                 name="firstName"
                 value={form.firstName}
@@ -56,7 +56,7 @@ export default function RegisterPage() {
               />
             </div>
             <div className="form-group">
-              <label>Last Name</label>
+              <label>Prezime</label>
               <input
                 name="lastName"
                 value={form.lastName}
@@ -68,19 +68,19 @@ export default function RegisterPage() {
           </div>
 
           <div className="form-group">
-            <label>Email</label>
+            <label>E-mail</label>
             <input
               type="email"
               name="email"
               value={form.email}
               onChange={handleChange}
-              placeholder="your@email.com"
+              placeholder="vas@email.com"
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Password <span className="hint">(min. 6 characters)</span></label>
+            <label>Lozinka <span className="hint">(min. 6 znakova)</span></label>
             <input
               type="password"
               name="password"
@@ -92,7 +92,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="form-group">
-            <label>Phone <span className="hint">(optional)</span></label>
+            <label>Telefon <span className="hint">(neobavezno)</span></label>
             <input
               name="phone"
               value={form.phone}
@@ -101,13 +101,13 @@ export default function RegisterPage() {
             />
           </div>
 
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Creating account...' : 'Create Account'}
+          <button type="submit" className="btn-primary" style={{ width: '100%' }} disabled={loading}>
+            {loading ? 'Otvaranje računa...' : 'Otvori račun'}
           </button>
         </form>
 
         <p className="auth-footer">
-          Already have an account? <Link to="/login">Sign in</Link>
+          Već imate račun? <Link to="/login">Prijavite se</Link>
         </p>
       </div>
     </div>

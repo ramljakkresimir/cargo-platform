@@ -72,8 +72,9 @@ cargo-platform/
     └── src/
         ├── context/          AuthContext (JWT + user state)
         ├── services/         Axios API clients per resource (+ admin.service)
-        ├── components/       Navbar, ProtectedRoute, AdminRoute, CityAutocomplete
-        ├── pages/            12 regular pages + 4 admin pages
+        ├── components/       Navbar (+ NavDropdown), ProtectedRoute, AdminRoute, CityAutocomplete, Icons, StatusBadge, EmptyState, RouteMap
+        ├── constants/        postTypes.ts — shared Croatian cargo/vehicle type label maps
+        ├── pages/            HomePage + 12 regular pages + 4 admin pages
         │   └── admin/        AdminDashboardPage, AdminUsersPage, AdminCargoPostsPage, AdminVehiclePostsPage
         ├── services/         Axios API clients (+ cities.service.ts added)
         ├── utils/            errorUtils.ts — extractErrorMessage / extractFieldErrors helpers
@@ -283,6 +284,7 @@ All `/admin/*` endpoints require `Authorization: Bearer <token>` where the token
 
 | Route                  | Component              | Auth?  | Description             |
 |------------------------|------------------------|--------|-------------------------|
+| /                      | HomePage               | No     | Landing page — dual-path hero ("Trebam prijevoz" / "Imam vozilo") + 3-step explainer *(Session 17, was a redirect to /cargo)* |
 | /login                 | LoginPage              | No     | Sign-in form            |
 | /register              | RegisterPage           | No     | Registration form       |
 | /cargo                 | CargoListPage          | No     | Browse + filter cargo   |
@@ -302,7 +304,7 @@ All `/admin/*` endpoints require `Authorization: Bearer <token>` where the token
 
 **Admin routes** are wrapped in `<AdminRoute>` which:
 - Redirects to `/login` if not authenticated
-- Shows an "Access Denied" message if authenticated but not admin (role ≠ "admin")
+- Shows a "Pristup odbijen" (Access Denied) message if authenticated but not admin (role ≠ "admin")
 - Renders the page if authenticated admin
 
 ---
@@ -1060,6 +1062,71 @@ Confirmed directly against Postgres before the fix: 2 cargo posts and 4 vehicle 
 
 ---
 
+### Session 17 — 2026-07-13
+
+#### Feature: Full frontend visual redesign + Croatian localization
+
+Redesign scope was driven by a design handoff (`CargoConnect Redesign.dc.html` + `README.md`, delivered outside the repo) plus explicit product instructions layered on top. The prototype set the visual language (colors, spacing, card patterns); the task instructions set exact interaction requirements and Croatian copy that took precedence where the two disagreed. No backend files were touched this session.
+
+**Design direction:** calm, BlaBlaCar-clean, non-technical-user-friendly. Solid backgrounds, 1–1.5px borders instead of shadows-at-rest, one blue primary accent ("transport" actions) + one teal secondary accent ("cargo" actions), restrained radii (8/9/14/16px), no glassmorphism/gradients/glow. All tokens are CSS variables in `frontend/src/index.css` (`--color-*`, `--radius-*`, `--shadow-*`, `--space-*`) so the whole app reads as one system.
+
+**New home page (`/`):**
+- [x] `frontend/src/pages/HomePage.tsx` replaces the old `<Navigate to="/cargo" />` redirect
+- [x] Hero headline "Pronađite prijevoz ili teret na svojoj ruti" + two large CTA cards: "Trebam prijevoz" (blue, → `/vehicles`) and "Imam vozilo" (teal, → `/cargo`)
+- [x] 3-step explainer ("Odaberite što tražite" → "Unesite polazište i odredište" → "Kontaktirajte odgovarajuću tvrtku") and a 3-column trust section (verified companies / direct contact / real routes)
+- [x] Deliberately skipped the optional "recent cargo/vehicles preview" — spec marked it optional and the page is meant to stay short; can be added later without touching anything else
+
+**Navigation — `frontend/src/components/Navbar.tsx` (full rewrite):**
+- [x] Collapsed to exactly 4 top-level items: Početna, Pretraga, Objavi, Nadzorna ploča — direct "Cargo"/"Vehicles" links removed
+- [x] **Pretraga and Objavi are accessible dropdown menus, not routed pages** (this overrides the design README's `/search`/`/post` "chooser screen" suggestion — the task's explicit interaction spec is more specific and wins): opens on click, closes on Escape (returns focus to the trigger), closes on outside click, closes when an item is clicked before navigating, basic arrow-key movement between items via `frontend/src/components/NavDropdown.tsx`
+- [x] Pretraga → Tražim prijevoz (`/vehicles`) / Tražim teret (`/cargo`); Objavi → Objavi teret (`/cargo/new`) / Objavi slobodno vozilo (`/vehicles/new`) — both post routes still go through the existing `<ProtectedRoute>`, so a logged-out click redirects to `/login` exactly as before
+- [x] Logged-out state: "Prijava" text link + "Registracija" primary button. Logged-in: avatar-initials dropdown (same `NavDropdown`) with Moje objave / Profil tvrtke / Profil / Administracija (admin only) / Odjava
+- [x] Mobile (≤860px): hamburger toggle opens a full-width drawer; Pretraga/Objavi expand inline as a sub-list instead of a floating panel (per spec); drawer closes on route change and on Escape
+- [x] Active-state highlighting via `useLocation()`: Pretraga is active on `/vehicles`/`/cargo`, Objavi on `/cargo/new`/`/vehicles/new`
+
+**New reusable components (`frontend/src/components/`):**
+- [x] `Icons.tsx` — hand-written inline-SVG icon set (Home, Search, Plus, Grid, Truck, Package, ChevronDown, Menu, X, ArrowRight), 2.5px stroke, no fills — matches the prototype's icon style, no icon library dependency added
+- [x] `StatusBadge.tsx` — maps `active`/`closed`/`expired` → Croatian labels (Aktivno/Zatvoreno/Isteklo) over the existing `.status-badge` CSS classes
+- [x] `EmptyState.tsx` — reusable dashed-border empty-result box with optional action slot
+- [x] `NavDropdown.tsx` — the accessible dropdown described above, reused for Pretraga, Objavi, and the logged-in user menu
+- [x] `frontend/src/constants/postTypes.ts` — shared Croatian label maps for cargo/vehicle type enums (`CARGO_TYPES`, `VEHICLE_TYPES`, `cargoTypeLabel()`, `vehicleTypeLabel()`), reused across list pages, create forms, detail pages, and admin tables instead of duplicating the same translation array six times
+
+**Pages redesigned (presentation + copy only — no service/API/validation logic changed):**
+- [x] `CargoListPage.tsx` / `VehicleListPage.tsx` — dense `<table>` replaced with stacked result cards (icon badge, "From → To" route, date/company subline, type chip, weight/capacity/price, "Pregled" button); route-aware "Matches route" indicator translated to "Odgovara traženoj ruti"; filters restyled into a card-based filter bar with Croatian labels; city fields still use `CityAutocomplete` unchanged
+- [x] `CargoDetailPage.tsx` / `VehicleDetailPage.tsx` — Croatian copy throughout, `StatusBadge` component, Delete restyled as a subdued outlined button so it doesn't visually compete with Edit/Close; `RouteMap` and route-city chips unchanged functionally
+- [x] `CreateCargoPostPage.tsx` / `CreateVehiclePostPage.tsx` — Croatian labels/placeholders, grouped into "Ruta"/"Detalji tereta" sections, exact same validation (past-date rejection, required city selection) preserved byte-for-byte
+- [x] `LoginPage.tsx`, `RegisterPage.tsx`, `ProfilePage.tsx`, `CompanyProfilePage.tsx` — restyled to the new form tokens, translated, same handlers/validation
+- [x] `DashboardPage.tsx` — simplified to the spec's 4 action cards (Objavi teret / Objavi slobodno vozilo / Pretraži prijevoz / Pretraži teret) plus a secondary row of links to Moje objave / Profil tvrtke / Profil (kept reachable per spec, just de-emphasized)
+- [x] `MyPostsPage.tsx` — tables replaced with the same card pattern as the public list pages; two sections (Moji tereti / Moja vozila); View/Edit/Close/Delete and the `startEditing` deep-link into the detail page's edit form are unchanged
+- [x] All 4 Admin pages — reskinned to the same tokens, kept `.data-table`/`.table-wrapper` (data-dense is allowed there per spec) since admins need to scan many rows; every safety rule preserved as-is: self-delete/self-demote guards, last-admin guard, pagination, search, status change, deletion confirmation dialogs; post-status columns now use the shared `StatusBadge` so `expired` reads as "Isteklo" (this was the whole point of the Session 16 backend fix — the admin UI now visibly reflects it)
+
+**Localization:** the user explicitly chose full Croatian across the entire app, including Admin (over a "public-only" or "nav-only" option), for a consistent experience. `ProtectedRoute`/`AdminRoute` loading and "Pristup odbijen" (Access Denied) copy translated too.
+
+**Dependencies:** none added or removed. `leaflet`/`react-leaflet` (already installed for the route map) are unchanged. Icons are hand-rolled SVG, not a library.
+
+**Verification performed:**
+- `npm run build` (tsc + vite build) — 0 TypeScript errors
+- `npm run lint` — confirmed via `git stash` that the project's ESLint config was **already failing with 32 errors on master before this session** (pre-existing `no-use-before-define`-style hook-order errors and `no-explicit-any` in files this redesign didn't touch, e.g. `errorUtils.ts`, `cargoPosts.service.ts`). Not a regression from this work — the project's actual gate has always been `tsc`/`vite build`, not `eslint`.
+- Installed Playwright ad hoc (`npx playwright install chromium`, not added to `package.json`) and drove the running dev app headlessly end-to-end:
+  - Home → "Trebam prijevoz" → `/vehicles`; Home → "Imam vozilo" → `/cargo` ✓
+  - Navbar Pretraga → Tražim prijevoz/teret, dropdown closes after navigation ✓
+  - Navbar Objavi → Objavi teret while logged out → redirected to `/login` (ProtectedRoute intact) ✓
+  - Escape key and outside-click both close an open dropdown ✓
+  - Mobile (375px): hamburger opens/closes the drawer, Pretraga expands inline, navigating closes the drawer ✓
+  - `/cargo` and `/vehicles` confirmed to render zero `<table>` elements (card layout in effect)
+  - Registered + logged in a test user, verified Dashboard, the logged-in user dropdown menu, and the "Objavi teret" create form render correctly with no console errors
+  - Promoted the test user to admin via SQL (same pattern as Session 16), verified `/admin` and `/admin/users` render correctly with role badges, guarded action buttons, and the new design tokens
+  - Zero browser console/page errors across the entire flow
+- Found and fixed two real bugs during this verification pass (not caught by `tsc`/build):
+  1. Dropdown menu item title/description were rendering on one run-together line — `<span>` is inline by default; added `.nav-dropdown-item-text`/`-title`/`-desc` as `display: block`
+  2. On mobile, "CargoConnect" and "Prijava" visually collided because the login text link had nowhere to go once the center nav hid behind the hamburger — hid `.navbar-login-link` under the same `≤860px` media query (it's still reachable inside the mobile drawer)
+
+**Files changed:** `index.css` (full rewrite), `App.tsx`, `Navbar.tsx`, `AdminRoute.tsx`/`ProtectedRoute.tsx` (copy only), all list/detail/form/dashboard/my-posts/admin pages listed above. **New:** `HomePage.tsx`, `components/Icons.tsx`, `components/StatusBadge.tsx`, `components/EmptyState.tsx`, `components/NavDropdown.tsx`, `constants/postTypes.ts`. **Untouched:** every file in `services/`, `types/index.ts`, `context/AuthContext.tsx`, `CityAutocomplete.tsx` and `RouteMap.tsx` (CSS-only restyle via shared classes, no prop/logic changes), and the entire `backend/`.
+
+**Known limitation:** `npm run lint` still fails with the pre-existing 32 errors described above — fixing them would mean reordering hook declarations across files this redesign didn't otherwise need to touch (`AdminUsersPage.tsx`, `AdminCargoPostsPage.tsx`, `AdminVehiclePostsPage.tsx`, `VehicleListPage.tsx`, plus a few `services/`/`utils/` files), which was out of scope for a visual redesign task. Flagged here so a future session can decide whether to fix it as its own cleanup.
+
+---
+
 ## TODO / Next Steps
 
 - [x] Mark post as closed from the UI — "Close Post" button on detail pages + inline "Close" in My Posts
@@ -1069,9 +1136,13 @@ Confirmed directly against Postgres before the fix: 2 cargo posts and 4 vehicle 
 - [x] Route matching / corridor search (Phase 2) — ORS driving route + turf projection, route-aware vehicle search
 - [x] Route map visualization (Phase 3) — Leaflet map on VehicleDetailPage with polyline + markers
 - [x] Prevent and hide past-dated posts — create/update validation + public listing date filter
+- [x] Fix post expiration consistency — startup sync in `PostsExpirationService` so the DB self-heals on every backend start, not just at midnight
+- [x] Full frontend visual redesign + Croatian localization — new home page, simplified nav with Pretraga/Objavi dropdown menus, card-based list/detail pages, restyled forms/dashboard/My Posts/Admin
+- [ ] Fix pre-existing `npm run lint` failures (32 errors, confirmed present on master before the Session 17 redesign — hook-declaration-order and `no-explicit-any` issues, mostly in Admin list pages and `utils/errorUtils.ts`)
 - [ ] Email validation / verification on registration
 - [ ] Docker Compose setup for easy local start
 - [ ] Production migrations (TypeORM migration files)
 - [ ] Deploy to a VPS or cloud provider
 - [ ] Admin: ability to view/edit a single user's company profile
 - [ ] Admin: bulk-action on posts (e.g. close all expired)
+- [ ] Optional home page "recent cargo/vehicles" preview — deliberately skipped in Session 17 to keep the landing page short

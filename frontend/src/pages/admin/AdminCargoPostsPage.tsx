@@ -3,9 +3,16 @@ import { Link } from 'react-router-dom';
 import { adminService } from '../../services/admin.service';
 import { CargoPost, PaginatedResult } from '../../types';
 import { extractErrorMessage } from '../../utils/errorUtils';
+import StatusBadge from '../../components/StatusBadge';
+import EmptyState from '../../components/EmptyState';
 
 const LIMIT = 20;
-const STATUSES = ['', 'active', 'closed', 'expired'];
+const STATUSES = [
+  { value: '', label: '— Svi —' },
+  { value: 'active', label: 'Aktivno' },
+  { value: 'closed', label: 'Zatvoreno' },
+  { value: 'expired', label: 'Isteklo' },
+];
 
 export default function AdminCargoPostsPage() {
   const [search, setSearch] = useState('');
@@ -22,6 +29,7 @@ export default function AdminCargoPostsPage() {
 
   useEffect(() => {
     fetchPosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSearch, activeStatus, page]);
 
   const fetchPosts = async () => {
@@ -34,7 +42,7 @@ export default function AdminCargoPostsPage() {
       const res = await adminService.getCargoPosts(params);
       setResult(res.data);
     } catch {
-      setError('Failed to load cargo posts.');
+      setError('Učitavanje oglasa tereta nije uspjelo.');
     } finally {
       setLoading(false);
     }
@@ -60,23 +68,23 @@ export default function AdminCargoPostsPage() {
     setActionSuccess('');
     try {
       await adminService.updateCargoPostStatus(post.id, newStatus);
-      setActionSuccess(`Post status updated to "${newStatus}".`);
+      setActionSuccess('Status oglasa je ažuriran.');
       fetchPosts();
     } catch (err) {
-      setActionError(extractErrorMessage(err, 'Failed to update status.'));
+      setActionError(extractErrorMessage(err, 'Promjena statusa nije uspjela.'));
     }
   };
 
   const handleDelete = async (post: CargoPost) => {
-    if (!window.confirm(`Delete cargo post from ${post.loadingLocation} to ${post.unloadingLocation}?`)) return;
+    if (!window.confirm(`Obrisati oglas tereta ${post.loadingLocation} → ${post.unloadingLocation}?`)) return;
     setActionError('');
     setActionSuccess('');
     try {
       await adminService.deleteCargoPost(post.id);
-      setActionSuccess('Cargo post deleted.');
+      setActionSuccess('Oglas tereta je obrisan.');
       fetchPosts();
     } catch (err) {
-      setActionError(extractErrorMessage(err, 'Failed to delete post.'));
+      setActionError(extractErrorMessage(err, 'Brisanje oglasa nije uspjelo.'));
     }
   };
 
@@ -85,32 +93,32 @@ export default function AdminCargoPostsPage() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Cargo Posts</h1>
+        <h1>Oglasi tereta</h1>
       </div>
 
       <div className="filter-card">
         <form onSubmit={handleSearch}>
           <div className="filter-grid">
             <div className="form-group">
-              <label>Search</label>
+              <label>Pretraga</label>
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Location or company name"
+                placeholder="Lokacija ili naziv tvrtke"
               />
             </div>
             <div className="form-group">
               <label>Status</label>
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 {STATUSES.map((s) => (
-                  <option key={s} value={s}>{s || '— All —'}</option>
+                  <option key={s.value} value={s.value}>{s.label}</option>
                 ))}
               </select>
             </div>
           </div>
           <div className="filter-actions">
-            <button type="submit" className="btn-primary">Search</button>
-            <button type="button" className="btn-secondary" onClick={handleClear}>Clear</button>
+            <button type="submit" className="btn-primary">Pretraži</button>
+            <button type="button" className="btn-secondary" onClick={handleClear}>Poništi filtre</button>
           </div>
         </form>
       </div>
@@ -118,10 +126,10 @@ export default function AdminCargoPostsPage() {
       {actionSuccess && <div className="alert alert-success">{actionSuccess}</div>}
       {actionError && <div className="alert alert-error">{actionError}</div>}
       {error && <div className="alert alert-error">{error}</div>}
-      {loading && <div className="loading">Loading posts...</div>}
+      {loading && <div className="loading">Učitavanje oglasa...</div>}
 
       {!loading && posts.length === 0 && (
-        <div className="empty-state">No cargo posts found.</div>
+        <EmptyState message="Nema pronađenih oglasa tereta." />
       )}
 
       {!loading && posts.length > 0 && (
@@ -130,12 +138,12 @@ export default function AdminCargoPostsPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>From → To</th>
-                  <th>Date</th>
-                  <th>Company</th>
+                  <th>Ruta</th>
+                  <th>Datum</th>
+                  <th>Tvrtka</th>
                   <th>Status</th>
-                  <th>Created</th>
-                  <th>Actions</th>
+                  <th>Objavljeno</th>
+                  <th>Radnje</th>
                 </tr>
               </thead>
               <tbody>
@@ -149,26 +157,26 @@ export default function AdminCargoPostsPage() {
                     <td>{post.loadingDate}</td>
                     <td>{post.company?.companyName || '—'}</td>
                     <td>
-                      <span className={`status-badge status-${post.status}`}>{post.status}</span>
+                      <StatusBadge status={post.status} />
                     </td>
-                    <td>{new Date(post.createdAt).toLocaleDateString()}</td>
+                    <td>{new Date(post.createdAt).toLocaleDateString('hr-HR')}</td>
                     <td>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <select
                           value={post.status}
-                          style={{ padding: '3px 6px', fontSize: 13, borderRadius: 4, border: '1px solid #d1d5db' }}
+                          style={{ padding: '5px 8px', fontSize: 13, borderRadius: 6, border: '1px solid var(--color-border-strong)' }}
                           onChange={(e) => handleStatusChange(post, e.target.value)}
                         >
-                          <option value="active">active</option>
-                          <option value="closed">closed</option>
-                          <option value="expired">expired</option>
+                          <option value="active">Aktivno</option>
+                          <option value="closed">Zatvoreno</option>
+                          <option value="expired">Isteklo</option>
                         </select>
                         <button
                           className="btn-danger"
                           style={{ padding: '4px 10px', fontSize: 13 }}
                           onClick={() => handleDelete(post)}
                         >
-                          Delete
+                          Obriši
                         </button>
                       </div>
                     </td>
@@ -181,13 +189,13 @@ export default function AdminCargoPostsPage() {
           {result && result.totalPages > 1 && (
             <div className="pagination">
               <button onClick={() => setPage((p) => p - 1)} disabled={page <= 1}>
-                ← Previous
+                ← Prethodna
               </button>
               <span className="pagination-info">
-                Page {result.page} of {result.totalPages} &nbsp;·&nbsp; {result.total} posts
+                Stranica {result.page} od {result.totalPages} &nbsp;·&nbsp; {result.total} oglasa
               </span>
               <button onClick={() => setPage((p) => p + 1)} disabled={page >= result.totalPages}>
-                Next →
+                Sljedeća →
               </button>
             </div>
           )}

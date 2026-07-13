@@ -2,8 +2,10 @@ import { useState, useEffect, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { vehiclePostsService } from '../services/vehiclePosts.service';
 import { VehiclePost, PaginatedResult, City } from '../types';
-import { useAuth } from '../context/AuthContext';
 import CityAutocomplete from '../components/CityAutocomplete';
+import EmptyState from '../components/EmptyState';
+import { TruckIcon } from '../components/Icons';
+import { VEHICLE_TYPES, vehicleTypeLabel } from '../constants/postTypes';
 
 const LIMIT = 10;
 
@@ -30,8 +32,6 @@ function destLabel(post: VehiclePost): string {
 }
 
 export default function VehicleListPage() {
-  const { token } = useAuth();
-
   const [originCityFilter, setOriginCityFilter] = useState<City | null>(null);
   const [destCityFilter, setDestCityFilter] = useState<City | null>(null);
   const [dateFilter, setDateFilter] = useState('');
@@ -46,6 +46,7 @@ export default function VehicleListPage() {
 
   useEffect(() => {
     fetchPosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFilters, page]);
 
   const fetchPosts = async () => {
@@ -60,7 +61,7 @@ export default function VehicleListPage() {
       const res = await vehiclePostsService.getAll(params);
       setResult(res.data);
     } catch {
-      setError('Failed to load vehicle posts.');
+      setError('Nije moguće učitati oglase vozila.');
     } finally {
       setLoading(false);
     }
@@ -87,37 +88,41 @@ export default function VehicleListPage() {
   };
 
   const posts = result?.data ?? [];
+  const routeAware = Boolean(activeFilters.originCityId && activeFilters.destinationCityId);
 
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Available Vehicles</h1>
-        {token && (
-          <Link to="/vehicles/new" className="btn-primary">+ Post Vehicle</Link>
-        )}
+        <div>
+          <h1>Dostupna vozila</h1>
+          <p className="page-subtitle">
+            {result ? `${result.total} ${result.total === 1 ? 'vozilo' : 'vozila'} dostupno` : 'Pregledajte dostupna vozila'}
+          </p>
+        </div>
+        <Link to="/vehicles/new" className="btn-primary">+ Objavi vozilo</Link>
       </div>
 
       <div className="filter-card">
         <form onSubmit={handleSearch}>
           <div className="filter-grid">
             <div className="form-group">
-              <label>Origin City</label>
+              <label>Polazište</label>
               <CityAutocomplete
                 value={originCityFilter}
                 onChange={setOriginCityFilter}
-                placeholder="e.g. Banja Luka"
+                placeholder="npr. Banja Luka"
               />
             </div>
             <div className="form-group">
-              <label>Destination City</label>
+              <label>Odredište</label>
               <CityAutocomplete
                 value={destCityFilter}
                 onChange={setDestCityFilter}
-                placeholder="e.g. Split"
+                placeholder="npr. Split"
               />
             </div>
             <div className="form-group">
-              <label>Available From</label>
+              <label>Dostupno od</label>
               <input
                 type="date"
                 value={dateFilter}
@@ -125,99 +130,70 @@ export default function VehicleListPage() {
               />
             </div>
             <div className="form-group">
-              <label>Vehicle Type</label>
-              <input
-                value={vehicleTypeFilter}
-                onChange={(e) => setVehicleTypeFilter(e.target.value)}
-                placeholder="e.g. truck"
-              />
+              <label>Vrsta vozila</label>
+              <select value={vehicleTypeFilter} onChange={(e) => setVehicleTypeFilter(e.target.value)}>
+                <option value="">Sve vrste</option>
+                {VEHICLE_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="filter-actions">
-            <button type="submit" className="btn-primary">Search</button>
-            <button type="button" className="btn-secondary" onClick={handleClear}>Clear</button>
+            <button type="submit" className="btn-primary">Pretraži</button>
+            <button type="button" className="btn-secondary" onClick={handleClear}>Poništi filtre</button>
           </div>
         </form>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
-      {loading && <div className="loading">Loading posts...</div>}
+      {loading && <div className="loading">Učitavanje...</div>}
 
       {!loading && posts.length === 0 && (
-        <div className="empty-state">No vehicle posts found. Try adjusting your filters.</div>
+        <EmptyState message="Nema vozila koje odgovara odabranim filtrima. Pokušajte proširiti pretragu." />
       )}
 
       {!loading && posts.length > 0 && (
         <>
-          {activeFilters.originCityId && activeFilters.destinationCityId && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              marginBottom: 12, padding: '8px 12px',
-              background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 8,
-              fontSize: 13, color: '#065f46',
-            }}>
-              <span>✓</span>
-              <strong>Route-aware search active</strong>
-              — showing vehicles whose routes pass through both selected cities in order
+          {routeAware && (
+            <div className="route-match-banner">
+              <strong>Pretraga po ruti</strong> — prikazana su vozila čija ruta prolazi kroz oba odabrana grada, tim redoslijedom.
             </div>
           )}
-          <div className="table-wrapper">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Location</th>
-                  <th>Available From</th>
-                  <th>Vehicle Type</th>
-                  <th>Capacity (t)</th>
-                  <th>Destination</th>
-                  <th>Company</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {posts.map((post) => (
-                  <tr key={post.id}>
-                    <td>
-                      {originLabel(post)}
-                      {activeFilters.originCityId && activeFilters.destinationCityId && (
-                        <span style={{
-                          marginLeft: 8,
-                          padding: '2px 7px',
-                          background: '#d1fae5',
-                          color: '#065f46',
-                          borderRadius: 12,
-                          fontSize: 11,
-                          fontWeight: 600,
-                          verticalAlign: 'middle',
-                        }}>
-                          Matches route
-                        </span>
-                      )}
-                    </td>
-                    <td>{post.availableFromDate}</td>
-                    <td>{post.vehicleType}</td>
-                    <td>{post.capacity || '—'}</td>
-                    <td>{destLabel(post)}</td>
-                    <td>{post.company?.companyName || '—'}</td>
-                    <td>
-                      <Link to={`/vehicles/${post.id}`} className="table-link">View</Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="result-list">
+            {posts.map((post) => (
+              <div className="result-card" key={post.id}>
+                <div className="result-card-left">
+                  <span className="result-card-icon blue"><TruckIcon size={20} /></span>
+                  <div>
+                    <div className="result-card-route">
+                      {originLabel(post)} <span className="arrow">→</span> {destLabel(post)}
+                      {routeAware && <span className="chip-match" style={{ marginLeft: 10 }}>Odgovara traženoj ruti</span>}
+                    </div>
+                    <div className="result-card-subline">
+                      Dostupno od {post.availableFromDate} · {post.company?.companyName || '—'}
+                    </div>
+                  </div>
+                </div>
+                <div className="result-card-right">
+                  <span className="chip">{vehicleTypeLabel(post.vehicleType)}</span>
+                  <span className="result-card-meta-text">{post.capacity ? `${post.capacity} t kapacitet` : '—'}</span>
+                  <Link to={`/vehicles/${post.id}`} className="btn-secondary">Pregled</Link>
+                </div>
+              </div>
+            ))}
           </div>
 
           {result && result.totalPages > 1 && (
             <div className="pagination">
               <button onClick={() => setPage((p) => p - 1)} disabled={page <= 1}>
-                ← Previous
+                ← Prethodna
               </button>
               <span className="pagination-info">
-                Page {result.page} of {result.totalPages} &nbsp;·&nbsp; {result.total} results
+                Stranica {result.page} od {result.totalPages} &nbsp;·&nbsp; {result.total} rezultata
               </span>
               <button onClick={() => setPage((p) => p + 1)} disabled={page >= result.totalPages}>
-                Next →
+                Sljedeća →
               </button>
             </div>
           )}

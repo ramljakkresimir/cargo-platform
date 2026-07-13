@@ -3,6 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { cargoPostsService } from '../services/cargoPosts.service';
 import { vehiclePostsService } from '../services/vehiclePosts.service';
 import { CargoPost, VehiclePost } from '../types';
+import StatusBadge from '../components/StatusBadge';
+import EmptyState from '../components/EmptyState';
+import { vehicleTypeLabel } from '../constants/postTypes';
 
 export default function MyPostsPage() {
   const navigate = useNavigate();
@@ -27,7 +30,7 @@ export default function MyPostsPage() {
       if (err.response?.status === 404) {
         setCargoPosts([]);
       } else {
-        setCargoError('Failed to load cargo posts.');
+        setCargoError('Učitavanje oglasa tereta nije uspjelo.');
       }
     } finally {
       setCargoLoading(false);
@@ -42,7 +45,7 @@ export default function MyPostsPage() {
       if (err.response?.status === 404) {
         setVehiclePosts([]);
       } else {
-        setVehicleError('Failed to load vehicle posts.');
+        setVehicleError('Učitavanje oglasa vozila nije uspjelo.');
       }
     } finally {
       setVehicleLoading(false);
@@ -50,209 +53,173 @@ export default function MyPostsPage() {
   };
 
   const handleCloseCargo = async (id: string) => {
-    if (!confirm('Close this cargo post? It will no longer appear in public listings.')) return;
+    if (!confirm('Zatvoriti ovaj oglas tereta? Više se neće prikazivati u javnoj pretrazi.')) return;
     try {
       const res = await cargoPostsService.update(id, { status: 'closed' });
       setCargoPosts((prev) => prev.map((p) => (p.id === id ? res.data : p)));
     } catch {
-      setCargoError('Failed to close cargo post.');
+      setCargoError('Zatvaranje oglasa tereta nije uspjelo.');
     }
   };
 
   const handleDeleteCargo = async (id: string) => {
-    if (!confirm('Delete this cargo post?')) return;
+    if (!confirm('Obrisati ovaj oglas tereta?')) return;
     try {
       await cargoPostsService.remove(id);
       setCargoPosts((prev) => prev.filter((p) => p.id !== id));
     } catch {
-      setCargoError('Failed to delete cargo post.');
+      setCargoError('Brisanje oglasa tereta nije uspjelo.');
     }
   };
 
   const handleCloseVehicle = async (id: string) => {
-    if (!confirm('Close this vehicle post? It will no longer appear in public listings.')) return;
+    if (!confirm('Zatvoriti ovaj oglas vozila? Više se neće prikazivati u javnoj pretrazi.')) return;
     try {
       const res = await vehiclePostsService.update(id, { status: 'closed' });
       setVehiclePosts((prev) => prev.map((p) => (p.id === id ? res.data : p)));
     } catch {
-      setVehicleError('Failed to close vehicle post.');
+      setVehicleError('Zatvaranje oglasa vozila nije uspjelo.');
     }
   };
 
   const handleDeleteVehicle = async (id: string) => {
-    if (!confirm('Delete this vehicle post?')) return;
+    if (!confirm('Obrisati ovaj oglas vozila?')) return;
     try {
       await vehiclePostsService.remove(id);
       setVehiclePosts((prev) => prev.filter((p) => p.id !== id));
     } catch {
-      setVehicleError('Failed to delete vehicle post.');
+      setVehicleError('Brisanje oglasa vozila nije uspjelo.');
     }
   };
 
   const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    new Date(dateStr).toLocaleDateString('hr-HR', { day: '2-digit', month: 'short', year: 'numeric' });
 
   return (
     <div className="page-container">
       <div className="page-header">
         <div>
-          <h1>My Posts</h1>
-          <p style={{ color: '#6b7280', marginTop: 4, fontSize: 14 }}>
-            All cargo and vehicle posts you have published
-          </p>
+          <h1>Moje objave</h1>
+          <p className="page-subtitle">Svi oglasi tereta i vozila koje ste objavili</p>
         </div>
         <div className="action-buttons">
-          <Link to="/cargo/new" className="btn-secondary">+ Post Cargo</Link>
-          <Link to="/vehicles/new" className="btn-primary">+ Post Vehicle</Link>
+          <Link to="/cargo/new" className="btn-secondary">+ Objavi teret</Link>
+          <Link to="/vehicles/new" className="btn-primary">+ Objavi vozilo</Link>
         </div>
       </div>
 
       {/* ── Cargo Posts ──────────────────────────────────────────────── */}
-      <section style={{ marginBottom: 40 }}>
-        <h2 style={{ marginBottom: 16 }}>My Cargo Posts</h2>
+      <section className="post-section">
+        <h2 className="post-section-title">Moji tereti</h2>
 
         {cargoError && <div className="alert alert-error">{cargoError}</div>}
 
         {cargoLoading ? (
-          <p className="loading">Loading...</p>
+          <p className="loading">Učitavanje...</p>
         ) : cargoPosts.length === 0 ? (
-          <div className="empty-state">
-            <p>You have no cargo posts yet.</p>
-            <Link to="/cargo/new" className="btn-primary" style={{ display: 'inline-block', marginTop: 16 }}>
-              Post Cargo
-            </Link>
-          </div>
+          <EmptyState
+            message="Još niste objavili nijedan teret."
+            action={<Link to="/cargo/new" className="btn-primary-teal">Objavi teret</Link>}
+          />
         ) : (
-          <div className="table-wrapper">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Route</th>
-                  <th>Loading Date</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cargoPosts.map((post) => (
-                  <tr key={post.id}>
-                    <td>
-                      <strong>{post.loadingCity?.name || post.loadingLocation || '—'}</strong>
-                      <span style={{ color: '#9ca3af', margin: '0 6px' }}>→</span>
-                      <strong>{post.unloadingCity?.name || post.unloadingLocation || '—'}</strong>
-                    </td>
-                    <td>{post.loadingDate}</td>
-                    <td>
-                      <span className={`status-badge status-${post.status}`}>{post.status}</span>
-                    </td>
-                    <td style={{ color: '#6b7280' }}>{formatDate(post.createdAt)}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <Link to={`/cargo/${post.id}`} className="table-link">View</Link>
-                        <button
-                          className="table-link"
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                          onClick={() => navigate(`/cargo/${post.id}`, { state: { startEditing: true } })}
-                        >
-                          Edit
-                        </button>
-                        {post.status === 'active' && (
-                          <button
-                            className="table-link"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#ea580c' }}
-                            onClick={() => handleCloseCargo(post.id)}
-                          >
-                            Close
-                          </button>
-                        )}
-                        <button
-                          className="table-link"
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#dc2626' }}
-                          onClick={() => handleDeleteCargo(post.id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="result-list">
+            {cargoPosts.map((post) => (
+              <div className="post-card" key={post.id}>
+                <div className="post-card-main">
+                  <div className="post-card-route">
+                    {post.loadingCity?.name || post.loadingLocation || '—'}
+                    <span className="arrow"> → </span>
+                    {post.unloadingCity?.name || post.unloadingLocation || '—'}
+                  </div>
+                  <div className="post-card-meta">
+                    <span>Utovar {post.loadingDate}</span>
+                    <StatusBadge status={post.status} />
+                    <span>Objavljeno {formatDate(post.createdAt)}</span>
+                  </div>
+                </div>
+                <div className="post-card-actions">
+                  <Link to={`/cargo/${post.id}`} className="table-link">Pregled</Link>
+                  <button
+                    className="table-link"
+                    onClick={() => navigate(`/cargo/${post.id}`, { state: { startEditing: true } })}
+                  >
+                    Uredi
+                  </button>
+                  {post.status === 'active' && (
+                    <button
+                      className="table-link warning"
+                      onClick={() => handleCloseCargo(post.id)}
+                    >
+                      Zatvori
+                    </button>
+                  )}
+                  <button
+                    className="table-link danger"
+                    onClick={() => handleDeleteCargo(post.id)}
+                  >
+                    Obriši
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </section>
 
       {/* ── Vehicle Posts ─────────────────────────────────────────────── */}
-      <section>
-        <h2 style={{ marginBottom: 16 }}>My Vehicle Posts</h2>
+      <section className="post-section">
+        <h2 className="post-section-title">Moja vozila</h2>
 
         {vehicleError && <div className="alert alert-error">{vehicleError}</div>}
 
         {vehicleLoading ? (
-          <p className="loading">Loading...</p>
+          <p className="loading">Učitavanje...</p>
         ) : vehiclePosts.length === 0 ? (
-          <div className="empty-state">
-            <p>You have no vehicle posts yet.</p>
-            <Link to="/vehicles/new" className="btn-primary" style={{ display: 'inline-block', marginTop: 16 }}>
-              Post Vehicle
-            </Link>
-          </div>
+          <EmptyState
+            message="Još niste objavili nijedno vozilo."
+            action={<Link to="/vehicles/new" className="btn-primary">Objavi vozilo</Link>}
+          />
         ) : (
-          <div className="table-wrapper">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Location</th>
-                  <th>Vehicle Type</th>
-                  <th>Destination</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {vehiclePosts.map((post) => (
-                  <tr key={post.id}>
-                    <td><strong>{post.originCity?.name || post.availableLocation || '—'}</strong></td>
-                    <td>{post.vehicleType.replace(/_/g, ' ')}</td>
-                    <td style={{ color: '#6b7280' }}>{post.destinationCity?.name || post.destinationPreference || '—'}</td>
-                    <td>
-                      <span className={`status-badge status-${post.status}`}>{post.status}</span>
-                    </td>
-                    <td style={{ color: '#6b7280' }}>{formatDate(post.createdAt)}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <Link to={`/vehicles/${post.id}`} className="table-link">View</Link>
-                        <button
-                          className="table-link"
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                          onClick={() => navigate(`/vehicles/${post.id}`, { state: { startEditing: true } })}
-                        >
-                          Edit
-                        </button>
-                        {post.status === 'active' && (
-                          <button
-                            className="table-link"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#ea580c' }}
-                            onClick={() => handleCloseVehicle(post.id)}
-                          >
-                            Close
-                          </button>
-                        )}
-                        <button
-                          className="table-link"
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#dc2626' }}
-                          onClick={() => handleDeleteVehicle(post.id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="result-list">
+            {vehiclePosts.map((post) => (
+              <div className="post-card" key={post.id}>
+                <div className="post-card-main">
+                  <div className="post-card-route">
+                    {post.originCity?.name || post.availableLocation || '—'}
+                    <span className="arrow"> → </span>
+                    {post.destinationCity?.name || post.destinationPreference || '—'}
+                  </div>
+                  <div className="post-card-meta">
+                    <span>{vehicleTypeLabel(post.vehicleType)}</span>
+                    <StatusBadge status={post.status} />
+                    <span>Objavljeno {formatDate(post.createdAt)}</span>
+                  </div>
+                </div>
+                <div className="post-card-actions">
+                  <Link to={`/vehicles/${post.id}`} className="table-link">Pregled</Link>
+                  <button
+                    className="table-link"
+                    onClick={() => navigate(`/vehicles/${post.id}`, { state: { startEditing: true } })}
+                  >
+                    Uredi
+                  </button>
+                  {post.status === 'active' && (
+                    <button
+                      className="table-link warning"
+                      onClick={() => handleCloseVehicle(post.id)}
+                    >
+                      Zatvori
+                    </button>
+                  )}
+                  <button
+                    className="table-link danger"
+                    onClick={() => handleDeleteVehicle(post.id)}
+                  >
+                    Obriši
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </section>

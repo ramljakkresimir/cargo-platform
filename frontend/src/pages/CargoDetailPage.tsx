@@ -5,10 +5,13 @@ import { CargoPost, City } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { extractErrorMessage } from '../utils/errorUtils';
 import CityAutocomplete from '../components/CityAutocomplete';
+import StatusBadge from '../components/StatusBadge';
+import { CARGO_TYPES, VEHICLE_TYPES } from '../constants/postTypes';
 
-const CARGO_TYPES = ['general', 'palletized', 'bulk', 'liquid', 'refrigerated', 'hazardous', 'oversized'];
-const VEHICLE_TYPES = ['truck', 'van', 'semi_truck', 'refrigerated_truck', 'flatbed', 'tanker'];
-const STATUSES = ['active', 'closed'];
+const STATUSES = [
+  { value: 'active', label: 'Aktivno' },
+  { value: 'closed', label: 'Zatvoreno' },
+];
 
 function locationLabel(post: CargoPost, type: 'loading' | 'unloading'): string {
   if (type === 'loading') {
@@ -57,6 +60,7 @@ export default function CargoDetailPage() {
     if (post && location.state?.startEditing) {
       startEditing();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post]);
 
   const fetchPost = async (postId: string) => {
@@ -64,33 +68,33 @@ export default function CargoDetailPage() {
       const res = await cargoPostsService.getOne(postId);
       setPost(res.data);
     } catch {
-      setError('Cargo post not found.');
+      setError('Oglas tereta nije pronađen.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!id || !confirm('Delete this cargo post?')) return;
+    if (!id || !confirm('Obrisati ovaj oglas tereta?')) return;
     try {
       await cargoPostsService.remove(id);
       navigate('/cargo');
     } catch {
-      setError('Failed to delete post.');
+      setError('Brisanje oglasa nije uspjelo.');
     }
   };
 
   const handleClose = async () => {
-    if (!id || !confirm('Close this cargo post? It will no longer appear in public listings.')) return;
+    if (!id || !confirm('Zatvoriti ovaj oglas? Više se neće prikazivati u javnoj pretrazi.')) return;
     setCloseLoading(true);
     setSaveSuccess('');
     setSaveError('');
     try {
       const res = await cargoPostsService.update(id, { status: 'closed' });
       setPost(res.data);
-      setSaveSuccess('Post closed successfully.');
+      setSaveSuccess('Oglas je uspješno zatvoren.');
     } catch (err) {
-      setSaveError(extractErrorMessage(err, 'Failed to close post.'));
+      setSaveError(extractErrorMessage(err, 'Zatvaranje oglasa nije uspjelo.'));
     } finally {
       setCloseLoading(false);
     }
@@ -124,12 +128,12 @@ export default function CargoDetailPage() {
   const handleEditSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!id) return;
-    if (!editLoadingCity) { setSaveError('Please select a loading city.'); return; }
-    if (!editUnloadingCity) { setSaveError('Please select an unloading city.'); return; }
+    if (!editLoadingCity) { setSaveError('Odaberite mjesto utovara.'); return; }
+    if (!editUnloadingCity) { setSaveError('Odaberite mjesto istovara.'); return; }
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     if (editForm.loadingDate < todayStr && editForm.loadingDate !== post?.loadingDate) {
-      setSaveError('Loading date cannot be in the past.');
+      setSaveError('Datum utovara ne može biti u prošlosti.');
       return;
     }
     setSaveError('');
@@ -153,9 +157,9 @@ export default function CargoDetailPage() {
       const res = await cargoPostsService.update(id, payload);
       setPost(res.data);
       setIsEditing(false);
-      setSaveSuccess('Post updated successfully.');
+      setSaveSuccess('Oglas je uspješno ažuriran.');
     } catch (err) {
-      setSaveError(extractErrorMessage(err, 'Failed to update post.'));
+      setSaveError(extractErrorMessage(err, 'Spremanje promjena nije uspjelo.'));
     } finally {
       setSaveLoading(false);
     }
@@ -163,7 +167,7 @@ export default function CargoDetailPage() {
 
   const isOwner = user && post?.company?.userId === user.id;
 
-  if (loading) return <div className="page-container"><p>Loading...</p></div>;
+  if (loading) return <div className="page-container"><p className="loading">Učitavanje...</p></div>;
   if (error) return <div className="page-container"><div className="alert alert-error">{error}</div></div>;
   if (!post) return null;
 
@@ -174,19 +178,21 @@ export default function CargoDetailPage() {
     <div className="page-container">
       <div className="page-header">
         <div>
-          <Link to="/cargo" className="back-link">← Back to Cargo</Link>
-          <h1>{fromLabel} → {toLabel}</h1>
-          <span className={`status-badge status-${post.status}`}>{post.status}</span>
+          <Link to="/cargo" className="back-link">← Natrag na terete</Link>
+          <div className="detail-title-row">
+            <h1>{fromLabel} → {toLabel}</h1>
+            <StatusBadge status={post.status} />
+          </div>
         </div>
         {isOwner && !isEditing && (
           <div className="action-buttons">
             {post.status === 'active' && (
               <button className="btn-secondary" onClick={handleClose} disabled={closeLoading}>
-                {closeLoading ? 'Closing...' : 'Close Post'}
+                {closeLoading ? 'Zatvaranje...' : 'Zatvori oglas'}
               </button>
             )}
-            <button className="btn-secondary" onClick={startEditing}>Edit Post</button>
-            <button className="btn-danger" onClick={handleDelete}>Delete</button>
+            <button className="btn-secondary" onClick={startEditing}>Uredi</button>
+            <button className="btn-danger" onClick={handleDelete}>Obriši</button>
           </div>
         )}
       </div>
@@ -195,32 +201,32 @@ export default function CargoDetailPage() {
 
       {isEditing ? (
         <div className="form-card">
-          <h2>Edit Cargo Post</h2>
+          <h2>Uredi oglas tereta</h2>
           {saveError && <div className="alert alert-error">{saveError}</div>}
           <form onSubmit={handleEditSubmit}>
-            <h2>Route Details</h2>
+            <div className="form-section-title">Ruta</div>
             <div className="form-row">
               <div className="form-group">
-                <label>Loading City *</label>
+                <label>Mjesto utovara *</label>
                 <CityAutocomplete
                   value={editLoadingCity}
                   onChange={setEditLoadingCity}
-                  placeholder="Type to search…"
+                  placeholder="Upišite naziv grada…"
                 />
               </div>
               <div className="form-group">
-                <label>Unloading City *</label>
+                <label>Mjesto istovara *</label>
                 <CityAutocomplete
                   value={editUnloadingCity}
                   onChange={setEditUnloadingCity}
-                  placeholder="Type to search…"
+                  placeholder="Upišite naziv grada…"
                 />
               </div>
             </div>
 
             <div className="form-row">
               <div className="form-group" style={{ maxWidth: '200px' }}>
-                <label>Loading Date *</label>
+                <label>Datum utovara *</label>
                 <input
                   type="date"
                   name="loadingDate"
@@ -233,29 +239,29 @@ export default function CargoDetailPage() {
                 <label>Status</label>
                 <select name="status" value={editForm.status} onChange={handleEditChange}>
                   {STATUSES.map((s) => (
-                    <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                    <option key={s.value} value={s.value}>{s.label}</option>
                   ))}
                 </select>
               </div>
             </div>
 
-            <h2>Cargo Details</h2>
+            <div className="form-section-title">Detalji tereta</div>
             <div className="form-row">
               <div className="form-group">
-                <label>Cargo Type</label>
+                <label>Vrsta tereta</label>
                 <select name="cargoType" value={editForm.cargoType} onChange={handleEditChange}>
-                  <option value="">-- Select type --</option>
+                  <option value="">-- Odaberite vrstu --</option>
                   {CARGO_TYPES.map((t) => (
-                    <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                    <option key={t.value} value={t.value}>{t.label}</option>
                   ))}
                 </select>
               </div>
               <div className="form-group">
-                <label>Required Vehicle Type</label>
+                <label>Potrebno vozilo</label>
                 <select name="requiredVehicleType" value={editForm.requiredVehicleType} onChange={handleEditChange}>
-                  <option value="">-- Any vehicle --</option>
+                  <option value="">-- Bilo koje vozilo --</option>
                   {VEHICLE_TYPES.map((t) => (
-                    <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
+                    <option key={t.value} value={t.value}>{t.label}</option>
                   ))}
                 </select>
               </div>
@@ -263,41 +269,41 @@ export default function CargoDetailPage() {
 
             <div className="form-row">
               <div className="form-group">
-                <label>Weight (tonnes)</label>
+                <label>Težina (t)</label>
                 <input
                   type="number"
                   step="0.1"
                   name="weight"
                   value={editForm.weight}
                   onChange={handleEditChange}
-                  placeholder="e.g. 5.5"
+                  placeholder="npr. 5.5"
                 />
               </div>
               <div className="form-group">
-                <label>Dimensions (LxWxH)</label>
+                <label>Dimenzije (DxŠxV)</label>
                 <input
                   name="dimensions"
                   value={editForm.dimensions}
                   onChange={handleEditChange}
-                  placeholder="e.g. 3x2x2m"
+                  placeholder="npr. 3x2x2m"
                 />
               </div>
             </div>
 
             <div className="form-group" style={{ maxWidth: '300px' }}>
-              <label>Price (EUR)</label>
+              <label>Cijena (EUR)</label>
               <input
                 type="number"
                 step="0.01"
                 name="price"
                 value={editForm.price}
                 onChange={handleEditChange}
-                placeholder="e.g. 450"
+                placeholder="npr. 450"
               />
             </div>
 
             <div className="form-group">
-              <label>Additional Notes</label>
+              <label>Napomene</label>
               <textarea
                 name="note"
                 value={editForm.note}
@@ -308,10 +314,10 @@ export default function CargoDetailPage() {
 
             <div className="form-actions">
               <button type="button" className="btn-secondary" onClick={() => setIsEditing(false)}>
-                Cancel
+                Odustani
               </button>
-              <button type="submit" className="btn-primary" disabled={saveLoading}>
-                {saveLoading ? 'Saving...' : 'Save Changes'}
+              <button type="submit" className="btn-primary-teal" disabled={saveLoading}>
+                {saveLoading ? 'Spremanje...' : 'Spremi promjene'}
               </button>
             </div>
           </form>
@@ -319,20 +325,20 @@ export default function CargoDetailPage() {
       ) : (
         <div className="detail-layout">
           <div className="detail-card">
-            <h2>Cargo Information</h2>
+            <h2>Podaci o teretu</h2>
             <div className="detail-grid">
-              <div><span className="label">Loading Location</span><p>{fromLabel}</p></div>
-              <div><span className="label">Unloading Location</span><p>{toLabel}</p></div>
-              <div><span className="label">Loading Date</span><p>{post.loadingDate}</p></div>
-              <div><span className="label">Cargo Type</span><p>{post.cargoType || '—'}</p></div>
-              <div><span className="label">Weight</span><p>{post.weight ? `${post.weight} t` : '—'}</p></div>
-              <div><span className="label">Dimensions</span><p>{post.dimensions || '—'}</p></div>
-              <div><span className="label">Required Vehicle</span><p>{post.requiredVehicleType || '—'}</p></div>
-              <div><span className="label">Price</span><p>{post.price ? `€${post.price}` : 'Negotiable'}</p></div>
+              <div><span className="label">Mjesto utovara</span><p>{fromLabel}</p></div>
+              <div><span className="label">Mjesto istovara</span><p>{toLabel}</p></div>
+              <div><span className="label">Datum utovara</span><p>{post.loadingDate}</p></div>
+              <div><span className="label">Vrsta tereta</span><p>{post.cargoType || '—'}</p></div>
+              <div><span className="label">Težina</span><p>{post.weight ? `${post.weight} t` : '—'}</p></div>
+              <div><span className="label">Dimenzije</span><p>{post.dimensions || '—'}</p></div>
+              <div><span className="label">Potrebno vozilo</span><p>{post.requiredVehicleType || '—'}</p></div>
+              <div><span className="label">Cijena</span><p>{post.price ? `€${post.price}` : 'Po dogovoru'}</p></div>
             </div>
             {post.note && (
               <div className="detail-note">
-                <span className="label">Notes</span>
+                <span className="label">Napomene</span>
                 <p>{post.note}</p>
               </div>
             )}
@@ -340,13 +346,13 @@ export default function CargoDetailPage() {
 
           {post.company && (
             <div className="detail-card">
-              <h2>Contact / Company</h2>
+              <h2>Kontakt / Tvrtka</h2>
               <div className="detail-grid">
-                <div><span className="label">Company</span><p>{post.company.companyName}</p></div>
-                <div><span className="label">Type</span><p>{post.company.companyType}</p></div>
-                <div><span className="label">Location</span><p>{post.company.city}, {post.company.country}</p></div>
-                {post.company.phone && <div><span className="label">Phone</span><p>{post.company.phone}</p></div>}
-                {post.company.email && <div><span className="label">Email</span><p>{post.company.email}</p></div>}
+                <div><span className="label">Tvrtka</span><p>{post.company.companyName}</p></div>
+                <div><span className="label">Vrsta</span><p>{post.company.companyType}</p></div>
+                <div><span className="label">Lokacija</span><p>{post.company.city}, {post.company.country}</p></div>
+                {post.company.phone && <div><span className="label">Telefon</span><p>{post.company.phone}</p></div>}
+                {post.company.email && <div><span className="label">E-mail</span><p>{post.company.email}</p></div>}
               </div>
             </div>
           )}

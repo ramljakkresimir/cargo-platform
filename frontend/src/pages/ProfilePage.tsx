@@ -68,9 +68,9 @@ export default function ProfilePage() {
         });
       }
 
-      setProfileSuccess('Profile updated successfully.');
+      setProfileSuccess('Profil je uspješno ažuriran.');
     } catch (err) {
-      setProfileError(extractErrorMessage(err, 'Failed to update profile.'));
+      setProfileError(extractErrorMessage(err, 'Spremanje profila nije uspjelo.'));
     } finally {
       setProfileLoading(false);
     }
@@ -86,11 +86,11 @@ export default function ProfilePage() {
     setPasswordError('');
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordError('New passwords do not match.');
+      setPasswordError('Nove lozinke se ne podudaraju.');
       return;
     }
     if (passwordForm.newPassword.length < 6) {
-      setPasswordError('New password must be at least 6 characters.');
+      setPasswordError('Nova lozinka mora imati najmanje 6 znakova.');
       return;
     }
 
@@ -100,10 +100,10 @@ export default function ProfilePage() {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
       });
-      setPasswordSuccess('Password changed successfully.');
+      setPasswordSuccess('Lozinka je uspješno promijenjena.');
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (err) {
-      setPasswordError(extractErrorMessage(err, 'Failed to change password.'));
+      setPasswordError(extractErrorMessage(err, 'Promjena lozinke nije uspjela.'));
     } finally {
       setPasswordLoading(false);
     }
@@ -113,16 +113,14 @@ export default function ProfilePage() {
     <div className="page-container">
       <div className="page-header">
         <div>
-          <h1>My Profile</h1>
-          <p style={{ color: '#6b7280', marginTop: 4, fontSize: 14 }}>
-            Manage your personal information and password
-          </p>
+          <h1>Moj profil</h1>
+          <p className="page-subtitle">Upravljajte osobnim podacima i lozinkom</p>
         </div>
       </div>
 
       {/* ── Personal Information ─────────────────────────────────── */}
       <div className="form-card" style={{ marginBottom: 24 }}>
-        <h2>Personal Information</h2>
+        <h2>Osobni podaci</h2>
 
         {profileSuccess && <div className="alert alert-success">{profileSuccess}</div>}
         {profileError && <div className="alert alert-error">{profileError}</div>}
@@ -130,7 +128,7 @@ export default function ProfilePage() {
         <form onSubmit={handleProfileSubmit}>
           <div className="form-row">
             <div className="form-group">
-              <label>First Name *</label>
+              <label>Ime *</label>
               <input
                 name="firstName"
                 value={profileForm.firstName}
@@ -139,7 +137,7 @@ export default function ProfilePage() {
               />
             </div>
             <div className="form-group">
-              <label>Last Name *</label>
+              <label>Prezime *</label>
               <input
                 name="lastName"
                 value={profileForm.lastName}
@@ -151,23 +149,23 @@ export default function ProfilePage() {
 
           <div className="form-row">
             <div className="form-group">
-              <label>Phone</label>
+              <label>Telefon</label>
               <input
                 name="phone"
                 value={profileForm.phone}
                 onChange={handleProfileChange}
-                placeholder="e.g. +387 61 123 456"
+                placeholder="npr. +387 61 123 456"
               />
             </div>
             <div className="form-group">
-              <label>Email <span className="hint">(cannot be changed)</span></label>
-              <input value={user?.email ?? ''} disabled style={{ background: '#f9fafb', color: '#6b7280' }} />
+              <label>E-mail <span className="hint">(nije moguće promijeniti)</span></label>
+              <input value={user?.email ?? ''} disabled />
             </div>
           </div>
 
           <div className="form-actions">
             <button type="submit" className="btn-primary" disabled={profileLoading}>
-              {profileLoading ? 'Saving...' : 'Save Changes'}
+              {profileLoading ? 'Spremanje...' : 'Spremi promjene'}
             </button>
           </div>
         </form>
@@ -175,14 +173,14 @@ export default function ProfilePage() {
 
       {/* ── Change Password ──────────────────────────────────────── */}
       <div className="form-card">
-        <h2>Change Password</h2>
+        <h2>Promjena lozinke</h2>
 
         {passwordSuccess && <div className="alert alert-success">{passwordSuccess}</div>}
         {passwordError && <div className="alert alert-error">{passwordError}</div>}
 
         <form onSubmit={handlePasswordSubmit}>
           <div className="form-group" style={{ maxWidth: 400 }}>
-            <label>Current Password *</label>
+            <label>Trenutna lozinka *</label>
             <input
               type="password"
               name="currentPassword"
@@ -194,18 +192,18 @@ export default function ProfilePage() {
 
           <div className="form-row" style={{ maxWidth: 640 }}>
             <div className="form-group">
-              <label>New Password *</label>
+              <label>Nova lozinka *</label>
               <input
                 type="password"
                 name="newPassword"
                 value={passwordForm.newPassword}
                 onChange={handlePasswordChange}
-                placeholder="At least 6 characters"
+                placeholder="Najmanje 6 znakova"
                 required
               />
             </div>
             <div className="form-group">
-              <label>Confirm New Password *</label>
+              <label>Potvrdite novu lozinku *</label>
               <input
                 type="password"
                 name="confirmPassword"
@@ -218,7 +216,7 @@ export default function ProfilePage() {
 
           <div className="form-actions">
             <button type="submit" className="btn-primary" disabled={passwordLoading}>
-              {passwordLoading ? 'Changing...' : 'Change Password'}
+              {passwordLoading ? 'Mijenjanje...' : 'Promijeni lozinku'}
             </button>
           </div>
         </form>

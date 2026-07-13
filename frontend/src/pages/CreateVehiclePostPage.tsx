@@ -4,8 +4,7 @@ import { vehiclePostsService } from '../services/vehiclePosts.service';
 import { extractErrorMessage } from '../utils/errorUtils';
 import { City } from '../types';
 import CityAutocomplete from '../components/CityAutocomplete';
-
-const VEHICLE_TYPES = ['truck', 'van', 'semi_truck', 'refrigerated_truck', 'flatbed', 'tanker'];
+import { VEHICLE_TYPES } from '../constants/postTypes';
 
 export default function CreateVehiclePostPage() {
   const navigate = useNavigate();
@@ -29,10 +28,10 @@ export default function CreateVehiclePostPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!originCity) { setError('Please select a current location city.'); return; }
+    if (!originCity) { setError('Odaberite trenutnu lokaciju.'); return; }
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    if (form.availableFromDate < todayStr) { setError('Available from date cannot be in the past.'); return; }
+    if (form.availableFromDate < todayStr) { setError('Datum dostupnosti ne može biti u prošlosti.'); return; }
     setError('');
     setLoading(true);
 
@@ -49,17 +48,19 @@ export default function CreateVehiclePostPage() {
       await vehiclePostsService.create(payload);
       navigate('/vehicles');
     } catch (err: any) {
-      setError(extractErrorMessage(err, 'Failed to create vehicle post.'));
+      setError(extractErrorMessage(err, 'Objavljivanje oglasa nije uspjelo.'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="page-container">
+    <div className="page-container-form">
       <div className="page-header">
-        <h1>Post Available Vehicle</h1>
-        <p>Publish your vehicle capacity to find freight</p>
+        <div>
+          <h1>Objavi slobodno vozilo</h1>
+          <p className="page-subtitle">Objavite rutu i slobodan kapacitet vozila kako biste pronašli teret.</p>
+        </div>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
@@ -68,16 +69,16 @@ export default function CreateVehiclePostPage() {
         <form onSubmit={handleSubmit}>
           <div className="form-row">
             <div className="form-group">
-              <label>Current Location *</label>
+              <label>Trenutna lokacija *</label>
               <CityAutocomplete
                 value={originCity}
                 onChange={setOriginCity}
-                placeholder="e.g. Mostar"
+                placeholder="npr. Mostar"
                 required={false}
               />
             </div>
             <div className="form-group">
-              <label>Available From *</label>
+              <label>Dostupno od *</label>
               <input
                 type="date"
                 name="availableFromDate"
@@ -90,53 +91,53 @@ export default function CreateVehiclePostPage() {
 
           <div className="form-row">
             <div className="form-group">
-              <label>Vehicle Type *</label>
+              <label>Vrsta vozila *</label>
               <select name="vehicleType" value={form.vehicleType} onChange={handleChange} required>
-                <option value="">-- Select vehicle type --</option>
+                <option value="">-- Odaberite vrstu vozila --</option>
                 {VEHICLE_TYPES.map((t) => (
-                  <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
+                  <option key={t.value} value={t.value}>{t.label}</option>
                 ))}
               </select>
             </div>
             <div className="form-group">
-              <label>Capacity (tonnes)</label>
+              <label>Kapacitet (tone)</label>
               <input
                 type="number"
                 step="0.1"
                 name="capacity"
                 value={form.capacity}
                 onChange={handleChange}
-                placeholder="e.g. 20"
+                placeholder="npr. 20"
               />
             </div>
           </div>
 
           <div className="form-group">
-            <label>Destination Preference</label>
+            <label>Željeno odredište</label>
             <CityAutocomplete
               value={destinationCity}
               onChange={setDestinationCity}
-              placeholder="e.g. Zagreb, Split…"
+              placeholder="npr. Zagreb, Split…"
             />
           </div>
 
           <div className="form-group">
-            <label>Additional Notes</label>
+            <label>Napomene</label>
             <textarea
               name="note"
               value={form.note}
               onChange={handleChange}
               rows={3}
-              placeholder="Special equipment, restrictions, contact info..."
+              placeholder="Posebna oprema, ograničenja, kontakt..."
             />
           </div>
 
           <div className="form-actions">
             <button type="button" className="btn-secondary" onClick={() => navigate('/vehicles')}>
-              Cancel
+              Odustani
             </button>
             <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? 'Publishing...' : 'Publish Vehicle Post'}
+              {loading ? 'Objavljivanje...' : 'Objavi vozilo'}
             </button>
           </div>
         </form>

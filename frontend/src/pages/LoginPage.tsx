@@ -24,7 +24,7 @@ export default function LoginPage() {
       login(access_token, user);
       navigate('/dashboard');
     } catch (err) {
-      setError(extractErrorMessage(err, 'Login failed. Please try again.'));
+      setError(extractErrorMessage(err, 'Prijava nije uspjela. Pokušajte ponovo.'));
     } finally {
       setLoading(false);
     }
@@ -33,25 +33,25 @@ export default function LoginPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1>Sign In</h1>
-        <p className="auth-subtitle">Welcome back to CargoConnect BiH</p>
+        <h1>Prijava</h1>
+        <p className="auth-subtitle">Dobrodošli natrag na CargoConnect</p>
 
         {error && <div className="alert alert-error">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Email</label>
+            <label>E-mail</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
+              placeholder="vas@email.com"
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Password</label>
+            <label>Lozinka</label>
             <input
               type="password"
               value={password}
@@ -61,13 +61,13 @@ export default function LoginPage() {
             />
           </div>
 
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign In'}
+          <button type="submit" className="btn-primary" style={{ width: '100%' }} disabled={loading}>
+            {loading ? 'Prijava u tijeku...' : 'Prijavi se'}
           </button>
         </form>
 
         <p className="auth-footer">
-          Don't have an account? <Link to="/register">Register here</Link>
+          Nemate račun? <Link to="/register">Registrirajte se</Link>
         </p>
       </div>
     </div>
