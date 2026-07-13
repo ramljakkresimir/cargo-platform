@@ -1023,6 +1023,43 @@ This is idempotent — posts with geometry already set are skipped (WHERE routeG
 
 ---
 
+### Session 16 — 2026-07-13
+
+#### Fix: Admin panel showed `active` for posts whose date had already passed
+
+**Root cause:** `PostsExpirationService.expireOldPosts()` — the only code path that ever writes `status = 'expired'` to the database — was wired up solely to `@Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)` and the manual `POST /admin/posts/expire-old` endpoint. Neither fires unless the backend process happens to be running at the exact moment midnight ticks over (server local time). In this dev environment the backend is restarted frequently (see `predev` / kill-ports workflow in "Known Issues"), so it is often *not* running through midnight, and the scheduled tick is simply skipped — there is no catch-up/backlog mechanism in `@nestjs/schedule`.
+
+The Session 15 fix added a **read-side** date filter (`andWhere('post.loadingDate >= :today', ...)` / `availableFromDate >= :today`) to the public `findAll()` queries. That filter hides past-dated posts from public browse, but it never updates the `status` column — it's a view-layer mask, not a state transition. Because the Admin panel and `/my-posts` deliberately read the **raw** `status` column (so owners/admins can see genuinely expired posts, not just active ones), they correctly reflected what was actually in Postgres: `active`. That was the bug — not stale admin data, not a caching issue, just a database that had never been told to update itself.
+
+Confirmed directly against Postgres before the fix: 2 cargo posts and 4 vehicle posts had `status = 'active'` with `loadingDate` / `availableFromDate` in the past.
+
+**Fix applied — `posts-expiration.service.ts`:**
+- `PostsExpirationService` now implements `OnApplicationBootstrap` and calls the existing `expireOldPosts()` method once when the Nest application finishes bootstrapping (after the DB connection is established), in addition to the existing daily cron and manual admin trigger.
+- No new expiration logic was added — `onApplicationBootstrap()` simply calls the same `expireOldPosts()` used by the cron and the admin endpoint, so there is exactly one place that decides what "expired" means (date comparison + bulk `UPDATE ... SET status = 'expired' WHERE status = 'active' AND date < today`).
+- This makes the DB self-healing on every backend start: any backlog that accumulated while the server was down is cleared in one cheap query pair (two bulk `UPDATE`s, no per-row loop) before the app starts accepting traffic.
+
+**Verified against the live database (not just code review):**
+1. Queried Postgres directly — found 2 stale `active` cargo posts and 4 stale `active` vehicle posts with past dates.
+2. Started the backend (`npx nest start`) and confirmed via logs: `Running startup post-expiration sync` → `Expiration complete — today: 2026-07-13, cargo expired: 2, vehicles expired: 4`.
+3. Re-queried Postgres — 0 stale `active` posts remain; all 6 are now `expired` in the database itself.
+4. Confirmed `GET /admin/cargo-posts` / `GET /admin/vehicle-posts` (`AdminService.getCargoPosts`/`getVehiclePosts`) read the raw `status` column with no additional filtering or caching — they now correctly return `expired` for these posts.
+5. Confirmed `findByCompanyId()` (backs `GET /cargo-posts/my` and `GET /vehicle-posts/my`, used by the "My Posts" page) has no status or date filter — owners still see `expired` posts with the correct status, unlike the public `findAll()` which excludes them.
+6. Confirmed public `findAll()` for both cargo and vehicle posts still excludes non-active and past-dated posts — no regression.
+7. Create validation (`create()` rejecting `loadingDate`/`availableFromDate < today`) is unchanged from Session 15 and still active — verified via `tsc --noEmit` and code inspection, no changes needed there.
+
+**Why this is the correct fix (not a workaround):** the requirement was that the database itself must contain `expired`, not just that expired posts be hidden from certain views. A single `OnApplicationBootstrap` call to the existing, already-correct `expireOldPosts()` closes the only real gap (no catch-up after downtime) without introducing a second expiration code path, a duplicate date-comparison formula, or a new cron schedule.
+
+**Manual verification checklist (all confirmed):**
+- Create a post for today → `active` (create-time validation only rejects `< today`)
+- Create a post for tomorrow → `active`
+- Create a post for yesterday → rejected with HTTP 400 (`"Loading date cannot be in the past."` / `"Available from date cannot be in the past."`)
+- Manually set an existing row's date to yesterday and status to `active` in Postgres, then restart the backend (or call `POST /admin/posts/expire-old`) → status becomes `expired` in the database
+- Admin panel (`GET /admin/cargo-posts`, `GET /admin/vehicle-posts`) immediately reflects `expired` — confirmed no separate caching layer exists
+- Public pages (`GET /cargo-posts`, `GET /vehicle-posts`) never display expired or past-dated posts
+- `/my-posts` (`GET /cargo-posts/my`, `GET /vehicle-posts/my`) still displays expired posts to their owner with the correct `expired` status
+
+---
+
 ## TODO / Next Steps
 
 - [x] Mark post as closed from the UI — "Close Post" button on detail pages + inline "Close" in My Posts

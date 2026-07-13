@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -13,7 +13,7 @@ export interface ExpireResult {
 }
 
 @Injectable()
-export class PostsExpirationService {
+export class PostsExpirationService implements OnApplicationBootstrap {
   private readonly logger = new Logger(PostsExpirationService.name);
 
   constructor(
@@ -22,6 +22,16 @@ export class PostsExpirationService {
     @InjectRepository(VehiclePost)
     private readonly vehiclePostRepo: Repository<VehiclePost>,
   ) {}
+
+  // The cron only fires at wall-clock midnight, so any active/past-dated posts that
+  // accumulated while the server was stopped (common in dev, where the backend is
+  // restarted often) stay unexpired until the next midnight tick or a manual admin
+  // trigger. Running the same expiration query once at startup keeps the DB in sync
+  // with reality as soon as the app comes up, with no duplicated logic.
+  async onApplicationBootstrap() {
+    this.logger.log('Running startup post-expiration sync');
+    await this.expireOldPosts();
+  }
 
   // Runs every day at midnight (server local time)
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
