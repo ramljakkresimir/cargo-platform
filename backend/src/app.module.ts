@@ -38,7 +38,7 @@ import { VehiclePostRouteCity } from './routing/vehicle-post-route-city.entity';
         password: config.get<string>('DATABASE_PASSWORD'),
         database: config.get<string>('DATABASE_NAME'),
         entities: [User, Company, CargoPost, VehiclePost, City, VehiclePostRouteCity],
-        synchronize: true,
+        synchronize: config.get<string>('NODE_ENV') !== 'production',
       }),
     }),
 
