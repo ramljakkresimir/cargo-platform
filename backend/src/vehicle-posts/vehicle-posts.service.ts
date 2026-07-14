@@ -213,6 +213,25 @@ export class VehiclePostsService {
       throw new BadRequestException('Available from date cannot be in the past.');
     }
 
+    if (dto.status !== undefined && dto.status !== post.status) {
+      // Owners may only toggle between active and closed — expired is set exclusively
+      // by PostsExpirationService (cron / startup sync / admin manual trigger).
+      const ownerAllowedTransitions: Partial<Record<PostStatus, PostStatus[]>> = {
+        [PostStatus.ACTIVE]: [PostStatus.CLOSED],
+        [PostStatus.CLOSED]: [PostStatus.ACTIVE],
+      };
+      if (!ownerAllowedTransitions[post.status]?.includes(dto.status)) {
+        throw new BadRequestException(
+          `Cannot change status from "${post.status}" to "${dto.status}". Owners may only switch between active and closed.`,
+        );
+      }
+      // Reactivating a closed post must not resurrect a post whose date has since passed.
+      const effectiveAvailableFromDate = dto.availableFromDate ?? post.availableFromDate;
+      if (dto.status === PostStatus.ACTIVE && effectiveAvailableFromDate < getLocalDateString()) {
+        throw new BadRequestException('Cannot reactivate a post with a past available-from date.');
+      }
+    }
+
     Object.assign(post, dto);
     await this.vehiclePostRepository.save(post);
 
