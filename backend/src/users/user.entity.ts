@@ -39,6 +39,11 @@ export class User {
   @Column({ type: 'varchar', default: UserRole.USER })
   role: UserRole;
 
+  // Tokens issued before this timestamp are rejected by JwtStrategy — lets a password
+  // change invalidate any stolen/leaked token still within its 7-day expiry.
+  @Column({ type: 'timestamp', nullable: true })
+  passwordChangedAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

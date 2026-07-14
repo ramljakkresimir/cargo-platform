@@ -53,6 +53,7 @@ export class UsersService {
     }
 
     user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.passwordChangedAt = new Date();
     await this.userRepository.save(user);
     return { message: 'Password changed successfully' };
   }
