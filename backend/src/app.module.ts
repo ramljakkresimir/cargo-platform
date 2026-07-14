@@ -18,6 +18,8 @@ import { CargoPost } from './cargo-posts/cargo-post.entity';
 import { VehiclePost } from './vehicle-posts/vehicle-post.entity';
 import { City } from './cities/city.entity';
 import { VehiclePostRouteCity } from './routing/vehicle-post-route-city.entity';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -51,7 +53,9 @@ import { VehiclePostRouteCity } from './routing/vehicle-post-route-city.entity';
     PostsExpirationModule,
     CitiesModule,
   ],
+  controllers: [AppController],
   providers: [
+    AppService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
