@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CompaniesModule } from './companies/companies.module';
@@ -21,6 +23,9 @@ import { VehiclePostRouteCity } from './routing/vehicle-post-route-city.entity';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
+
+    // Default rate limit for all routes; auth routes override this with a stricter limit
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60000, limit: 60 }]),
 
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -45,6 +50,12 @@ import { VehiclePostRouteCity } from './routing/vehicle-post-route-city.entity';
     AdminModule,
     PostsExpirationModule,
     CitiesModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

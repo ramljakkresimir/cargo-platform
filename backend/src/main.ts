@@ -1,10 +1,14 @@
 import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe, ClassSerializerInterceptor, BadRequestException } from '@nestjs/common';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Security headers (CSP, X-Frame-Options, etc.)
+  app.use(helmet());
 
   // Allow the React frontend (port 5173) to make requests to this backend
   app.enableCors({
