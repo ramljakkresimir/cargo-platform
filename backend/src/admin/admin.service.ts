@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Not, Repository } from 'typeorm';
+import { Brackets, IsNull, Not, Repository } from 'typeorm';
 import { User, UserRole } from '../users/user.entity';
 import { Company } from '../companies/company.entity';
 import { CargoPost } from '../cargo-posts/cargo-post.entity';
@@ -65,8 +65,12 @@ export class AdminService {
     if (query.search) {
       const term = `%${query.search}%`;
       qb.where(
-        'user.email ILIKE :term OR user.firstName ILIKE :term OR user.lastName ILIKE :term OR user.phone ILIKE :term',
-        { term },
+        new Brackets((b) => {
+          b.where('user.email ILIKE :term', { term })
+            .orWhere('user.firstName ILIKE :term', { term })
+            .orWhere('user.lastName ILIKE :term', { term })
+            .orWhere('user.phone ILIKE :term', { term });
+        }),
       );
     }
 
@@ -142,8 +146,11 @@ export class AdminService {
     if (query.search) {
       const term = `%${query.search}%`;
       qb.andWhere(
-        'post.loadingLocation ILIKE :term OR post.unloadingLocation ILIKE :term OR company.companyName ILIKE :term',
-        { term },
+        new Brackets((b) => {
+          b.where('post.loadingLocation ILIKE :term', { term })
+            .orWhere('post.unloadingLocation ILIKE :term', { term })
+            .orWhere('company.companyName ILIKE :term', { term });
+        }),
       );
     }
 
@@ -187,8 +194,11 @@ export class AdminService {
     if (query.search) {
       const term = `%${query.search}%`;
       qb.andWhere(
-        'post.availableLocation ILIKE :term OR post.destinationPreference ILIKE :term OR company.companyName ILIKE :term',
-        { term },
+        new Brackets((b) => {
+          b.where('post.availableLocation ILIKE :term', { term })
+            .orWhere('post.destinationPreference ILIKE :term', { term })
+            .orWhere('company.companyName ILIKE :term', { term });
+        }),
       );
     }
 
