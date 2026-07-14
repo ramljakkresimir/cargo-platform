@@ -104,17 +104,9 @@ export class CargoPostsService {
   async findOne(id: string): Promise<CargoPost> {
     const post = await this.cargoPostRepository.findOne({
       where: { id },
-      relations: { company: true },
+      relations: { company: true, loadingCity: true, unloadingCity: true },
     });
     if (!post) throw new NotFoundException(`Cargo post ${id} not found`);
-
-    // Load city relations separately (TypeORM object-form relations don't support nested join arrays)
-    if (post.loadingCityId) {
-      post.loadingCity = await this.citiesService.findById(post.loadingCityId).catch(() => null);
-    }
-    if (post.unloadingCityId) {
-      post.unloadingCity = await this.citiesService.findById(post.unloadingCityId).catch(() => null);
-    }
     return post;
   }
 
@@ -175,19 +167,10 @@ export class CargoPostsService {
   }
 
   async findByCompanyId(companyId: string): Promise<CargoPost[]> {
-    const posts = await this.cargoPostRepository.find({
+    return this.cargoPostRepository.find({
       where: { companyId },
+      relations: { loadingCity: true, unloadingCity: true },
       order: { createdAt: 'DESC' },
     });
-    // Hydrate city relations in bulk
-    for (const post of posts) {
-      if (post.loadingCityId) {
-        post.loadingCity = await this.citiesService.findById(post.loadingCityId).catch(() => null);
-      }
-      if (post.unloadingCityId) {
-        post.unloadingCity = await this.citiesService.findById(post.unloadingCityId).catch(() => null);
-      }
-    }
-    return posts;
   }
 }

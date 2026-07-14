@@ -160,16 +160,9 @@ export class VehiclePostsService {
   async findOne(id: string): Promise<VehiclePost> {
     const post = await this.vehiclePostRepository.findOne({
       where: { id },
-      relations: { company: true },
+      relations: { company: true, originCity: true, destinationCity: true },
     });
     if (!post) throw new NotFoundException(`Vehicle post ${id} not found`);
-
-    if (post.originCityId) {
-      post.originCity = await this.citiesService.findById(post.originCityId).catch(() => null);
-    }
-    if (post.destinationCityId) {
-      post.destinationCity = await this.citiesService.findById(post.destinationCityId).catch(() => null);
-    }
 
     (post as any).routeCities = await this.routeCityService.findByVehiclePostId(id);
 
@@ -258,18 +251,10 @@ export class VehiclePostsService {
   }
 
   async findByCompanyId(companyId: string): Promise<VehiclePost[]> {
-    const posts = await this.vehiclePostRepository.find({
+    return this.vehiclePostRepository.find({
       where: { companyId },
+      relations: { originCity: true, destinationCity: true },
       order: { createdAt: 'DESC' },
     });
-    for (const post of posts) {
-      if (post.originCityId) {
-        post.originCity = await this.citiesService.findById(post.originCityId).catch(() => null);
-      }
-      if (post.destinationCityId) {
-        post.destinationCity = await this.citiesService.findById(post.destinationCityId).catch(() => null);
-      }
-    }
-    return posts;
   }
 }
