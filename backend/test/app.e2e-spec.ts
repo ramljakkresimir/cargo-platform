@@ -1,11 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import request from 'supertest';
-import { App } from 'supertest/types';
+// Plain require avoids a TS default-import/esModuleInterop mismatch with supertest's
+// "export =" CJS typings that made `import request from 'supertest'` resolve to
+// `.default` at runtime (undefined) under this project's ts-jest config.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const request = require('supertest');
 import { AppModule } from './../src/app.module';
 
 describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -16,11 +19,10 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+  it('/health (GET)', async () => {
+    const response = await request(app.getHttpServer()).get('/health').expect(200);
+    expect(response.body.status).toBe('ok');
+    expect(typeof response.body.timestamp).toBe('string');
   });
 
   afterEach(async () => {

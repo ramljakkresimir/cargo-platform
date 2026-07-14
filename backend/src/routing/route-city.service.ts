@@ -2,7 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { point, lineString, nearestPointOnLine, length, simplify } from '@turf/turf';
+// Imported from their individual @turf packages rather than the '@turf/turf' barrel:
+// the barrel re-exports '@turf/convex', which pulls in 'concaveman' — an ESM-only
+// package (with its own nested ESM-only 'rbush'/'quickselect') unrelated to anything
+// this file uses, and it broke ts-jest when the app module tree loaded under test.
+import { point, lineString } from '@turf/helpers';
+import nearestPointOnLine from '@turf/nearest-point-on-line';
+import simplify from '@turf/simplify';
 import { VehiclePostRouteCity } from './vehicle-post-route-city.entity';
 import { City } from '../cities/city.entity';
 import { RoutingService } from './routing.service';
