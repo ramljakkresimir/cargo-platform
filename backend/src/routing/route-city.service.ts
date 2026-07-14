@@ -31,65 +31,54 @@ export class RouteCityService {
     originCity: City,
     destCity: City | null,
   ): Promise<GenerateResult> {
-    await this.routeCityRepo.delete({ vehiclePostId });
-
     const maxDistKm = parseFloat(
       this.configService.get<string>('ROUTE_CITY_MAX_DISTANCE_KM') || '15',
     );
 
+    // Compute the full set of rows to persist BEFORE touching the database — a crash or
+    // restart during the (slow, external) route fetch must never leave a post with its
+    // old route cities deleted but no new ones saved.
+    let rows: Pick<VehiclePostRouteCity, 'cityId' | 'orderIndex' | 'distanceFromStartKm' | 'distanceFromRouteKm'>[];
+    let routeCoordinates: Coordinate[] | null = null;
+
     if (!destCity) {
       // No destination — just record the origin city; no route geometry
-      const entity = this.routeCityRepo.create({
-        vehiclePostId,
-        cityId: originCity.id,
-        orderIndex: 0,
-        distanceFromStartKm: 0,
-        distanceFromRouteKm: 0,
-      });
-      const routeCities = await this.routeCityRepo.save([entity]);
-      return { routeCities, routeCoordinates: null };
+      rows = [{ cityId: originCity.id, orderIndex: 0, distanceFromStartKm: 0, distanceFromRouteKm: 0 }];
+    } else {
+      const route = await this.routingService.getRoute(
+        { lat: originCity.latitude, lng: originCity.longitude },
+        { lat: destCity.latitude, lng: destCity.longitude },
+      );
+
+      if (route && route.coordinates.length >= 2) {
+        rows = await this.projectCitiesOntoRoute(route.coordinates, maxDistKm);
+        routeCoordinates = route.coordinates;
+      } else {
+        // Fallback: origin + destination only; no route geometry
+        this.logger.warn(
+          `Route fetch failed for vehicle post ${vehiclePostId} — using origin+destination fallback`,
+        );
+        rows = [
+          { cityId: originCity.id, orderIndex: 0, distanceFromStartKm: 0, distanceFromRouteKm: 0 },
+          { cityId: destCity.id, orderIndex: 1, distanceFromStartKm: 0, distanceFromRouteKm: 0 },
+        ];
+      }
     }
 
-    // Attempt to get a driving route
-    const route = await this.routingService.getRoute(
-      { lat: originCity.latitude, lng: originCity.longitude },
-      { lat: destCity.latitude, lng: destCity.longitude },
-    );
+    // Delete the old rows and insert the new ones atomically.
+    const routeCities = await this.routeCityRepo.manager.transaction(async (manager) => {
+      await manager.delete(VehiclePostRouteCity, { vehiclePostId });
+      const entities = rows.map((r) => manager.create(VehiclePostRouteCity, { vehiclePostId, ...r }));
+      return manager.save(VehiclePostRouteCity, entities);
+    });
 
-    if (route && route.coordinates.length >= 2) {
-      const routeCities = await this.generateFromRoute(vehiclePostId, route.coordinates, maxDistKm);
-      return { routeCities, routeCoordinates: route.coordinates };
-    }
-
-    // Fallback: save only origin + destination; no route geometry
-    this.logger.warn(
-      `Route fetch failed for vehicle post ${vehiclePostId} — using origin+destination fallback`,
-    );
-    const fallback = [
-      this.routeCityRepo.create({
-        vehiclePostId,
-        cityId: originCity.id,
-        orderIndex: 0,
-        distanceFromStartKm: 0,
-        distanceFromRouteKm: 0,
-      }),
-      this.routeCityRepo.create({
-        vehiclePostId,
-        cityId: destCity.id,
-        orderIndex: 1,
-        distanceFromStartKm: 0,
-        distanceFromRouteKm: 0,
-      }),
-    ];
-    const routeCities = await this.routeCityRepo.save(fallback);
-    return { routeCities, routeCoordinates: null };
+    return { routeCities, routeCoordinates };
   }
 
-  private async generateFromRoute(
-    vehiclePostId: string,
+  private async projectCitiesOntoRoute(
     coordinates: { lat: number; lng: number }[],
     maxDistKm: number,
-  ): Promise<VehiclePostRouteCity[]> {
+  ): Promise<Pick<VehiclePostRouteCity, 'cityId' | 'orderIndex' | 'distanceFromStartKm' | 'distanceFromRouteKm'>[]> {
     const allCities = await this.cityRepo.find();
 
     const line = lineString(coordinates.map((c) => [c.lng, c.lat]));
@@ -117,17 +106,12 @@ export class RouteCityService {
     // Sort by position along the route
     projections.sort((a, b) => a.distanceFromStartKm - b.distanceFromStartKm);
 
-    const entities = projections.map((p, i) =>
-      this.routeCityRepo.create({
-        vehiclePostId,
-        cityId: p.cityId,
-        orderIndex: i,
-        distanceFromStartKm: p.distanceFromStartKm,
-        distanceFromRouteKm: p.distanceFromRouteKm,
-      }),
-    );
-
-    return this.routeCityRepo.save(entities);
+    return projections.map((p, i) => ({
+      cityId: p.cityId,
+      orderIndex: i,
+      distanceFromStartKm: p.distanceFromStartKm,
+      distanceFromRouteKm: p.distanceFromRouteKm,
+    }));
   }
 
   async findByVehiclePostId(vehiclePostId: string): Promise<VehiclePostRouteCity[]> {

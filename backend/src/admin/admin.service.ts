@@ -116,15 +116,18 @@ export class AdminService {
     const target = await this.userRepo.findOne({ where: { id: targetId } });
     if (!target) throw new NotFoundException('User not found');
 
-    // Cascade delete: posts → company → user
-    const company = await this.companyRepo.findOne({ where: { userId: targetId } });
-    if (company) {
-      await this.cargoPostRepo.delete({ companyId: company.id });
-      await this.vehiclePostRepo.delete({ companyId: company.id });
-      await this.companyRepo.remove(company);
-    }
+    // Cascade delete: posts → company → user, atomically so a mid-sequence failure
+    // can't leave a user without a company or a company without its posts deleted.
+    await this.userRepo.manager.transaction(async (manager) => {
+      const company = await manager.findOne(Company, { where: { userId: targetId } });
+      if (company) {
+        await manager.delete(CargoPost, { companyId: company.id });
+        await manager.delete(VehiclePost, { companyId: company.id });
+        await manager.remove(Company, company);
+      }
+      await manager.remove(User, target);
+    });
 
-    await this.userRepo.remove(target);
     return { message: 'User deleted successfully' };
   }
 
