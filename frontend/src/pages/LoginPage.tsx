@@ -12,6 +12,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sessionExpired] = useState(() => {
+    const expired = sessionStorage.getItem('sessionExpired') === '1';
+    if (expired) sessionStorage.removeItem('sessionExpired');
+    return expired;
+  });
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -36,6 +41,9 @@ export default function LoginPage() {
         <h1>Prijava</h1>
         <p className="auth-subtitle">Dobrodošli natrag na CargoConnect</p>
 
+        {sessionExpired && !error && (
+          <div className="alert alert-error">Vaša sesija je istekla. Prijavite se ponovo.</div>
+        )}
         {error && <div className="alert alert-error">{error}</div>}
 
         <form onSubmit={handleSubmit}>
