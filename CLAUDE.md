@@ -316,7 +316,7 @@ All `/admin/*` endpoints require `Authorization: Bearer <token>` where the token
 DATABASE_HOST=localhost
 DATABASE_PORT=5432
 DATABASE_USER=postgres
-DATABASE_PASSWORD=pikaso
+DATABASE_PASSWORD=<your_password>
 DATABASE_NAME=cargo_app
 
 JWT_SECRET=your_super_secret_key_here
