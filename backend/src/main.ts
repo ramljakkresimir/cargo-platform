@@ -10,9 +10,9 @@ async function bootstrap() {
   // Security headers (CSP, X-Frame-Options, etc.)
   app.use(helmet());
 
-  // Allow the React frontend (port 5173) to make requests to this backend
+  // Allow the React frontend to make requests to this backend
   app.enableCors({
-    origin: 'http://localhost:5173',
+    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
     credentials: true,
   });
 
