@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { point, lineString, nearestPointOnLine, length } from '@turf/turf';
+import { point, lineString, nearestPointOnLine, length, simplify } from '@turf/turf';
 import { VehiclePostRouteCity } from './vehicle-post-route-city.entity';
 import { City } from '../cities/city.entity';
 import { RoutingService } from './routing.service';
@@ -51,8 +51,11 @@ export class RouteCityService {
       );
 
       if (route && route.coordinates.length >= 2) {
+        // Project against the full-precision route for accurate distance-along-route
+        // ordering, but store a simplified polyline — the map doesn't need thousands of
+        // points per route, and it's shipped on every detail-page request.
         rows = await this.projectCitiesOntoRoute(route.coordinates, maxDistKm);
-        routeCoordinates = route.coordinates;
+        routeCoordinates = this.simplifyRouteCoordinates(route.coordinates);
       } else {
         // Fallback: origin + destination only; no route geometry
         this.logger.warn(
@@ -73,6 +76,15 @@ export class RouteCityService {
     });
 
     return { routeCities, routeCoordinates };
+  }
+
+  private simplifyRouteCoordinates(coordinates: Coordinate[]): Coordinate[] {
+    if (coordinates.length <= 2) return coordinates;
+    const line = lineString(coordinates.map((c) => [c.lng, c.lat]));
+    // Tolerance is in degrees; ~0.001° is roughly 100m at these latitudes — visually
+    // identical to the full-resolution driving polyline at any map zoom level users view.
+    const simplified = simplify(line, { tolerance: 0.001, highQuality: true });
+    return simplified.geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
   }
 
   private async projectCitiesOntoRoute(
