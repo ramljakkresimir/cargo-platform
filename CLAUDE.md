@@ -29,7 +29,7 @@ Inspired by TIMOCOM but scoped as a focused MVP for the local market.
 | Frontend     | React 19 + TypeScript + Vite        |
 | Backend      | NestJS 11 + TypeScript              |
 | Database     | PostgreSQL (via TypeORM 1.0)        |
-| Auth         | JWT (RS256 via @nestjs/jwt)         |
+| Auth         | JWT (HS256 via @nestjs/jwt)         |
 | HTTP client  | Axios                               |
 | Routing      | React Router v7                     |
 | DB GUI       | pgAdmin                             |
