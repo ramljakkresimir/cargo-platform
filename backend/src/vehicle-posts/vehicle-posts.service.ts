@@ -13,6 +13,7 @@ import { CreateVehiclePostDto } from './dto/create-vehicle-post.dto';
 import { UpdateVehiclePostDto } from './dto/update-vehicle-post.dto';
 import { FilterVehiclePostsDto } from './dto/filter-vehicle-posts.dto';
 import { CitiesService } from '../cities/cities.service';
+import { City } from '../cities/city.entity';
 import { RouteCityService } from '../routing/route-city.service';
 
 function getLocalDateString(): string {
@@ -44,28 +45,24 @@ export class VehiclePostsService {
       throw new BadRequestException('Available from date cannot be in the past.');
     }
 
-    let destinationCityName: string | undefined;
+    let destCity: City | null = null;
     if (dto.destinationCityId) {
-      const destCity = await this.citiesService.findById(dto.destinationCityId).catch(() => {
+      destCity = await this.citiesService.findById(dto.destinationCityId).catch(() => {
         throw new BadRequestException(`Destination city not found: ${dto.destinationCityId}`);
       });
-      destinationCityName = `${destCity.name}, ${destCity.country}`;
     }
 
     const post = this.vehiclePostRepository.create({
       ...dto,
       companyId,
       availableLocation: `${originCity.name}, ${originCity.country}`,
-      destinationPreference: destinationCityName,
+      destinationPreference: destCity ? `${destCity.name}, ${destCity.country}` : undefined,
     });
     const saved = await this.vehiclePostRepository.save(post);
 
     // Generate route cities and geometry — failure must not block post creation
-    const destCityObj = dto.destinationCityId
-      ? await this.citiesService.findById(dto.destinationCityId).catch(() => null)
-      : null;
     try {
-      const { routeCoordinates } = await this.routeCityService.generateAndSave(saved.id, originCity, destCityObj);
+      const { routeCoordinates } = await this.routeCityService.generateAndSave(saved.id, originCity, destCity);
       if (routeCoordinates && routeCoordinates.length > 0) {
         await this.vehiclePostRepository.update(saved.id, { routeGeoJson: routeCoordinates });
       }
