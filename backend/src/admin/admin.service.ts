@@ -16,6 +16,7 @@ import { AdminUsersQueryDto, AdminPostsQueryDto } from './dto/admin-query.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UpdatePostStatusDto } from './dto/update-post-status.dto';
 import { RouteCityService } from '../routing/route-city.service';
+import { escapeLikePattern } from '../common/utils/escape-like';
 
 @Injectable()
 export class AdminService {
@@ -63,7 +64,7 @@ export class AdminService {
       .orderBy('user.createdAt', 'DESC');
 
     if (query.search) {
-      const term = `%${query.search}%`;
+      const term = `%${escapeLikePattern(query.search)}%`;
       qb.where(
         new Brackets((b) => {
           b.where('user.email ILIKE :term', { term })
@@ -147,7 +148,7 @@ export class AdminService {
     }
 
     if (query.search) {
-      const term = `%${query.search}%`;
+      const term = `%${escapeLikePattern(query.search)}%`;
       qb.andWhere(
         new Brackets((b) => {
           b.where('post.loadingLocation ILIKE :term', { term })
@@ -195,7 +196,7 @@ export class AdminService {
     }
 
     if (query.search) {
-      const term = `%${query.search}%`;
+      const term = `%${escapeLikePattern(query.search)}%`;
       qb.andWhere(
         new Brackets((b) => {
           b.where('post.availableLocation ILIKE :term', { term })

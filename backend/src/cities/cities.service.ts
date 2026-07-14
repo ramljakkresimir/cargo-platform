@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { City } from './city.entity';
 import { FilterCitiesDto } from './dto/filter-cities.dto';
+import { escapeLikePattern } from '../common/utils/escape-like';
 
 @Injectable()
 export class CitiesService {
@@ -17,7 +18,7 @@ export class CitiesService {
 
     if (filters.search) {
       query.andWhere('city.name ILIKE :search', {
-        search: `%${filters.search}%`,
+        search: `%${escapeLikePattern(filters.search)}%`,
       });
     }
     if (filters.country) {

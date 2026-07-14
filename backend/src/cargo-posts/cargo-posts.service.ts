@@ -12,6 +12,7 @@ import { CreateCargoPostDto } from './dto/create-cargo-post.dto';
 import { UpdateCargoPostDto } from './dto/update-cargo-post.dto';
 import { FilterCargoPostsDto } from './dto/filter-cargo-posts.dto';
 import { CitiesService } from '../cities/cities.service';
+import { escapeLikePattern } from '../common/utils/escape-like';
 
 function getLocalDateString(): string {
   const now = new Date();
@@ -69,7 +70,7 @@ export class CargoPostsService {
       query.andWhere('post.loadingCityId = :lcId', { lcId: filters.loadingCityId });
     } else if (filters.loadingLocation) {
       query.andWhere('post.loadingLocation ILIKE :ll', {
-        ll: `%${filters.loadingLocation}%`,
+        ll: `%${escapeLikePattern(filters.loadingLocation)}%`,
       });
     }
 
@@ -77,7 +78,7 @@ export class CargoPostsService {
       query.andWhere('post.unloadingCityId = :ucId', { ucId: filters.unloadingCityId });
     } else if (filters.unloadingLocation) {
       query.andWhere('post.unloadingLocation ILIKE :ul', {
-        ul: `%${filters.unloadingLocation}%`,
+        ul: `%${escapeLikePattern(filters.unloadingLocation)}%`,
       });
     }
 
@@ -85,11 +86,11 @@ export class CargoPostsService {
       query.andWhere('post.loadingDate = :ld', { ld: filters.loadingDate });
     }
     if (filters.cargoType) {
-      query.andWhere('post.cargoType ILIKE :ct', { ct: filters.cargoType });
+      query.andWhere('post.cargoType ILIKE :ct', { ct: escapeLikePattern(filters.cargoType) });
     }
     if (filters.requiredVehicleType) {
       query.andWhere('post.requiredVehicleType ILIKE :rvt', {
-        rvt: filters.requiredVehicleType,
+        rvt: escapeLikePattern(filters.requiredVehicleType),
       });
     }
 

@@ -15,6 +15,7 @@ import { FilterVehiclePostsDto } from './dto/filter-vehicle-posts.dto';
 import { CitiesService } from '../cities/cities.service';
 import { City } from '../cities/city.entity';
 import { RouteCityService } from '../routing/route-city.service';
+import { escapeLikePattern } from '../common/utils/escape-like';
 
 function getLocalDateString(): string {
   const now = new Date();
@@ -102,7 +103,7 @@ export class VehiclePostsService {
         query.andWhere('post.availableFromDate = :afd', { afd: filters.availableFromDate });
       }
       if (filters.vehicleType) {
-        query.andWhere('post.vehicleType ILIKE :vt', { vt: filters.vehicleType });
+        query.andWhere('post.vehicleType ILIKE :vt', { vt: escapeLikePattern(filters.vehicleType) });
       }
 
       const [data, total] = await query
@@ -127,7 +128,7 @@ export class VehiclePostsService {
       query.andWhere('post.originCityId = :ocId', { ocId: filters.originCityId });
     } else if (filters.availableLocation) {
       query.andWhere('post.availableLocation ILIKE :al', {
-        al: `%${filters.availableLocation}%`,
+        al: `%${escapeLikePattern(filters.availableLocation)}%`,
       });
     }
 
@@ -135,7 +136,7 @@ export class VehiclePostsService {
       query.andWhere('post.destinationCityId = :dcId', { dcId: filters.destinationCityId });
     } else if (filters.destinationPreference) {
       query.andWhere('post.destinationPreference ILIKE :dp', {
-        dp: `%${filters.destinationPreference}%`,
+        dp: `%${escapeLikePattern(filters.destinationPreference)}%`,
       });
     }
 
@@ -143,7 +144,7 @@ export class VehiclePostsService {
       query.andWhere('post.availableFromDate = :afd', { afd: filters.availableFromDate });
     }
     if (filters.vehicleType) {
-      query.andWhere('post.vehicleType ILIKE :vt', { vt: filters.vehicleType });
+      query.andWhere('post.vehicleType ILIKE :vt', { vt: escapeLikePattern(filters.vehicleType) });
     }
 
     const [data, total] = await query
