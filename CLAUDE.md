@@ -324,11 +324,21 @@ JWT_EXPIRES_IN=7d
 
 PORT=3000
 
+# Frontend origin allowed to make CORS requests to this API
+CORS_ORIGIN=http://localhost:5173
+
 # Routing — get a free key at https://openrouteservice.org/dev/#/signup
 OPENROUTESERVICE_API_KEY=
 ROUTING_PROVIDER=openrouteservice
 ROUTE_CITY_MAX_DISTANCE_KM=15
 ```
+
+**frontend/.env** *(optional — defaults to `http://localhost:3000` if unset)*
+```
+VITE_API_URL=http://localhost:3000
+```
+
+*(Session 18: `CORS_ORIGIN` and `VITE_API_URL` added so the app can be deployed without editing source; `JWT_SECRET`, `DATABASE_HOST/USER/PASSWORD/NAME` are now validated at backend startup via Joi — a missing or too-short value fails fast instead of surfacing later at first sign/verify.)*
 
 ---
 
@@ -1127,6 +1137,63 @@ Redesign scope was driven by a design handoff (`CargoConnect Redesign.dc.html` +
 
 ---
 
+### Session 18 — 2026-07-14
+
+#### Code review remediation (`CODE_REVIEW.md`, full-repo static review)
+
+A full-repo code review (backend + frontend + docs, static analysis only — no `node_modules` on the review machine) found 3 HIGH, 9 MEDIUM, and 8 LOW findings. H1–H3 and M2 were fixed in the previous session (`a684ac0`, `354bd01`, `76d3e3b`, `b45f8a3`). This session closed every remaining finding except L5, one commit per finding, `npm run build` green before each commit.
+
+**M1 — Post status lifecycle wasn't enforced (`739b992`)**
+`UpdateCargoPostDto`/`UpdateVehiclePostDto` accepted the full `PostStatus` enum, so an owner could `PATCH` a post straight to/from `expired` via the API even though the UI and docs only ever exposed active/closed. `CargoPostsService.update()` / `VehiclePostsService.update()` now validate the transition in the service layer: owners may only toggle `active ⇄ closed`; reactivating a closed post is rejected if its date has since passed. Admin's separate `updateCargoPostStatus`/`updateVehiclePostStatus` (direct field assignment, no owner-transition check) is unaffected — expiry remains settable only by the cron/startup sync/admin trigger, per the documented lifecycle.
+
+**M8 — `synchronize: true` was unconditional (`0cce477`)**
+`app.module.ts` now gates TypeORM `synchronize` behind `NODE_ENV !== 'production'`. Prerequisite for the deployment TODO; real migration files still needed before an actual production deploy.
+
+**M4 — Hardcoded URLs on both sides (`6f7cd20`)**
+Frontend `api.ts` `baseURL` now reads `import.meta.env.VITE_API_URL` (fallback `http://localhost:3000`); backend CORS origin now reads `process.env.CORS_ORIGIN` (fallback `http://localhost:5173`). Added `frontend/.env.example` and a `CORS_ORIGIN` line in `backend/.env.example`.
+
+**M5 — No 401 handling on the frontend (`9a44e15`)**
+Added an axios response interceptor in `api.ts`: on a 401 response to a request that *carried* an `Authorization` header (i.e. an authenticated call whose token was rejected — not an anonymous login attempt with bad credentials, which also returns 401 but never had a header), it clears `localStorage` and redirects to `/login`. `LoginPage` reads a `sessionStorage` flag set by the interceptor to show "Vaša sesija je istekla. Prijavite se ponovo."
+
+**M7 — N+1 city queries (`b91b0f0`)**
+`CargoPostsService`/`VehiclePostsService` `findOne()` and `findByCompanyId()` issued a manual `citiesService.findById()` per city per row — the code comment claiming "TypeORM object-form relations don't support nested join arrays" was wrong for sibling relations. Replaced with the same `relations: { ... }` object `findAll()` already used. Verified against the running backend: `GET /cargo-posts/:id` and `GET /vehicle-posts/:id` return identical payload shapes.
+
+**L3 — Destination city fetched twice on vehicle-post create (`5621e87`)**
+`VehiclePostsService.create()` looked up `dto.destinationCityId` once for the denormalized name and again for route generation. Now fetched once and reused.
+
+**M6 — Multi-step writes weren't transactional (`533c876`)**
+`AdminService.deleteUser()`'s cascade (cargo posts → vehicle posts → company → user) now runs inside `this.userRepo.manager.transaction(...)`. `RouteCityService.generateAndSave()` used to delete a post's existing route cities *before* the slow external ORS call — a crash in that window left zero route cities with no way back. It now computes the full new row set first, then deletes-and-inserts in a single transaction. Verified against the running backend with a disposable test user/company (zero orphaned rows after delete) and a real route regeneration (still finds the correct 6-city Mostar→Zagreb route).
+
+**M9 — No token invalidation on password change (`42fdab2`)**
+Added a nullable `passwordChangedAt` column on `User`, set in `UsersService.changePassword()`. `JwtStrategy.validate()` now rejects any token whose `iat` claim predates it — free, since the strategy already re-reads the user from the DB on every request. Verified end-to-end: a token obtained before a password change gets `401 "Token invalidated by password change"` immediately after the change; a fresh login with the new password still works. Left `JWT_EXPIRES_IN` at `7d` — this check closes the actual security gap without forcing more frequent re-logins.
+
+**L1 — Docs said RS256, config is HS256 (`37f9ed5`)**
+Fixed the tech-stack table in this file.
+
+**L2 — Unused NestJS scaffold files (`61de0ec`)**
+`AppController`/`AppService` were dead code (never registered in `AppModule`). Repurposed as a real `GET /health` endpoint (`{ status, timestamp }`) instead of deleting them — useful for the deployment TODO (load balancer / uptime checks).
+
+**L4 — ILIKE search terms weren't wildcard-escaped (`bba1776`)**
+Added `backend/src/common/utils/escape-like.ts` (`escapeLikePattern()`, escapes `%`, `_`, `\`) and applied it everywhere user text hits `ILIKE` — `cargo-posts.service.ts`, `vehicle-posts.service.ts`, `admin.service.ts`, `cities.service.ts`. Verified: `GET /cities?search=%25` (a literal `%`) now returns `[]` instead of every city.
+
+**L6 — No startup validation of required env vars (`0c3ca3c`)**
+Added a Joi `validationSchema` to `ConfigModule.forRoot` (`DATABASE_*`, `JWT_SECRET` min 16 chars, `PORT`). Verified: normal `.env` boots fine; an empty `JWT_SECRET` fails immediately at boot with `Config validation error: "JWT_SECRET" is not allowed to be empty` instead of surfacing later at first sign/verify.
+
+**L7 — `routeGeoJson` shipped the full ORS polyline (`d7ad61e`)**
+`RouteCityService` now simplifies the stored route geometry with `@turf/simplify` (Douglas-Peucker, ~100 m tolerance) at write time, while still projecting route-cities against the full-precision coordinates (accuracy matters there, size doesn't). Verified: the documented Mostar→Zagreb test route dropped from 4,642 to 364 points with origin/destination endpoints preserved exactly, and the 6-city route-city match is unchanged.
+
+**L8 — Unguarded `JSON.parse` of localStorage user (`ca89cb4`)**
+`AuthContext`'s mount effect now wraps the parse in try/catch; on failure it clears both localStorage keys instead of leaving the app blank.
+
+**M3 — No real tests in the repo (`6f58f01`)**
+Added focused unit tests (repositories mocked) for the logic most likely to silently regress: `escape-like.spec.ts` (L4), `cargo-posts.service.spec.ts` / `vehicle-posts.service.spec.ts` (M1 transition rules + past-date guards), `admin.service.spec.ts` (self-delete/last-admin guards, transactional cascade), `posts-expiration.service.spec.ts` (the Session 13 local-date-not-UTC boundary, active-only filter, startup sync). Also fixed the broken e2e scaffold rather than deleting it — updated it to hit the new `GET /health` and switched `import request from 'supertest'` to `require('supertest')` (the former resolved to `.default`/`undefined` at runtime under this project's tsconfig, an interop mismatch the review didn't anticipate but that made the test fail differently than predicted). While wiring up the e2e run, discovered `route-city.service.ts`'s `import ... from '@turf/turf'` barrel pulled in `@turf/convex → concaveman` (ESM-only, with its own nested ESM-only `rbush`/`quickselect`) purely as a side effect of the barrel — none of it is used by this file. Switched to importing `@turf/helpers`, `@turf/nearest-point-on-line`, and `@turf/simplify` directly; verified identical behavior at runtime (same 6-city route, same 364-point polyline) before and after the swap. `npx jest`: 6 suites, 31 tests, all passing. `npx jest --config ./test/jest-e2e.json`: 1 suite, 1 test, passing against the live local Postgres.
+
+**L5 — Registration reveals whether an email exists — deliberately left as-is.** The review itself frames this as a conscious UX/security trade-off rather than a bug (login already uses a generic error; only registration's 409 is specific). No code change; noting the decision here as the review suggested.
+
+**Verification approach this session:** every fix that touched runtime behavior (not just types) was exercised against the actual running backend and the live local Postgres — registered/logged in test users, changed passwords, hit admin endpoints with hand-signed JWTs, queried Postgres directly before/after — rather than relying on `tsc`/`vite build` alone. Temporary test rows were cleaned up after each check.
+
+---
+
 ## TODO / Next Steps
 
 - [x] Mark post as closed from the UI — "Close Post" button on detail pages + inline "Close" in My Posts
@@ -1138,10 +1205,11 @@ Redesign scope was driven by a design handoff (`CargoConnect Redesign.dc.html` +
 - [x] Prevent and hide past-dated posts — create/update validation + public listing date filter
 - [x] Fix post expiration consistency — startup sync in `PostsExpirationService` so the DB self-heals on every backend start, not just at midnight
 - [x] Full frontend visual redesign + Croatian localization — new home page, simplified nav with Pretraga/Objavi dropdown menus, card-based list/detail pages, restyled forms/dashboard/My Posts/Admin
+- [x] Code review remediation (Session 18) — all HIGH/MEDIUM findings and 7 of 8 LOW findings from `CODE_REVIEW.md` fixed; L5 (email enumeration on registration) deliberately left as a documented trade-off; `npm run lint`'s pre-existing 32 errors are a separate, still-open item below
 - [ ] Fix pre-existing `npm run lint` failures (32 errors, confirmed present on master before the Session 17 redesign — hook-declaration-order and `no-explicit-any` issues, mostly in Admin list pages and `utils/errorUtils.ts`)
 - [ ] Email validation / verification on registration
 - [ ] Docker Compose setup for easy local start
-- [ ] Production migrations (TypeORM migration files)
+- [ ] Production migrations (TypeORM migration files) — `synchronize` is now gated off in production (Session 18); migrations are the remaining piece
 - [ ] Deploy to a VPS or cloud provider
 - [ ] Admin: ability to view/edit a single user's company profile
 - [ ] Admin: bulk-action on posts (e.g. close all expired)
