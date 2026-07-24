@@ -1,4 +1,11 @@
-import { IsString, IsOptional, IsNumber, IsDateString, IsEnum, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsDateString,
+  IsEnum,
+  IsUUID,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { PostStatus } from '../../common/enums/post-status.enum';
 

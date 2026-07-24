@@ -6,16 +6,33 @@ jest.mock('../routing/route-city.service', () => ({
   RouteCityService: class RouteCityService {},
 }));
 
+import { Repository } from 'typeorm';
 import { AdminService } from './admin.service';
-import { UserRole } from '../users/user.entity';
+import { User, UserRole } from '../users/user.entity';
+import { Company } from '../companies/company.entity';
+import { CargoPost } from '../cargo-posts/cargo-post.entity';
+import { VehiclePost } from '../vehicle-posts/vehicle-post.entity';
+import { RouteCityService } from '../routing/route-city.service';
+
+type MockTransactionManager = {
+  findOne: jest.Mock;
+  delete: jest.Mock;
+  remove: jest.Mock;
+};
+type MockUserRepo = {
+  findOne: jest.Mock;
+  count: jest.Mock;
+  save: jest.Mock;
+  manager: { transaction: jest.Mock };
+};
 
 describe('AdminService', () => {
   let service: AdminService;
-  let userRepo: any;
-  let companyRepo: any;
-  let cargoPostRepo: any;
-  let vehiclePostRepo: any;
-  let routeCityService: any;
+  let userRepo: MockUserRepo;
+  let companyRepo: object;
+  let cargoPostRepo: object;
+  let vehiclePostRepo: object;
+  let routeCityService: object;
 
   beforeEach(() => {
     userRepo = {
@@ -23,27 +40,37 @@ describe('AdminService', () => {
       count: jest.fn(),
       save: jest.fn((u: unknown) => Promise.resolve(u)),
       manager: {
-        transaction: jest.fn(async (cb: (manager: any) => Promise<void>) => {
-          const manager = {
-            findOne: jest.fn().mockResolvedValue(null),
-            delete: jest.fn(),
-            remove: jest.fn(),
-          };
-          await cb(manager);
-          return manager;
-        }),
+        transaction: jest.fn(
+          async (cb: (manager: MockTransactionManager) => Promise<void>) => {
+            const manager: MockTransactionManager = {
+              findOne: jest.fn().mockResolvedValue(null),
+              delete: jest.fn(),
+              remove: jest.fn(),
+            };
+            await cb(manager);
+            return manager;
+          },
+        ),
       },
     };
     companyRepo = {};
     cargoPostRepo = {};
     vehiclePostRepo = {};
     routeCityService = {};
-    service = new AdminService(userRepo, companyRepo, cargoPostRepo, vehiclePostRepo, routeCityService);
+    service = new AdminService(
+      userRepo as unknown as Repository<User>,
+      companyRepo as unknown as Repository<Company>,
+      cargoPostRepo as unknown as Repository<CargoPost>,
+      vehiclePostRepo as unknown as Repository<VehiclePost>,
+      routeCityService as unknown as RouteCityService,
+    );
   });
 
   describe('deleteUser — self-delete guard', () => {
     it('rejects an admin deleting their own account', async () => {
-      await expect(service.deleteUser('user-1', 'user-1')).rejects.toThrow(ForbiddenException);
+      await expect(service.deleteUser('user-1', 'user-1')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('allows deleting a different user and runs the cascade inside a transaction', async () => {
@@ -58,11 +85,18 @@ describe('AdminService', () => {
 
   describe('updateUserRole — last-admin guard', () => {
     it('rejects an admin removing their own admin role if they are the only admin', async () => {
-      userRepo.findOne.mockResolvedValue({ id: 'admin-1', role: UserRole.ADMIN });
+      userRepo.findOne.mockResolvedValue({
+        id: 'admin-1',
+        role: UserRole.ADMIN,
+      });
       userRepo.count.mockResolvedValue(1);
 
       await expect(
-        service.updateUserRole('admin-1', { role: UserRole.USER } as any, 'admin-1'),
+        service.updateUserRole(
+          'admin-1',
+          { role: UserRole.USER } as any,
+          'admin-1',
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -71,7 +105,11 @@ describe('AdminService', () => {
       userRepo.findOne.mockResolvedValue(target);
       userRepo.count.mockResolvedValue(2);
 
-      await service.updateUserRole('admin-1', { role: UserRole.USER } as any, 'admin-1');
+      await service.updateUserRole(
+        'admin-1',
+        { role: UserRole.USER },
+        'admin-1',
+      );
       expect(target.role).toBe(UserRole.USER);
     });
 
@@ -79,7 +117,11 @@ describe('AdminService', () => {
       const target = { id: 'admin-2', role: UserRole.ADMIN };
       userRepo.findOne.mockResolvedValue(target);
 
-      await service.updateUserRole('admin-2', { role: UserRole.USER } as any, 'admin-1');
+      await service.updateUserRole(
+        'admin-2',
+        { role: UserRole.USER },
+        'admin-1',
+      );
       expect(target.role).toBe(UserRole.USER);
       expect(userRepo.count).not.toHaveBeenCalled();
     });

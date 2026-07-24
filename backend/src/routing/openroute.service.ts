@@ -7,13 +7,22 @@ export interface Coordinate {
   lng: number;
 }
 
+interface OrsDirectionsResponse {
+  features?: {
+    geometry?: {
+      coordinates?: [number, number, number][];
+    };
+  }[];
+}
+
 @Injectable()
 export class OpenRouteService {
   private readonly logger = new Logger(OpenRouteService.name);
   private readonly apiKey: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.apiKey = this.configService.get<string>('OPENROUTESERVICE_API_KEY') || '';
+    this.apiKey =
+      this.configService.get<string>('OPENROUTESERVICE_API_KEY') || '';
   }
 
   async getRoute(
@@ -21,14 +30,16 @@ export class OpenRouteService {
     destination: Coordinate,
   ): Promise<Coordinate[] | null> {
     if (!this.apiKey) {
-      this.logger.warn('OPENROUTESERVICE_API_KEY not set — skipping route fetch');
+      this.logger.warn(
+        'OPENROUTESERVICE_API_KEY not set — skipping route fetch',
+      );
       return null;
     }
 
     const maxAttempts = 2;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        const response = await axios.post(
+        const response = await axios.post<OrsDirectionsResponse>(
           'https://api.openrouteservice.org/v2/directions/driving-hgv/geojson',
           {
             coordinates: [
@@ -45,8 +56,7 @@ export class OpenRouteService {
           },
         );
 
-        const coords: [number, number, number][] =
-          response.data?.features?.[0]?.geometry?.coordinates;
+        const coords = response.data?.features?.[0]?.geometry?.coordinates;
 
         if (!coords || coords.length < 2) {
           this.logger.warn('ORS returned empty route');
@@ -55,8 +65,11 @@ export class OpenRouteService {
 
         // ORS returns [lng, lat, elevation] — convert to { lat, lng }
         return coords.map(([lng, lat]) => ({ lat, lng }));
-      } catch (err: any) {
-        this.logger.warn(`ORS route fetch failed (attempt ${attempt}/${maxAttempts}): ${err?.message ?? err}`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.warn(
+          `ORS route fetch failed (attempt ${attempt}/${maxAttempts}): ${message}`,
+        );
         if (attempt < maxAttempts) {
           await new Promise((resolve) => setTimeout(resolve, 2000));
         }

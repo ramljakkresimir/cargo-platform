@@ -6,9 +6,9 @@ import { UsersService } from '../../users/users.service';
 
 // This is the shape of the data we encode inside the JWT token
 export interface JwtPayload {
-  sub: string;    // "sub" is a standard JWT claim meaning "subject" = user ID
+  sub: string; // "sub" is a standard JWT claim meaning "subject" = user ID
   email: string;
-  iat?: number;   // standard "issued at" claim (seconds since epoch), added automatically on sign
+  iat?: number; // standard "issued at" claim (seconds since epoch), added automatically on sign
 }
 
 @Injectable()
@@ -34,7 +34,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
     // Reject tokens issued before the user's last password change so a stolen token
     // doesn't survive the victim changing their password for the rest of its 7-day life.
-    if (user.passwordChangedAt && payload.iat && payload.iat * 1000 < user.passwordChangedAt.getTime()) {
+    if (
+      user.passwordChangedAt &&
+      payload.iat &&
+      payload.iat * 1000 < user.passwordChangedAt.getTime()
+    ) {
       throw new UnauthorizedException('Token invalidated by password change');
     }
     return user;

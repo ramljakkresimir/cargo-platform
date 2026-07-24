@@ -37,38 +37,62 @@ export class VehiclePostsService {
     private readonly routeCityService: RouteCityService,
   ) {}
 
-  async create(companyId: string, dto: CreateVehiclePostDto): Promise<VehiclePost> {
-    const originCity = await this.citiesService.findById(dto.originCityId).catch(() => {
-      throw new BadRequestException(`Origin city not found: ${dto.originCityId}`);
-    });
+  async create(
+    companyId: string,
+    dto: CreateVehiclePostDto,
+  ): Promise<VehiclePost> {
+    const originCity = await this.citiesService
+      .findById(dto.originCityId)
+      .catch(() => {
+        throw new BadRequestException(
+          `Origin city not found: ${dto.originCityId}`,
+        );
+      });
 
     if (dto.availableFromDate < getLocalDateString()) {
-      throw new BadRequestException('Available from date cannot be in the past.');
+      throw new BadRequestException(
+        'Available from date cannot be in the past.',
+      );
     }
 
     let destCity: City | null = null;
     if (dto.destinationCityId) {
-      destCity = await this.citiesService.findById(dto.destinationCityId).catch(() => {
-        throw new BadRequestException(`Destination city not found: ${dto.destinationCityId}`);
-      });
+      destCity = await this.citiesService
+        .findById(dto.destinationCityId)
+        .catch(() => {
+          throw new BadRequestException(
+            `Destination city not found: ${dto.destinationCityId}`,
+          );
+        });
     }
 
     const post = this.vehiclePostRepository.create({
       ...dto,
       companyId,
       availableLocation: `${originCity.name}, ${originCity.country}`,
-      destinationPreference: destCity ? `${destCity.name}, ${destCity.country}` : undefined,
+      destinationPreference: destCity
+        ? `${destCity.name}, ${destCity.country}`
+        : undefined,
     });
     const saved = await this.vehiclePostRepository.save(post);
 
     // Generate route cities and geometry — failure must not block post creation
     try {
-      const { routeCoordinates } = await this.routeCityService.generateAndSave(saved.id, originCity, destCity);
+      const { routeCoordinates } = await this.routeCityService.generateAndSave(
+        saved.id,
+        originCity,
+        destCity,
+      );
       if (routeCoordinates && routeCoordinates.length > 0) {
-        await this.vehiclePostRepository.update(saved.id, { routeGeoJson: routeCoordinates });
+        await this.vehiclePostRepository.update(saved.id, {
+          routeGeoJson: routeCoordinates,
+        });
       }
-    } catch (err: any) {
-      this.logger.warn(`Route generation failed for post ${saved.id}: ${err?.message}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        `Route generation failed for post ${saved.id}: ${message}`,
+      );
     }
 
     return this.findOne(saved.id);
@@ -95,15 +119,21 @@ export class VehiclePostsService {
         .leftJoinAndSelect('post.originCity', 'originCity')
         .leftJoinAndSelect('post.destinationCity', 'destinationCity')
         .where('post.status = :status', { status: PostStatus.ACTIVE })
-        .andWhere('post.availableFromDate >= :today', { today: getLocalDateString() })
+        .andWhere('post.availableFromDate >= :today', {
+          today: getLocalDateString(),
+        })
         .andWhere('post.id IN (:...ids)', { ids })
         .orderBy('post.createdAt', 'DESC');
 
       if (filters.availableFromDate) {
-        query.andWhere('post.availableFromDate = :afd', { afd: filters.availableFromDate });
+        query.andWhere('post.availableFromDate = :afd', {
+          afd: filters.availableFromDate,
+        });
       }
       if (filters.vehicleType) {
-        query.andWhere('post.vehicleType ILIKE :vt', { vt: escapeLikePattern(filters.vehicleType) });
+        query.andWhere('post.vehicleType ILIKE :vt', {
+          vt: escapeLikePattern(filters.vehicleType),
+        });
       }
 
       const [data, total] = await query
@@ -121,11 +151,15 @@ export class VehiclePostsService {
       .leftJoinAndSelect('post.originCity', 'originCity')
       .leftJoinAndSelect('post.destinationCity', 'destinationCity')
       .where('post.status = :status', { status: PostStatus.ACTIVE })
-      .andWhere('post.availableFromDate >= :today', { today: getLocalDateString() })
+      .andWhere('post.availableFromDate >= :today', {
+        today: getLocalDateString(),
+      })
       .orderBy('post.createdAt', 'DESC');
 
     if (filters.originCityId) {
-      query.andWhere('post.originCityId = :ocId', { ocId: filters.originCityId });
+      query.andWhere('post.originCityId = :ocId', {
+        ocId: filters.originCityId,
+      });
     } else if (filters.availableLocation) {
       query.andWhere('post.availableLocation ILIKE :al', {
         al: `%${escapeLikePattern(filters.availableLocation)}%`,
@@ -133,7 +167,9 @@ export class VehiclePostsService {
     }
 
     if (filters.destinationCityId) {
-      query.andWhere('post.destinationCityId = :dcId', { dcId: filters.destinationCityId });
+      query.andWhere('post.destinationCityId = :dcId', {
+        dcId: filters.destinationCityId,
+      });
     } else if (filters.destinationPreference) {
       query.andWhere('post.destinationPreference ILIKE :dp', {
         dp: `%${escapeLikePattern(filters.destinationPreference)}%`,
@@ -141,10 +177,14 @@ export class VehiclePostsService {
     }
 
     if (filters.availableFromDate) {
-      query.andWhere('post.availableFromDate = :afd', { afd: filters.availableFromDate });
+      query.andWhere('post.availableFromDate = :afd', {
+        afd: filters.availableFromDate,
+      });
     }
     if (filters.vehicleType) {
-      query.andWhere('post.vehicleType ILIKE :vt', { vt: escapeLikePattern(filters.vehicleType) });
+      query.andWhere('post.vehicleType ILIKE :vt', {
+        vt: escapeLikePattern(filters.vehicleType),
+      });
     }
 
     const [data, total] = await query
@@ -162,36 +202,50 @@ export class VehiclePostsService {
     });
     if (!post) throw new NotFoundException(`Vehicle post ${id} not found`);
 
-    (post as any).routeCities = await this.routeCityService.findByVehiclePostId(id);
+    post.routeCities = await this.routeCityService.findByVehiclePostId(id);
 
     return post;
   }
 
-  async update(id: string, companyId: string, dto: UpdateVehiclePostDto): Promise<VehiclePost> {
+  async update(
+    id: string,
+    companyId: string,
+    dto: UpdateVehiclePostDto,
+  ): Promise<VehiclePost> {
     const post = await this.findOne(id);
     if (post.companyId !== companyId) {
       throw new ForbiddenException('You can only edit your own posts');
     }
 
     const routeChanged =
-      (dto.originCityId !== undefined && dto.originCityId !== post.originCityId) ||
-      (dto.destinationCityId !== undefined && dto.destinationCityId !== post.destinationCityId);
+      (dto.originCityId !== undefined &&
+        dto.originCityId !== post.originCityId) ||
+      (dto.destinationCityId !== undefined &&
+        dto.destinationCityId !== post.destinationCityId);
 
     let newOriginCity = post.originCity;
     let newDestCity = post.destinationCity;
 
     if (dto.originCityId) {
-      const city = await this.citiesService.findById(dto.originCityId).catch(() => {
-        throw new BadRequestException(`Origin city not found: ${dto.originCityId}`);
-      });
+      const city = await this.citiesService
+        .findById(dto.originCityId)
+        .catch(() => {
+          throw new BadRequestException(
+            `Origin city not found: ${dto.originCityId}`,
+          );
+        });
       post.availableLocation = `${city.name}, ${city.country}`;
       newOriginCity = city;
     }
     if (dto.destinationCityId !== undefined) {
       if (dto.destinationCityId) {
-        const city = await this.citiesService.findById(dto.destinationCityId).catch(() => {
-          throw new BadRequestException(`Destination city not found: ${dto.destinationCityId}`);
-        });
+        const city = await this.citiesService
+          .findById(dto.destinationCityId)
+          .catch(() => {
+            throw new BadRequestException(
+              `Destination city not found: ${dto.destinationCityId}`,
+            );
+          });
         post.destinationPreference = `${city.name}, ${city.country}`;
         newDestCity = city;
       } else {
@@ -200,26 +254,39 @@ export class VehiclePostsService {
       }
     }
 
-    if (dto.availableFromDate !== undefined && dto.availableFromDate < getLocalDateString() && dto.availableFromDate !== post.availableFromDate) {
-      throw new BadRequestException('Available from date cannot be in the past.');
+    if (
+      dto.availableFromDate !== undefined &&
+      dto.availableFromDate < getLocalDateString() &&
+      dto.availableFromDate !== post.availableFromDate
+    ) {
+      throw new BadRequestException(
+        'Available from date cannot be in the past.',
+      );
     }
 
     if (dto.status !== undefined && dto.status !== post.status) {
       // Owners may only toggle between active and closed — expired is set exclusively
       // by PostsExpirationService (cron / startup sync / admin manual trigger).
-      const ownerAllowedTransitions: Partial<Record<PostStatus, PostStatus[]>> = {
-        [PostStatus.ACTIVE]: [PostStatus.CLOSED],
-        [PostStatus.CLOSED]: [PostStatus.ACTIVE],
-      };
+      const ownerAllowedTransitions: Partial<Record<PostStatus, PostStatus[]>> =
+        {
+          [PostStatus.ACTIVE]: [PostStatus.CLOSED],
+          [PostStatus.CLOSED]: [PostStatus.ACTIVE],
+        };
       if (!ownerAllowedTransitions[post.status]?.includes(dto.status)) {
         throw new BadRequestException(
           `Cannot change status from "${post.status}" to "${dto.status}". Owners may only switch between active and closed.`,
         );
       }
       // Reactivating a closed post must not resurrect a post whose date has since passed.
-      const effectiveAvailableFromDate = dto.availableFromDate ?? post.availableFromDate;
-      if (dto.status === PostStatus.ACTIVE && effectiveAvailableFromDate < getLocalDateString()) {
-        throw new BadRequestException('Cannot reactivate a post with a past available-from date.');
+      const effectiveAvailableFromDate =
+        dto.availableFromDate ?? post.availableFromDate;
+      if (
+        dto.status === PostStatus.ACTIVE &&
+        effectiveAvailableFromDate < getLocalDateString()
+      ) {
+        throw new BadRequestException(
+          'Cannot reactivate a post with a past available-from date.',
+        );
       }
     }
 
@@ -228,11 +295,21 @@ export class VehiclePostsService {
 
     if (routeChanged && newOriginCity) {
       try {
-        const { routeCoordinates } = await this.routeCityService.generateAndSave(id, newOriginCity, newDestCity ?? null);
+        const { routeCoordinates } =
+          await this.routeCityService.generateAndSave(
+            id,
+            newOriginCity,
+            newDestCity ?? null,
+          );
         // Always update geometry: set new coordinates or clear stale geometry when ORS failed
-        await this.vehiclePostRepository.update(id, { routeGeoJson: routeCoordinates ?? null });
-      } catch (err: any) {
-        this.logger.warn(`Route regeneration failed for post ${id}: ${err?.message}`);
+        await this.vehiclePostRepository.update(id, {
+          routeGeoJson: routeCoordinates ?? null,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.warn(
+          `Route regeneration failed for post ${id}: ${message}`,
+        );
       }
     }
 

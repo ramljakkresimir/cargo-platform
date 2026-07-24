@@ -1,5 +1,9 @@
 import { NestFactory, Reflector } from '@nestjs/core';
-import { ValidationPipe, ClassSerializerInterceptor, BadRequestException } from '@nestjs/common';
+import {
+  ValidationPipe,
+  ClassSerializerInterceptor,
+  BadRequestException,
+} from '@nestjs/common';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
@@ -29,7 +33,10 @@ async function bootstrap() {
           field: err.property,
           messages: Object.values(err.constraints || {}),
         }));
-        return new BadRequestException({ message: 'Validation failed', errors });
+        return new BadRequestException({
+          message: 'Validation failed',
+          errors,
+        });
       },
     }),
   );
@@ -41,4 +48,4 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`Backend running on http://localhost:${port}`);
 }
-bootstrap();
+void bootstrap();

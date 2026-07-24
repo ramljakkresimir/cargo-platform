@@ -14,7 +14,12 @@
     "backend":  "npm run start:dev -w backend",
     "frontend": "npm run dev -w frontend",
     "build":    "npm run build -w backend && npm run build -w frontend",
-    "seed:cities": "npm run seed:cities -w backend"
+    "seed:cities": "npm run seed:cities -w backend",
+    "migration:create":   "npm run migration:create -w backend --",
+    "migration:generate": "npm run migration:generate -w backend --",
+    "migration:run":      "npm run migration:run -w backend",
+    "migration:revert":   "npm run migration:revert -w backend",
+    "migration:show":     "npm run migration:show -w backend"
   },
 
   "devDependencies": {

@@ -51,7 +51,9 @@ export class PostsExpirationService implements OnApplicationBootstrap {
       String(now.getDate()).padStart(2, '0'),
     ].join('-');
 
-    this.logger.log(`Expiring active posts with date before: ${today} (local date)`);
+    this.logger.log(
+      `Expiring active posts with date before: ${today} (local date)`,
+    );
 
     const cargoResult = await this.cargoPostRepo
       .createQueryBuilder()

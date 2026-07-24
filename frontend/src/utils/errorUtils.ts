@@ -1,3 +1,5 @@
+import { isAxiosError } from 'axios';
+
 export interface ApiFieldError {
   field: string;
   messages: string[];
@@ -9,8 +11,13 @@ export interface ApiErrorResponse {
   errors?: ApiFieldError[];
 }
 
+function getApiErrorResponse(err: unknown): ApiErrorResponse | undefined {
+  if (!isAxiosError<ApiErrorResponse>(err)) return undefined;
+  return err.response?.data;
+}
+
 export function extractErrorMessage(err: unknown, fallback = 'An error occurred. Please try again.'): string {
-  const data = (err as any)?.response?.data as ApiErrorResponse | undefined;
+  const data = getApiErrorResponse(err);
   if (!data) return fallback;
 
   if (data.errors && data.errors.length > 0) {
@@ -21,7 +28,7 @@ export function extractErrorMessage(err: unknown, fallback = 'An error occurred.
 }
 
 export function extractFieldErrors(err: unknown): Record<string, string> {
-  const data = (err as any)?.response?.data as ApiErrorResponse | undefined;
+  const data = getApiErrorResponse(err);
   if (!data?.errors) return {};
   return data.errors.reduce(
     (acc, e) => {

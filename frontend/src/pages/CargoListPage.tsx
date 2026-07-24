@@ -46,16 +46,21 @@ export default function CargoListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchPosts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeFilters, page]);
-
-  const fetchPosts = async () => {
+  // Flip into the loading state during render (React's recommended pattern for
+  // "reset state when an input changes") rather than synchronously inside the
+  // effect below, which the fetch itself only enters asynchronously.
+  const [prevFilters, setPrevFilters] = useState(activeFilters);
+  const [prevPage, setPrevPage] = useState(page);
+  if (activeFilters !== prevFilters || page !== prevPage) {
+    setPrevFilters(activeFilters);
+    setPrevPage(page);
     setLoading(true);
     setError('');
+  }
+
+  const fetchPosts = async () => {
     try {
-      const params: Record<string, any> = { page, limit: LIMIT };
+      const params: Record<string, string | number> = { page, limit: LIMIT };
       if (activeFilters.loadingCityId) params.loadingCityId = activeFilters.loadingCityId;
       if (activeFilters.unloadingCityId) params.unloadingCityId = activeFilters.unloadingCityId;
       if (activeFilters.loadingDate) params.loadingDate = activeFilters.loadingDate;
@@ -69,6 +74,14 @@ export default function CargoListPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Data fetching over the network — the setState calls in fetchPosts's
+    // catch/finally are the async result of this effect, not derivable at render time.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchPosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFilters, page]);
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();

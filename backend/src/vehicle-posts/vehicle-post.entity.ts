@@ -10,6 +10,7 @@ import {
 import { Company } from '../companies/company.entity';
 import { City } from '../cities/city.entity';
 import { PostStatus } from '../common/enums/post-status.enum';
+import { VehiclePostRouteCity } from '../routing/vehicle-post-route-city.entity';
 
 @Entity('vehicle_posts')
 export class VehiclePost {
@@ -70,4 +71,8 @@ export class VehiclePost {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  // Not a DB column — attached at read time by VehiclePostsService.findOne()
+  // from vehicle_post_route_cities, sorted by orderIndex.
+  routeCities?: VehiclePostRouteCity[];
 }

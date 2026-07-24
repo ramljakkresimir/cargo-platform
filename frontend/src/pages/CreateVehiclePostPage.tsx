@@ -36,7 +36,7 @@ export default function CreateVehiclePostPage() {
     setLoading(true);
 
     try {
-      const payload: any = {
+      const payload: Parameters<typeof vehiclePostsService.create>[0] = {
         originCityId: originCity.id,
         availableFromDate: form.availableFromDate,
         vehicleType: form.vehicleType,
@@ -47,7 +47,7 @@ export default function CreateVehiclePostPage() {
 
       await vehiclePostsService.create(payload);
       navigate('/vehicles');
-    } catch (err: any) {
+    } catch (err) {
       setError(extractErrorMessage(err, 'Objavljivanje oglasa nije uspjelo.'));
     } finally {
       setLoading(false);

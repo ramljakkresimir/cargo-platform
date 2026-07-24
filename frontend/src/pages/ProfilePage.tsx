@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, FormEvent } from 'react';
 import { usersService } from '../services/users.service';
 import { useAuth } from '../context/AuthContext';
 import { extractErrorMessage } from '../utils/errorUtils';
@@ -26,16 +26,18 @@ export default function ProfilePage() {
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
-  // Pre-fill profile form from auth context on mount
-  useEffect(() => {
-    if (user) {
-      setProfileForm({
-        firstName: user.firstName,
-        lastName: user.lastName,
-        phone: user.phone ?? '',
-      });
-    }
-  }, [user]);
+  // Pre-fill profile form from auth context. Adjusted during render (React's
+  // recommended pattern for "reset state when a prop changes") rather than in
+  // an effect, so the form never paints with stale/empty values first.
+  const [prevUser, setPrevUser] = useState(user);
+  if (user && user !== prevUser) {
+    setPrevUser(user);
+    setProfileForm({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      phone: user.phone ?? '',
+    });
+  }
 
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setProfileForm({ ...profileForm, [e.target.name]: e.target.value });

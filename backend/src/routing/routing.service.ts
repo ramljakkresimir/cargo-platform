@@ -13,7 +13,10 @@ export class RoutingService {
     origin: Coordinate,
     destination: Coordinate,
   ): Promise<RouteResult | null> {
-    const coordinates = await this.openRouteService.getRoute(origin, destination);
+    const coordinates = await this.openRouteService.getRoute(
+      origin,
+      destination,
+    );
     if (!coordinates) return null;
     return { coordinates };
   }

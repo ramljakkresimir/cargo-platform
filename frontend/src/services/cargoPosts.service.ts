@@ -25,7 +25,7 @@ export const cargoPostsService = {
     note?: string;
   }) => api.post('/cargo-posts', data),
 
-  update: (id: string, data: Record<string, any>) =>
+  update: (id: string, data: Record<string, unknown>) =>
     api.patch(`/cargo-posts/${id}`, data),
 
   remove: (id: string) => api.delete(`/cargo-posts/${id}`),

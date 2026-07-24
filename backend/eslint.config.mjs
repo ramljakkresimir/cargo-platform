@@ -29,6 +29,10 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
+      // Allow `import x = require('pkg')` — needed for CJS packages (e.g. supertest)
+      // whose "export =" typings don't interop with a plain `import x from 'pkg'`
+      // under this project's commonjs module setting (see test/app.e2e-spec.ts).
+      '@typescript-eslint/no-require-imports': ['error', { allowAsImport: true }],
       "prettier/prettier": ["error", { endOfLine: "auto" }],
     },
   },

@@ -21,7 +21,7 @@ export const vehiclePostsService = {
     note?: string;
   }) => api.post('/vehicle-posts', data),
 
-  update: (id: string, data: Record<string, any>) =>
+  update: (id: string, data: Record<string, unknown>) =>
     api.patch(`/vehicle-posts/${id}`, data),
 
   remove: (id: string) => api.delete(`/vehicle-posts/${id}`),

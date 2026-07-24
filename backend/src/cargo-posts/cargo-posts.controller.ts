@@ -11,6 +11,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AuthenticatedRequest } from '../auth/types/authenticated-request';
 import { CargoPostsService } from './cargo-posts.service';
 import { CompaniesService } from '../companies/companies.service';
 import { CreateCargoPostDto } from './dto/create-cargo-post.dto';
@@ -35,7 +36,7 @@ export class CargoPostsController {
   // GET /cargo-posts/my — returns all posts belonging to the logged-in user's company
   @Get('my')
   @UseGuards(JwtAuthGuard)
-  async findMine(@Request() req: any) {
+  async findMine(@Request() req: AuthenticatedRequest) {
     const company = await this.companiesService.findByUserId(req.user.id);
     return this.cargoPostsService.findByCompanyId(company.id);
   }
@@ -49,7 +50,10 @@ export class CargoPostsController {
   // POST /cargo-posts — requires login
   @Post()
   @UseGuards(JwtAuthGuard)
-  async create(@Request() req: any, @Body() dto: CreateCargoPostDto) {
+  async create(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: CreateCargoPostDto,
+  ) {
     // Look up the company that belongs to this user
     const company = await this.companiesService.findByUserId(req.user.id);
     return this.cargoPostsService.create(company.id, dto);
@@ -59,7 +63,7 @@ export class CargoPostsController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   async update(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() dto: UpdateCargoPostDto,
   ) {
@@ -70,7 +74,7 @@ export class CargoPostsController {
   // DELETE /cargo-posts/:id — requires login + must be the owner
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
-  async remove(@Request() req: any, @Param('id') id: string) {
+  async remove(@Request() req: AuthenticatedRequest, @Param('id') id: string) {
     const company = await this.companiesService.findByUserId(req.user.id);
     return this.cargoPostsService.remove(id, company.id);
   }

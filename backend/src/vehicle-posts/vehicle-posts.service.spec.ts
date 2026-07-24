@@ -8,20 +8,35 @@ jest.mock('../routing/route-city.service', () => ({
   RouteCityService: class RouteCityService {},
 }));
 
+import { Repository } from 'typeorm';
 import { VehiclePostsService } from './vehicle-posts.service';
+import { VehiclePost } from './vehicle-post.entity';
+import { CitiesService } from '../cities/cities.service';
+import { RouteCityService } from '../routing/route-city.service';
 import { PostStatus } from '../common/enums/post-status.enum';
+
+type MockRepo = { findOne: jest.Mock; save: jest.Mock; create: jest.Mock };
+type MockCitiesService = { findById: jest.Mock };
+type MockRouteCityService = {
+  findByVehiclePostId: jest.Mock;
+  generateAndSave: jest.Mock;
+};
 
 function localDateString(offsetDays = 0): string {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
-  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('-');
 }
 
 describe('VehiclePostsService', () => {
   let service: VehiclePostsService;
-  let repo: any;
-  let citiesService: any;
-  let routeCityService: any;
+  let repo: MockRepo;
+  let citiesService: MockCitiesService;
+  let routeCityService: MockRouteCityService;
 
   const companyId = 'company-1';
 
@@ -46,13 +61,21 @@ describe('VehiclePostsService', () => {
       create: jest.fn((p: unknown) => p),
     };
     citiesService = {
-      findById: jest.fn().mockResolvedValue({ id: 'city-a', name: 'Mostar', country: 'BA' }),
+      findById: jest
+        .fn()
+        .mockResolvedValue({ id: 'city-a', name: 'Mostar', country: 'BA' }),
     };
     routeCityService = {
       findByVehiclePostId: jest.fn().mockResolvedValue([]),
-      generateAndSave: jest.fn().mockResolvedValue({ routeCities: [], routeCoordinates: null }),
+      generateAndSave: jest
+        .fn()
+        .mockResolvedValue({ routeCities: [], routeCoordinates: null }),
     };
-    service = new VehiclePostsService(repo, citiesService, routeCityService);
+    service = new VehiclePostsService(
+      repo as unknown as Repository<VehiclePost>,
+      citiesService as unknown as CitiesService,
+      routeCityService as unknown as RouteCityService,
+    );
   });
 
   describe('create — past-date guard', () => {
@@ -70,7 +93,9 @@ describe('VehiclePostsService', () => {
     it('rejects updates from a different company', async () => {
       repo.findOne.mockResolvedValue(makePost());
       await expect(
-        service.update('post-1', 'someone-else', { status: PostStatus.CLOSED } as any),
+        service.update('post-1', 'someone-else', {
+          status: PostStatus.CLOSED,
+        } as any),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -79,14 +104,18 @@ describe('VehiclePostsService', () => {
     it('rejects setting status directly to expired', async () => {
       repo.findOne.mockResolvedValue(makePost({ status: PostStatus.ACTIVE }));
       await expect(
-        service.update('post-1', companyId, { status: PostStatus.EXPIRED } as any),
+        service.update('post-1', companyId, {
+          status: PostStatus.EXPIRED,
+        } as any),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('rejects resurrecting an expired post back to active', async () => {
       repo.findOne.mockResolvedValue(makePost({ status: PostStatus.EXPIRED }));
       await expect(
-        service.update('post-1', companyId, { status: PostStatus.ACTIVE } as any),
+        service.update('post-1', companyId, {
+          status: PostStatus.ACTIVE,
+        } as any),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -94,25 +123,39 @@ describe('VehiclePostsService', () => {
       const post = makePost({ status: PostStatus.ACTIVE });
       repo.findOne.mockResolvedValue(post);
 
-      await service.update('post-1', companyId, { status: PostStatus.CLOSED } as any);
+      await service.update('post-1', companyId, {
+        status: PostStatus.CLOSED,
+      });
       expect(post.status).toBe(PostStatus.CLOSED);
     });
 
     it('allows closed -> active when the available-from date is still current', async () => {
-      const post = makePost({ status: PostStatus.CLOSED, availableFromDate: localDateString(0) });
+      const post = makePost({
+        status: PostStatus.CLOSED,
+        availableFromDate: localDateString(0),
+      });
       repo.findOne.mockResolvedValue(post);
 
-      await service.update('post-1', companyId, { status: PostStatus.ACTIVE } as any);
+      await service.update('post-1', companyId, {
+        status: PostStatus.ACTIVE,
+      });
       expect(post.status).toBe(PostStatus.ACTIVE);
     });
 
     it('rejects reactivating a closed post whose available-from date has passed', async () => {
-      const post = makePost({ status: PostStatus.CLOSED, availableFromDate: localDateString(-1) });
+      const post = makePost({
+        status: PostStatus.CLOSED,
+        availableFromDate: localDateString(-1),
+      });
       repo.findOne.mockResolvedValue(post);
 
       await expect(
-        service.update('post-1', companyId, { status: PostStatus.ACTIVE } as any),
-      ).rejects.toThrow('Cannot reactivate a post with a past available-from date.');
+        service.update('post-1', companyId, {
+          status: PostStatus.ACTIVE,
+        } as any),
+      ).rejects.toThrow(
+        'Cannot reactivate a post with a past available-from date.',
+      );
     });
   });
 });

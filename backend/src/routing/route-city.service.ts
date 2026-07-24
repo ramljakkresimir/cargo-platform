@@ -44,12 +44,22 @@ export class RouteCityService {
     // Compute the full set of rows to persist BEFORE touching the database — a crash or
     // restart during the (slow, external) route fetch must never leave a post with its
     // old route cities deleted but no new ones saved.
-    let rows: Pick<VehiclePostRouteCity, 'cityId' | 'orderIndex' | 'distanceFromStartKm' | 'distanceFromRouteKm'>[];
+    let rows: Pick<
+      VehiclePostRouteCity,
+      'cityId' | 'orderIndex' | 'distanceFromStartKm' | 'distanceFromRouteKm'
+    >[];
     let routeCoordinates: Coordinate[] | null = null;
 
     if (!destCity) {
       // No destination — just record the origin city; no route geometry
-      rows = [{ cityId: originCity.id, orderIndex: 0, distanceFromStartKm: 0, distanceFromRouteKm: 0 }];
+      rows = [
+        {
+          cityId: originCity.id,
+          orderIndex: 0,
+          distanceFromStartKm: 0,
+          distanceFromRouteKm: 0,
+        },
+      ];
     } else {
       const route = await this.routingService.getRoute(
         { lat: originCity.latitude, lng: originCity.longitude },
@@ -68,18 +78,32 @@ export class RouteCityService {
           `Route fetch failed for vehicle post ${vehiclePostId} — using origin+destination fallback`,
         );
         rows = [
-          { cityId: originCity.id, orderIndex: 0, distanceFromStartKm: 0, distanceFromRouteKm: 0 },
-          { cityId: destCity.id, orderIndex: 1, distanceFromStartKm: 0, distanceFromRouteKm: 0 },
+          {
+            cityId: originCity.id,
+            orderIndex: 0,
+            distanceFromStartKm: 0,
+            distanceFromRouteKm: 0,
+          },
+          {
+            cityId: destCity.id,
+            orderIndex: 1,
+            distanceFromStartKm: 0,
+            distanceFromRouteKm: 0,
+          },
         ];
       }
     }
 
     // Delete the old rows and insert the new ones atomically.
-    const routeCities = await this.routeCityRepo.manager.transaction(async (manager) => {
-      await manager.delete(VehiclePostRouteCity, { vehiclePostId });
-      const entities = rows.map((r) => manager.create(VehiclePostRouteCity, { vehiclePostId, ...r }));
-      return manager.save(VehiclePostRouteCity, entities);
-    });
+    const routeCities = await this.routeCityRepo.manager.transaction(
+      async (manager) => {
+        await manager.delete(VehiclePostRouteCity, { vehiclePostId });
+        const entities = rows.map((r) =>
+          manager.create(VehiclePostRouteCity, { vehiclePostId, ...r }),
+        );
+        return manager.save(VehiclePostRouteCity, entities);
+      },
+    );
 
     return { routeCities, routeCoordinates };
   }
@@ -96,7 +120,12 @@ export class RouteCityService {
   private async projectCitiesOntoRoute(
     coordinates: { lat: number; lng: number }[],
     maxDistKm: number,
-  ): Promise<Pick<VehiclePostRouteCity, 'cityId' | 'orderIndex' | 'distanceFromStartKm' | 'distanceFromRouteKm'>[]> {
+  ): Promise<
+    Pick<
+      VehiclePostRouteCity,
+      'cityId' | 'orderIndex' | 'distanceFromStartKm' | 'distanceFromRouteKm'
+    >[]
+  > {
     const allCities = await this.cityRepo.find();
 
     const line = lineString(coordinates.map((c) => [c.lng, c.lat]));
@@ -132,7 +161,9 @@ export class RouteCityService {
     }));
   }
 
-  async findByVehiclePostId(vehiclePostId: string): Promise<VehiclePostRouteCity[]> {
+  async findByVehiclePostId(
+    vehiclePostId: string,
+  ): Promise<VehiclePostRouteCity[]> {
     return this.routeCityRepo.find({
       where: { vehiclePostId },
       relations: { city: true },

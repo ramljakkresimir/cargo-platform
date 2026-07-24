@@ -20,16 +20,21 @@ export default function AdminUsersPage() {
   const [actionError, setActionError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
 
-  useEffect(() => {
-    fetchUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSearch, page]);
-
-  const fetchUsers = async () => {
+  // Flip into the loading state during render (React's recommended pattern for
+  // "reset state when an input changes") rather than synchronously inside the
+  // effect below, which the fetch itself only enters asynchronously.
+  const [prevSearch, setPrevSearch] = useState(activeSearch);
+  const [prevPage, setPrevPage] = useState(page);
+  if (activeSearch !== prevSearch || page !== prevPage) {
+    setPrevSearch(activeSearch);
+    setPrevPage(page);
     setLoading(true);
     setError('');
+  }
+
+  const fetchUsers = async () => {
     try {
-      const params: Record<string, any> = { page, limit: LIMIT };
+      const params: Record<string, string | number> = { page, limit: LIMIT };
       if (activeSearch) params.search = activeSearch;
       const res = await adminService.getUsers(params);
       setResult(res.data);
@@ -39,6 +44,14 @@ export default function AdminUsersPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Data fetching over the network — the setState calls in fetchUsers's
+    // catch/finally are the async result of this effect, not derivable at render time.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSearch, page]);
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();

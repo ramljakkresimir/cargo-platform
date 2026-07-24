@@ -43,12 +43,16 @@ export default function Navbar() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [mobilePostOpen, setMobilePostOpen] = useState(false);
 
-  // Close the mobile drawer whenever the route changes
-  useEffect(() => {
+  // Close the mobile drawer whenever the route changes. Adjusted during render
+  // (React's recommended pattern for "reset state when a prop/value changes")
+  // rather than in an effect, so it takes effect before the stale-open drawer paints.
+  const [prevPathname, setPrevPathname] = useState(location.pathname);
+  if (location.pathname !== prevPathname) {
+    setPrevPathname(location.pathname);
     setMobileOpen(false);
     setMobileSearchOpen(false);
     setMobilePostOpen(false);
-  }, [location.pathname]);
+  }
 
   useEffect(() => {
     if (!mobileOpen) return;

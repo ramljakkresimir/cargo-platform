@@ -18,7 +18,9 @@ export class CompaniesService {
 
   async create(userId: string, dto: CreateCompanyDto): Promise<Company> {
     // Each user may only have one company profile
-    const existing = await this.companyRepository.findOne({ where: { userId } });
+    const existing = await this.companyRepository.findOne({
+      where: { userId },
+    });
     if (existing) {
       throw new ConflictException('You already have a company profile');
     }
@@ -42,7 +44,10 @@ export class CompaniesService {
     return this.companyRepository.findOne({ where: { id } });
   }
 
-  async updateByUserId(userId: string, dto: UpdateCompanyDto): Promise<Company> {
+  async updateByUserId(
+    userId: string,
+    dto: UpdateCompanyDto,
+  ): Promise<Company> {
     const company = await this.findByUserId(userId);
     // Object.assign merges only the provided fields into the existing entity
     Object.assign(company, dto);

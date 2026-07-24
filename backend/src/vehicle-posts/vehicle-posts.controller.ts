@@ -11,6 +11,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AuthenticatedRequest } from '../auth/types/authenticated-request';
 import { VehiclePostsService } from './vehicle-posts.service';
 import { CompaniesService } from '../companies/companies.service';
 import { CreateVehiclePostDto } from './dto/create-vehicle-post.dto';
@@ -33,7 +34,7 @@ export class VehiclePostsController {
   // GET /vehicle-posts/my — returns all posts belonging to the logged-in user's company
   @Get('my')
   @UseGuards(JwtAuthGuard)
-  async findMine(@Request() req: any) {
+  async findMine(@Request() req: AuthenticatedRequest) {
     const company = await this.companiesService.findByUserId(req.user.id);
     return this.vehiclePostsService.findByCompanyId(company.id);
   }
@@ -47,7 +48,10 @@ export class VehiclePostsController {
   // POST /vehicle-posts
   @Post()
   @UseGuards(JwtAuthGuard)
-  async create(@Request() req: any, @Body() dto: CreateVehiclePostDto) {
+  async create(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: CreateVehiclePostDto,
+  ) {
     const company = await this.companiesService.findByUserId(req.user.id);
     return this.vehiclePostsService.create(company.id, dto);
   }
@@ -56,7 +60,7 @@ export class VehiclePostsController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   async update(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() dto: UpdateVehiclePostDto,
   ) {
@@ -67,7 +71,7 @@ export class VehiclePostsController {
   // DELETE /vehicle-posts/:id
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
-  async remove(@Request() req: any, @Param('id') id: string) {
+  async remove(@Request() req: AuthenticatedRequest, @Param('id') id: string) {
     const company = await this.companiesService.findByUserId(req.user.id);
     return this.vehiclePostsService.remove(id, company.id);
   }

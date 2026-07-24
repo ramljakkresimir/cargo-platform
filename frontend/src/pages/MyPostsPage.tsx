@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { isAxiosError } from 'axios';
 import { cargoPostsService } from '../services/cargoPosts.service';
 import { vehiclePostsService } from '../services/vehiclePosts.service';
 import { CargoPost, VehiclePost } from '../types';
@@ -17,17 +18,12 @@ export default function MyPostsPage() {
   const [cargoError, setCargoError] = useState('');
   const [vehicleError, setVehicleError] = useState('');
 
-  useEffect(() => {
-    fetchCargoPosts();
-    fetchVehiclePosts();
-  }, []);
-
   const fetchCargoPosts = async () => {
     try {
       const res = await cargoPostsService.getMine();
       setCargoPosts(res.data);
-    } catch (err: any) {
-      if (err.response?.status === 404) {
+    } catch (err) {
+      if (isAxiosError(err) && err.response?.status === 404) {
         setCargoPosts([]);
       } else {
         setCargoError('Učitavanje oglasa tereta nije uspjelo.');
@@ -41,8 +37,8 @@ export default function MyPostsPage() {
     try {
       const res = await vehiclePostsService.getMine();
       setVehiclePosts(res.data);
-    } catch (err: any) {
-      if (err.response?.status === 404) {
+    } catch (err) {
+      if (isAxiosError(err) && err.response?.status === 404) {
         setVehiclePosts([]);
       } else {
         setVehicleError('Učitavanje oglasa vozila nije uspjelo.');
@@ -51,6 +47,14 @@ export default function MyPostsPage() {
       setVehicleLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Data fetching over the network — the setState calls in these functions'
+    // catch/finally are the async result of this effect, not derivable at render time.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchCargoPosts();
+    fetchVehiclePosts();
+  }, []);
 
   const handleCloseCargo = async (id: string) => {
     if (!confirm('Zatvoriti ovaj oglas tereta? Više se neće prikazivati u javnoj pretrazi.')) return;

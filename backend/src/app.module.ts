@@ -13,12 +13,7 @@ import { VehiclePostsModule } from './vehicle-posts/vehicle-posts.module';
 import { AdminModule } from './admin/admin.module';
 import { PostsExpirationModule } from './posts-expiration/posts-expiration.module';
 import { CitiesModule } from './cities/cities.module';
-import { User } from './users/user.entity';
-import { Company } from './companies/company.entity';
-import { CargoPost } from './cargo-posts/cargo-post.entity';
-import { VehiclePost } from './vehicle-posts/vehicle-post.entity';
-import { City } from './cities/city.entity';
-import { VehiclePostRouteCity } from './routing/vehicle-post-route-city.entity';
+import { entities } from './entities';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -52,7 +47,7 @@ import { AppService } from './app.service';
         username: config.get<string>('DATABASE_USER'),
         password: config.get<string>('DATABASE_PASSWORD'),
         database: config.get<string>('DATABASE_NAME'),
-        entities: [User, Company, CargoPost, VehiclePost, City, VehiclePostRouteCity],
+        entities,
         synchronize: config.get<string>('NODE_ENV') !== 'production',
       }),
     }),

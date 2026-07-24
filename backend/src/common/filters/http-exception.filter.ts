@@ -7,6 +7,13 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 
+// Shape produced by our custom ValidationPipe exceptionFactory (main.ts) and,
+// in the plain-message branch, NestJS's default HttpException body.
+interface ExceptionResponseBody {
+  message?: string | string[];
+  errors?: { field: string; messages: string[] }[];
+}
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
@@ -24,17 +31,20 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
       if (typeof exceptionResponse === 'string') {
         message = exceptionResponse;
-      } else if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
-        const resp = exceptionResponse as Record<string, any>;
+      } else if (
+        typeof exceptionResponse === 'object' &&
+        exceptionResponse !== null
+      ) {
+        const resp = exceptionResponse as ExceptionResponseBody;
 
         if (resp.errors) {
           // Structured validation errors produced by our custom exceptionFactory
-          message = resp.message || 'Validation failed';
+          message = (resp.message as string) || 'Validation failed';
           errors = resp.errors;
         } else if (Array.isArray(resp.message)) {
           // Default NestJS ValidationPipe format: message is string[]
           message = 'Validation failed';
-          errors = (resp.message as string[]).map((msg) => ({
+          errors = resp.message.map((msg) => ({
             field: msg.split(' ')[0],
             messages: [msg],
           }));

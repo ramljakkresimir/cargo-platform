@@ -40,7 +40,7 @@ export default function CreateCargoPostPage() {
     setLoading(true);
 
     try {
-      const payload: any = {
+      const payload: Parameters<typeof cargoPostsService.create>[0] = {
         loadingCityId: loadingCity.id,
         unloadingCityId: unloadingCity.id,
         loadingDate: form.loadingDate,

@@ -6,7 +6,8 @@ export class CreateCompanyDto {
   companyName: string;
 
   @IsEnum(CompanyType, {
-    message: 'companyType must be one of: transport, freight_forwarder, manufacturer, trader, other',
+    message:
+      'companyType must be one of: transport, freight_forwarder, manufacturer, trader, other',
   })
   companyType: CompanyType;
 

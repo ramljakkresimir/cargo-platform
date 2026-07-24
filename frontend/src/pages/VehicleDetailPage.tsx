@@ -51,17 +51,6 @@ export default function VehicleDetailPage() {
   const [saveSuccess, setSaveSuccess] = useState('');
   const [closeLoading, setCloseLoading] = useState(false);
 
-  useEffect(() => {
-    if (id) fetchPost(id);
-  }, [id]);
-
-  useEffect(() => {
-    if (post && location.state?.startEditing) {
-      startEditing();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [post]);
-
   const fetchPost = async (postId: string) => {
     try {
       const res = await vehiclePostsService.getOne(postId);
@@ -72,6 +61,40 @@ export default function VehicleDetailPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Data fetching over the network — the setState calls in fetchPost's
+    // catch/finally are the async result of this effect, not derivable at render time.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (id) fetchPost(id);
+  }, [id]);
+
+  const startEditing = () => {
+    if (!post) return;
+    setEditOriginCity(post.originCity || null);
+    setEditDestCity(post.destinationCity || null);
+    setEditForm({
+      availableFromDate: post.availableFromDate,
+      vehicleType: post.vehicleType,
+      capacity: post.capacity != null ? String(post.capacity) : '',
+      note: post.note || '',
+      status: post.status,
+    });
+    setSaveError('');
+    setSaveSuccess('');
+    setIsEditing(true);
+  };
+
+  // Auto-open the edit form once the post has loaded, when arriving via the
+  // My Posts "Edit" deep-link. Adjusted during render (React's recommended
+  // pattern for reacting to a value becoming available) rather than in an effect.
+  const [prevPost, setPrevPost] = useState(post);
+  if (post !== prevPost) {
+    setPrevPost(post);
+    if (post && location.state?.startEditing) {
+      startEditing();
+    }
+  }
 
   const handleDelete = async () => {
     if (!id || !confirm('Obrisati ovaj oglas vozila?')) return;
@@ -99,22 +122,6 @@ export default function VehicleDetailPage() {
     }
   };
 
-  const startEditing = () => {
-    if (!post) return;
-    setEditOriginCity(post.originCity || null);
-    setEditDestCity(post.destinationCity || null);
-    setEditForm({
-      availableFromDate: post.availableFromDate,
-      vehicleType: post.vehicleType,
-      capacity: post.capacity != null ? String(post.capacity) : '',
-      note: post.note || '',
-      status: post.status,
-    });
-    setSaveError('');
-    setSaveSuccess('');
-    setIsEditing(true);
-  };
-
   const handleEditChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -136,7 +143,7 @@ export default function VehicleDetailPage() {
     setSaveLoading(true);
 
     try {
-      const payload: Record<string, any> = {
+      const payload: Record<string, unknown> = {
         originCityId: editOriginCity.id,
         availableFromDate: editForm.availableFromDate,
         vehicleType: editForm.vehicleType,

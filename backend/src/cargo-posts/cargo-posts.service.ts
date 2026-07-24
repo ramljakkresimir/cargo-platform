@@ -32,12 +32,20 @@ export class CargoPostsService {
   ) {}
 
   async create(companyId: string, dto: CreateCargoPostDto): Promise<CargoPost> {
-    const loadingCity = await this.citiesService.findById(dto.loadingCityId).catch(() => {
-      throw new BadRequestException(`Loading city not found: ${dto.loadingCityId}`);
-    });
-    const unloadingCity = await this.citiesService.findById(dto.unloadingCityId).catch(() => {
-      throw new BadRequestException(`Unloading city not found: ${dto.unloadingCityId}`);
-    });
+    const loadingCity = await this.citiesService
+      .findById(dto.loadingCityId)
+      .catch(() => {
+        throw new BadRequestException(
+          `Loading city not found: ${dto.loadingCityId}`,
+        );
+      });
+    const unloadingCity = await this.citiesService
+      .findById(dto.unloadingCityId)
+      .catch(() => {
+        throw new BadRequestException(
+          `Unloading city not found: ${dto.unloadingCityId}`,
+        );
+      });
 
     if (dto.loadingDate < getLocalDateString()) {
       throw new BadRequestException('Loading date cannot be in the past.');
@@ -67,7 +75,9 @@ export class CargoPostsService {
       .orderBy('post.createdAt', 'DESC');
 
     if (filters.loadingCityId) {
-      query.andWhere('post.loadingCityId = :lcId', { lcId: filters.loadingCityId });
+      query.andWhere('post.loadingCityId = :lcId', {
+        lcId: filters.loadingCityId,
+      });
     } else if (filters.loadingLocation) {
       query.andWhere('post.loadingLocation ILIKE :ll', {
         ll: `%${escapeLikePattern(filters.loadingLocation)}%`,
@@ -75,7 +85,9 @@ export class CargoPostsService {
     }
 
     if (filters.unloadingCityId) {
-      query.andWhere('post.unloadingCityId = :ucId', { ucId: filters.unloadingCityId });
+      query.andWhere('post.unloadingCityId = :ucId', {
+        ucId: filters.unloadingCityId,
+      });
     } else if (filters.unloadingLocation) {
       query.andWhere('post.unloadingLocation ILIKE :ul', {
         ul: `%${escapeLikePattern(filters.unloadingLocation)}%`,
@@ -86,7 +98,9 @@ export class CargoPostsService {
       query.andWhere('post.loadingDate = :ld', { ld: filters.loadingDate });
     }
     if (filters.cargoType) {
-      query.andWhere('post.cargoType ILIKE :ct', { ct: escapeLikePattern(filters.cargoType) });
+      query.andWhere('post.cargoType ILIKE :ct', {
+        ct: escapeLikePattern(filters.cargoType),
+      });
     }
     if (filters.requiredVehicleType) {
       query.andWhere('post.requiredVehicleType ILIKE :rvt', {
@@ -111,36 +125,53 @@ export class CargoPostsService {
     return post;
   }
 
-  async update(id: string, companyId: string, dto: UpdateCargoPostDto): Promise<CargoPost> {
+  async update(
+    id: string,
+    companyId: string,
+    dto: UpdateCargoPostDto,
+  ): Promise<CargoPost> {
     const post = await this.findOne(id);
     if (post.companyId !== companyId) {
       throw new ForbiddenException('You can only edit your own posts');
     }
 
     if (dto.loadingCityId) {
-      const city = await this.citiesService.findById(dto.loadingCityId).catch(() => {
-        throw new BadRequestException(`Loading city not found: ${dto.loadingCityId}`);
-      });
+      const city = await this.citiesService
+        .findById(dto.loadingCityId)
+        .catch(() => {
+          throw new BadRequestException(
+            `Loading city not found: ${dto.loadingCityId}`,
+          );
+        });
       post.loadingLocation = `${city.name}, ${city.country}`;
     }
     if (dto.unloadingCityId) {
-      const city = await this.citiesService.findById(dto.unloadingCityId).catch(() => {
-        throw new BadRequestException(`Unloading city not found: ${dto.unloadingCityId}`);
-      });
+      const city = await this.citiesService
+        .findById(dto.unloadingCityId)
+        .catch(() => {
+          throw new BadRequestException(
+            `Unloading city not found: ${dto.unloadingCityId}`,
+          );
+        });
       post.unloadingLocation = `${city.name}, ${city.country}`;
     }
 
-    if (dto.loadingDate !== undefined && dto.loadingDate < getLocalDateString() && dto.loadingDate !== post.loadingDate) {
+    if (
+      dto.loadingDate !== undefined &&
+      dto.loadingDate < getLocalDateString() &&
+      dto.loadingDate !== post.loadingDate
+    ) {
       throw new BadRequestException('Loading date cannot be in the past.');
     }
 
     if (dto.status !== undefined && dto.status !== post.status) {
       // Owners may only toggle between active and closed — expired is set exclusively
       // by PostsExpirationService (cron / startup sync / admin manual trigger).
-      const ownerAllowedTransitions: Partial<Record<PostStatus, PostStatus[]>> = {
-        [PostStatus.ACTIVE]: [PostStatus.CLOSED],
-        [PostStatus.CLOSED]: [PostStatus.ACTIVE],
-      };
+      const ownerAllowedTransitions: Partial<Record<PostStatus, PostStatus[]>> =
+        {
+          [PostStatus.ACTIVE]: [PostStatus.CLOSED],
+          [PostStatus.CLOSED]: [PostStatus.ACTIVE],
+        };
       if (!ownerAllowedTransitions[post.status]?.includes(dto.status)) {
         throw new BadRequestException(
           `Cannot change status from "${post.status}" to "${dto.status}". Owners may only switch between active and closed.`,
@@ -148,8 +179,13 @@ export class CargoPostsService {
       }
       // Reactivating a closed post must not resurrect a post whose date has since passed.
       const effectiveLoadingDate = dto.loadingDate ?? post.loadingDate;
-      if (dto.status === PostStatus.ACTIVE && effectiveLoadingDate < getLocalDateString()) {
-        throw new BadRequestException('Cannot reactivate a post with a past loading date.');
+      if (
+        dto.status === PostStatus.ACTIVE &&
+        effectiveLoadingDate < getLocalDateString()
+      ) {
+        throw new BadRequestException(
+          'Cannot reactivate a post with a past loading date.',
+        );
       }
     }
 

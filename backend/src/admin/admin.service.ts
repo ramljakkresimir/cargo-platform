@@ -35,14 +35,19 @@ export class AdminService {
   ) {}
 
   async getStats() {
-    const [totalUsers, totalCargoPosts, totalVehiclePosts, activeCargoPosts, activeVehiclePosts] =
-      await Promise.all([
-        this.userRepo.count(),
-        this.cargoPostRepo.count(),
-        this.vehiclePostRepo.count(),
-        this.cargoPostRepo.count({ where: { status: PostStatus.ACTIVE } }),
-        this.vehiclePostRepo.count({ where: { status: PostStatus.ACTIVE } }),
-      ]);
+    const [
+      totalUsers,
+      totalCargoPosts,
+      totalVehiclePosts,
+      activeCargoPosts,
+      activeVehiclePosts,
+    ] = await Promise.all([
+      this.userRepo.count(),
+      this.cargoPostRepo.count(),
+      this.vehiclePostRepo.count(),
+      this.cargoPostRepo.count({ where: { status: PostStatus.ACTIVE } }),
+      this.vehiclePostRepo.count({ where: { status: PostStatus.ACTIVE } }),
+    ]);
 
     return {
       totalUsers,
@@ -97,7 +102,9 @@ export class AdminService {
       target.role === UserRole.ADMIN &&
       dto.role === UserRole.USER
     ) {
-      const adminCount = await this.userRepo.count({ where: { role: UserRole.ADMIN } });
+      const adminCount = await this.userRepo.count({
+        where: { role: UserRole.ADMIN },
+      });
       if (adminCount <= 1) {
         throw new BadRequestException(
           'Cannot remove your own admin role — you are the only admin in the system',
@@ -109,7 +116,10 @@ export class AdminService {
     return this.userRepo.save(target);
   }
 
-  async deleteUser(targetId: string, requestingUserId: string): Promise<{ message: string }> {
+  async deleteUser(
+    targetId: string,
+    requestingUserId: string,
+  ): Promise<{ message: string }> {
     if (targetId === requestingUserId) {
       throw new ForbiddenException('You cannot delete your own account');
     }
@@ -120,7 +130,9 @@ export class AdminService {
     // Cascade delete: posts → company → user, atomically so a mid-sequence failure
     // can't leave a user without a company or a company without its posts deleted.
     await this.userRepo.manager.transaction(async (manager) => {
-      const company = await manager.findOne(Company, { where: { userId: targetId } });
+      const company = await manager.findOne(Company, {
+        where: { userId: targetId },
+      });
       if (company) {
         await manager.delete(CargoPost, { companyId: company.id });
         await manager.delete(VehiclePost, { companyId: company.id });
@@ -166,7 +178,10 @@ export class AdminService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  async updateCargoPostStatus(id: string, dto: UpdatePostStatusDto): Promise<CargoPost> {
+  async updateCargoPostStatus(
+    id: string,
+    dto: UpdatePostStatusDto,
+  ): Promise<CargoPost> {
     const post = await this.cargoPostRepo.findOne({ where: { id } });
     if (!post) throw new NotFoundException('Cargo post not found');
     post.status = dto.status;
@@ -214,7 +229,10 @@ export class AdminService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  async updateVehiclePostStatus(id: string, dto: UpdatePostStatusDto): Promise<VehiclePost> {
+  async updateVehiclePostStatus(
+    id: string,
+    dto: UpdatePostStatusDto,
+  ): Promise<VehiclePost> {
     const post = await this.vehiclePostRepo.findOne({ where: { id } });
     if (!post) throw new NotFoundException('Vehicle post not found');
     post.status = dto.status;
@@ -240,27 +258,42 @@ export class AdminService {
     });
 
     const eligible = posts;
-    this.logger.log(`Regenerating routes for ${eligible.length} post(s) with missing geometry`);
+    this.logger.log(
+      `Regenerating routes for ${eligible.length} post(s) with missing geometry`,
+    );
 
     let succeeded = 0;
     let failed = 0;
 
     for (const post of eligible) {
       try {
-        const originCity = await this.routeCityService.findCityById(post.originCityId!);
-        if (!originCity) { failed++; continue; }
-
-        const destCity = await this.routeCityService.findCityById(post.destinationCityId!);
-        const { routeCities, routeCoordinates } = await this.routeCityService.generateAndSave(
-          post.id,
-          originCity,
-          destCity,
+        const originCity = await this.routeCityService.findCityById(
+          post.originCityId,
         );
-        await this.vehiclePostRepo.update(post.id, { routeGeoJson: routeCoordinates ?? null });
-        this.logger.log(`Post ${post.id}: ${routeCities.length} route cities, geometry=${routeCoordinates ? 'yes' : 'no'}`);
+        if (!originCity) {
+          failed++;
+          continue;
+        }
+
+        const destCity = await this.routeCityService.findCityById(
+          post.destinationCityId,
+        );
+        const { routeCities, routeCoordinates } =
+          await this.routeCityService.generateAndSave(
+            post.id,
+            originCity,
+            destCity,
+          );
+        await this.vehiclePostRepo.update(post.id, {
+          routeGeoJson: routeCoordinates ?? null,
+        });
+        this.logger.log(
+          `Post ${post.id}: ${routeCities.length} route cities, geometry=${routeCoordinates ? 'yes' : 'no'}`,
+        );
         succeeded++;
-      } catch (err: any) {
-        this.logger.warn(`Failed to regenerate post ${post.id}: ${err?.message}`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.warn(`Failed to regenerate post ${post.id}: ${message}`);
         failed++;
       }
     }
@@ -273,22 +306,35 @@ export class AdminService {
     };
   }
 
-  async regenerateRouteCities(id: string): Promise<{ message: string; routeCitiesCount: number }> {
+  async regenerateRouteCities(
+    id: string,
+  ): Promise<{ message: string; routeCitiesCount: number }> {
     const post = await this.vehiclePostRepo.findOne({ where: { id } });
     if (!post) throw new NotFoundException('Vehicle post not found');
     if (!post.originCityId) {
-      throw new BadRequestException('Vehicle post has no origin city — cannot generate route');
+      throw new BadRequestException(
+        'Vehicle post has no origin city — cannot generate route',
+      );
     }
 
-    const originCity = await this.routeCityService.findCityById(post.originCityId);
-    if (!originCity) throw new BadRequestException('Origin city record not found');
+    const originCity = await this.routeCityService.findCityById(
+      post.originCityId,
+    );
+    if (!originCity)
+      throw new BadRequestException('Origin city record not found');
 
     const destCity = post.destinationCityId
       ? await this.routeCityService.findCityById(post.destinationCityId)
       : null;
 
-    const { routeCities, routeCoordinates } = await this.routeCityService.generateAndSave(id, originCity, destCity);
-    await this.vehiclePostRepo.update(id, { routeGeoJson: routeCoordinates ?? null });
-    return { message: 'Route cities regenerated successfully', routeCitiesCount: routeCities.length };
+    const { routeCities, routeCoordinates } =
+      await this.routeCityService.generateAndSave(id, originCity, destCity);
+    await this.vehiclePostRepo.update(id, {
+      routeGeoJson: routeCoordinates ?? null,
+    });
+    return {
+      message: 'Route cities regenerated successfully',
+      routeCitiesCount: routeCities.length,
+    };
   }
 }

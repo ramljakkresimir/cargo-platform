@@ -11,6 +11,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AuthenticatedRequest } from '../auth/types/authenticated-request';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { AdminService } from './admin.service';
@@ -53,14 +54,14 @@ export class AdminController {
   updateUserRole(
     @Param('id') id: string,
     @Body() dto: UpdateUserRoleDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.adminService.updateUserRole(id, dto, req.user.id);
   }
 
   // DELETE /admin/users/:id
   @Delete('users/:id')
-  deleteUser(@Param('id') id: string, @Request() req: any) {
+  deleteUser(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     return this.adminService.deleteUser(id, req.user.id);
   }
 
@@ -74,7 +75,10 @@ export class AdminController {
 
   // PATCH /admin/cargo-posts/:id/status
   @Patch('cargo-posts/:id/status')
-  updateCargoPostStatus(@Param('id') id: string, @Body() dto: UpdatePostStatusDto) {
+  updateCargoPostStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdatePostStatusDto,
+  ) {
     return this.adminService.updateCargoPostStatus(id, dto);
   }
 
@@ -94,7 +98,10 @@ export class AdminController {
 
   // PATCH /admin/vehicle-posts/:id/status
   @Patch('vehicle-posts/:id/status')
-  updateVehiclePostStatus(@Param('id') id: string, @Body() dto: UpdatePostStatusDto) {
+  updateVehiclePostStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdatePostStatusDto,
+  ) {
     return this.adminService.updateVehiclePostStatus(id, dto);
   }
 

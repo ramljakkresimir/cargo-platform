@@ -1,30 +1,43 @@
+import { Repository } from 'typeorm';
 import { PostsExpirationService } from './posts-expiration.service';
+import { CargoPost } from '../cargo-posts/cargo-post.entity';
+import { VehiclePost } from '../vehicle-posts/vehicle-post.entity';
 import { PostStatus } from '../common/enums/post-status.enum';
 
-function makeQueryBuilderMock(affected: number) {
-  const qb: any = {
+interface MockQueryBuilder {
+  update: jest.Mock;
+  set: jest.Mock;
+  where: jest.Mock;
+  andWhere: jest.Mock;
+  execute: jest.Mock;
+}
+
+function makeQueryBuilderMock(affected: number): MockQueryBuilder {
+  return {
     update: jest.fn().mockReturnThis(),
     set: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     execute: jest.fn().mockResolvedValue({ affected }),
   };
-  return qb;
 }
 
 describe('PostsExpirationService', () => {
   let service: PostsExpirationService;
-  let cargoQb: ReturnType<typeof makeQueryBuilderMock>;
-  let vehicleQb: ReturnType<typeof makeQueryBuilderMock>;
-  let cargoRepo: any;
-  let vehicleRepo: any;
+  let cargoQb: MockQueryBuilder;
+  let vehicleQb: MockQueryBuilder;
+  let cargoRepo: { createQueryBuilder: jest.Mock };
+  let vehicleRepo: { createQueryBuilder: jest.Mock };
 
   beforeEach(() => {
     cargoQb = makeQueryBuilderMock(2);
     vehicleQb = makeQueryBuilderMock(4);
     cargoRepo = { createQueryBuilder: jest.fn().mockReturnValue(cargoQb) };
     vehicleRepo = { createQueryBuilder: jest.fn().mockReturnValue(vehicleQb) };
-    service = new PostsExpirationService(cargoRepo, vehicleRepo);
+    service = new PostsExpirationService(
+      cargoRepo as unknown as Repository<CargoPost>,
+      vehicleRepo as unknown as Repository<VehiclePost>,
+    );
   });
 
   it('compares against the local calendar date, not UTC (Session 13 regression)', async () => {
@@ -37,7 +50,9 @@ describe('PostsExpirationService', () => {
 
     await service.expireOldPosts();
 
-    expect(cargoQb.where).toHaveBeenCalledWith('loadingDate < :today', { today: '2026-07-14' });
+    expect(cargoQb.where).toHaveBeenCalledWith('loadingDate < :today', {
+      today: '2026-07-14',
+    });
     expect(vehicleQb.where).toHaveBeenCalledWith('availableFromDate < :today', {
       today: '2026-07-14',
     });
@@ -63,6 +78,8 @@ describe('PostsExpirationService', () => {
     expect(result).toEqual({
       cargoPostsExpired: 2,
       vehiclePostsExpired: 4,
+      // expect.any(String) is typed `any` by @types/jest itself — no unsafe cast to fix.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       message: expect.any(String),
     });
   });

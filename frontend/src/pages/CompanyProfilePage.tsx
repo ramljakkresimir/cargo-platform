@@ -1,4 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react';
+import { isAxiosError } from 'axios';
 import { companiesService } from '../services/companies.service';
 import { Company } from '../types';
 import { extractErrorMessage } from '../utils/errorUtils';
@@ -31,10 +32,6 @@ export default function CompanyProfilePage() {
     description: '',
   });
 
-  useEffect(() => {
-    fetchCompany();
-  }, []);
-
   const fetchCompany = async () => {
     try {
       const res = await companiesService.getMyCompany();
@@ -50,15 +47,22 @@ export default function CompanyProfilePage() {
         email: res.data.email || '',
         description: res.data.description || '',
       });
-    } catch (err: any) {
+    } catch (err) {
       // 404 means no company yet — that's expected for new users
-      if (err.response?.status !== 404) {
+      if (!isAxiosError(err) || err.response?.status !== 404) {
         setError('Učitavanje profila tvrtke nije uspjelo.');
       }
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Data fetching over the network — the setState calls in fetchCompany's
+    // catch/finally are the async result of this effect, not derivable at render time.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchCompany();
+  }, []);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
