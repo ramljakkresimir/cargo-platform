@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-18T00:00:00.000Z",
+  "title": "Design System: CargoConnect",
+  "extensions": {
+    "colorMeta": {
+      "calm-paper": { "role": "neutral", "displayName": "Calm Paper", "canonical": "oklch(97.5% 0.004 95)", "tonalRamp": ["oklch(15% 0.006 95)", "oklch(25% 0.006 95)", "oklch(35% 0.006 95)", "oklch(46% 0.008 95)", "oklch(60% 0.008 95)", "oklch(75% 0.006 95)", "oklch(88% 0.005 95)", "oklch(97.5% 0.004 95)"] },
+      "surface-white": { "role": "neutral", "displayName": "Surface White", "canonical": "#ffffff", "tonalRamp": ["oklch(15% 0 0)", "oklch(28% 0 0)", "oklch(42% 0 0)", "oklch(56% 0 0)", "oklch(70% 0 0)", "oklch(84% 0 0)", "oklch(94% 0 0)", "oklch(100% 0 0)"] },
+      "border-hairline": { "role": "neutral", "displayName": "Border Hairline", "canonical": "oklch(90% 0.006 95)", "tonalRamp": ["oklch(15% 0.006 95)", "oklch(28% 0.006 95)", "oklch(42% 0.006 95)", "oklch(56% 0.006 95)", "oklch(70% 0.006 95)", "oklch(82% 0.006 95)", "oklch(90% 0.006 95)", "oklch(97% 0.004 95)"] },
+      "border-strong": { "role": "neutral", "displayName": "Border Strong", "canonical": "oklch(88% 0.006 95)", "tonalRamp": ["oklch(14% 0.006 95)", "oklch(27% 0.006 95)", "oklch(40% 0.006 95)", "oklch(54% 0.006 95)", "oklch(68% 0.006 95)", "oklch(80% 0.006 95)", "oklch(88% 0.006 95)", "oklch(96% 0.004 95)"] },
+      "border-dashed": { "role": "neutral", "displayName": "Border Dashed", "canonical": "oklch(85% 0.006 95)", "tonalRamp": ["oklch(13% 0.006 95)", "oklch(26% 0.006 95)", "oklch(39% 0.006 95)", "oklch(52% 0.006 95)", "oklch(65% 0.006 95)", "oklch(77% 0.006 95)", "oklch(85% 0.006 95)", "oklch(95% 0.004 95)"] },
+      "ink-primary": { "role": "neutral", "displayName": "Ink Primary", "canonical": "oklch(18% 0.01 95)", "tonalRamp": ["oklch(12% 0.01 95)", "oklch(18% 0.01 95)", "oklch(28% 0.011 95)", "oklch(38% 0.011 95)", "oklch(50% 0.011 95)", "oklch(64% 0.01 95)", "oklch(80% 0.008 95)", "oklch(94% 0.005 95)"] },
+      "ink-secondary": { "role": "neutral", "displayName": "Ink Secondary", "canonical": "oklch(46% 0.012 95)", "tonalRamp": ["oklch(14% 0.011 95)", "oklch(24% 0.011 95)", "oklch(35% 0.012 95)", "oklch(46% 0.012 95)", "oklch(58% 0.011 95)", "oklch(70% 0.009 95)", "oklch(84% 0.006 95)", "oklch(95% 0.004 95)"] },
+      "ink-muted": { "role": "neutral", "displayName": "Ink Muted", "canonical": "oklch(60% 0.01 95)", "tonalRamp": ["oklch(20% 0.01 95)", "oklch(32% 0.01 95)", "oklch(44% 0.011 95)", "oklch(60% 0.01 95)", "oklch(70% 0.009 95)", "oklch(80% 0.007 95)", "oklch(88% 0.005 95)", "oklch(96% 0.004 95)"] },
+      "route-blue": { "role": "primary", "displayName": "Route Blue", "canonical": "oklch(51% 0.16 258)", "tonalRamp": ["oklch(15% 0.09 258)", "oklch(25% 0.12 258)", "oklch(35% 0.15 258)", "oklch(45% 0.16 258)", "oklch(51% 0.16 258)", "oklch(63% 0.14 258)", "oklch(80% 0.09 258)", "oklch(95% 0.03 258)"] },
+      "route-blue-hover": { "role": "primary", "displayName": "Route Blue Hover", "canonical": "oklch(45% 0.16 258)", "tonalRamp": ["oklch(13% 0.09 258)", "oklch(22% 0.12 258)", "oklch(32% 0.15 258)", "oklch(45% 0.16 258)", "oklch(51% 0.16 258)", "oklch(63% 0.14 258)", "oklch(80% 0.09 258)", "oklch(95% 0.03 258)"] },
+      "route-blue-soft": { "role": "primary", "displayName": "Route Blue Soft", "canonical": "oklch(95% 0.03 258)", "tonalRamp": ["oklch(15% 0.09 258)", "oklch(25% 0.12 258)", "oklch(35% 0.15 258)", "oklch(45% 0.16 258)", "oklch(51% 0.16 258)", "oklch(75% 0.07 258)", "oklch(88% 0.045 258)", "oklch(95% 0.03 258)"] },
+      "cargo-teal": { "role": "secondary", "displayName": "Cargo Teal", "canonical": "oklch(45% 0.09 195)", "tonalRamp": ["oklch(14% 0.05 195)", "oklch(22% 0.07 195)", "oklch(31% 0.085 195)", "oklch(39% 0.09 195)", "oklch(45% 0.09 195)", "oklch(58% 0.075 195)", "oklch(76% 0.05 195)", "oklch(94% 0.04 195)"] },
+      "cargo-teal-hover": { "role": "secondary", "displayName": "Cargo Teal Hover", "canonical": "oklch(39% 0.09 195)", "tonalRamp": ["oklch(12% 0.05 195)", "oklch(20% 0.07 195)", "oklch(29% 0.085 195)", "oklch(39% 0.09 195)", "oklch(45% 0.09 195)", "oklch(58% 0.075 195)", "oklch(76% 0.05 195)", "oklch(94% 0.04 195)"] },
+      "cargo-teal-soft": { "role": "secondary", "displayName": "Cargo Teal Soft", "canonical": "oklch(94% 0.04 195)", "tonalRamp": ["oklch(14% 0.05 195)", "oklch(22% 0.07 195)", "oklch(31% 0.085 195)", "oklch(45% 0.09 195)", "oklch(58% 0.075 195)", "oklch(76% 0.05 195)", "oklch(88% 0.045 195)", "oklch(94% 0.04 195)"] },
+      "chip-neutral-bg": { "role": "neutral", "displayName": "Chip Neutral Background", "canonical": "oklch(96% 0.01 95)", "tonalRamp": ["oklch(20% 0.012 95)", "oklch(32% 0.012 95)", "oklch(44% 0.012 95)", "oklch(56% 0.011 95)", "oklch(68% 0.01 95)", "oklch(80% 0.01 95)", "oklch(90% 0.01 95)", "oklch(96% 0.01 95)"] },
+      "chip-neutral-text": { "role": "neutral", "displayName": "Chip Neutral Text", "canonical": "oklch(38% 0.012 95)", "tonalRamp": ["oklch(12% 0.011 95)", "oklch(22% 0.011 95)", "oklch(30% 0.012 95)", "oklch(38% 0.012 95)", "oklch(50% 0.011 95)", "oklch(64% 0.009 95)", "oklch(80% 0.007 95)", "oklch(94% 0.005 95)"] },
+      "success": { "role": "semantic", "displayName": "Success Green", "canonical": "#16a34a", "tonalRamp": ["oklch(18% 0.1 145)", "oklch(28% 0.13 145)", "oklch(38% 0.15 145)", "oklch(48% 0.16 145)", "oklch(58% 0.17 145)", "oklch(70% 0.15 145)", "oklch(85% 0.1 145)", "oklch(95% 0.05 145)"] },
+      "danger": { "role": "semantic", "displayName": "Danger Red", "canonical": "#dc2626", "tonalRamp": ["oklch(18% 0.13 25)", "oklch(28% 0.17 25)", "oklch(38% 0.2 25)", "oklch(48% 0.22 25)", "oklch(58% 0.22 25)", "oklch(70% 0.18 25)", "oklch(85% 0.1 25)", "oklch(96% 0.03 25)"] },
+      "warning-text": { "role": "semantic", "displayName": "Warning Amber", "canonical": "#a16207", "tonalRamp": ["oklch(18% 0.06 85)", "oklch(28% 0.09 85)", "oklch(38% 0.11 85)", "oklch(48% 0.13 85)", "oklch(58% 0.14 85)", "oklch(70% 0.13 85)", "oklch(85% 0.09 85)", "oklch(96% 0.04 85)"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Home hero headline only — the single place type is allowed to be loud." },
+      "headline": { "displayName": "Headline", "purpose": "Page <h1> titles across every page." },
+      "title": { "displayName": "Title", "purpose": "Section/card headings (h2/h3): form-card headers, dashboard card titles, detail-card headings." },
+      "body": { "displayName": "Body", "purpose": "Default running text baseline for the whole app." },
+      "label": { "displayName": "Label", "purpose": "Field labels, table column headers, uppercase form section dividers." }
+    },
+    "shadows": [
+      { "name": "card", "value": "0 1px 2px oklch(0% 0 0 / 0.04)", "purpose": "Resting shadow on auth card and home hero CTA cards only — not used on ordinary content cards." },
+      { "name": "hover-blue", "value": "0 8px 20px oklch(51% 0.16 258 / 0.12)", "purpose": "Hover state on the 'Trebam prijevoz' home CTA card." },
+      { "name": "hover-teal", "value": "0 8px 20px oklch(45% 0.09 195 / 0.12)", "purpose": "Hover state on the 'Imam vozilo' home CTA card." },
+      { "name": "dropdown", "value": "0 12px 28px oklch(0% 0 0 / 0.12), 0 2px 6px oklch(0% 0 0 / 0.06)", "purpose": "Floating/overlay panels: nav dropdowns, city autocomplete dropdown, mobile drawer." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "0.15s ease (implicit default easing)", "purpose": "Default transition duration for background/border-color/box-shadow state changes across buttons, inputs, and nav items." }
+    ],
+    "breakpoints": [
+      { "name": "tablet-and-below", "value": "860px" },
+      { "name": "mobile", "value": "640px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button (Route Blue)",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Transport/vehicle-flow primary action.",
+      "html": "<button class=\"ds-btn-primary\">Objavi slobodno vozilo</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--color-blue); color: #fff; border: none; padding: 10px 20px; border-radius: var(--radius-md); font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s; } .ds-btn-primary:hover { background: var(--color-blue-hover); } .ds-btn-primary:focus-visible { outline: 2.5px solid var(--color-blue); outline-offset: 2px; } .ds-btn-primary:disabled { background: oklch(80% 0.05 258); cursor: not-allowed; }"
+    },
+    {
+      "name": "Primary Button (Cargo Teal)",
+      "kind": "button",
+      "refersTo": "button-primary-teal",
+      "description": "Cargo-flow primary action.",
+      "html": "<button class=\"ds-btn-primary-teal\">Objavi teret</button>",
+      "css": ".ds-btn-primary-teal { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--color-teal); color: #fff; border: none; padding: 10px 20px; border-radius: var(--radius-md); font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s; } .ds-btn-primary-teal:hover { background: var(--color-teal-hover); } .ds-btn-primary-teal:focus-visible { outline: 2.5px solid var(--color-blue); outline-offset: 2px; } .ds-btn-primary-teal:disabled { background: oklch(78% 0.05 195); cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Neutral outline action, used alongside a primary button.",
+      "html": "<button class=\"ds-btn-secondary\">Odustani</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: #fff; color: oklch(30% 0.012 95); border: 1.5px solid var(--color-border-strong); padding: 9px 19px; border-radius: var(--radius-md); font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s, border-color 0.15s; } .ds-btn-secondary:hover { background: oklch(96% 0.005 95); } .ds-btn-secondary:focus-visible { outline: 2.5px solid var(--color-blue); outline-offset: 2px; } .ds-btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Content Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The system's default flat, hairline-bordered container — used for result cards, detail cards, form cards, dashboard cards.",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">Mostar → Zagreb</h3><p class=\"ds-card-meta\">18.08.2026 · Speed Trans d.o.o.</p></div>",
+      "css": ".ds-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 24px; } .ds-card-title { font-size: 15.5px; font-weight: 700; color: oklch(16% 0.01 95); margin: 0 0 4px; } .ds-card-meta { font-size: 13px; color: var(--color-text-secondary); margin: 0; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Standard text/select input with the system's shared focus treatment.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\">Grad utovara</label><input class=\"ds-field-input\" type=\"text\" placeholder=\"Unesite grad\" /></div>",
+      "css": ".ds-field-label { display: block; font-size: 13px; font-weight: 600; color: oklch(35% 0.012 95); margin-bottom: 6px; } .ds-field-input { width: 100%; min-height: 40px; padding: 10px 12px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); font-size: 14px; color: var(--color-text-primary); background: #fff; transition: border-color 0.15s, box-shadow 0.15s; } .ds-field-input:focus { outline: none; border-color: var(--color-blue); box-shadow: 0 0 0 3px oklch(51% 0.16 258 / 0.12); }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "custom",
+      "refersTo": "status-badge",
+      "description": "Signature component: color-only status communication for post lifecycle (active / closed / expired). Exactly three states, no fourth.",
+      "html": "<span class=\"ds-status ds-status-active\">Aktivno</span> <span class=\"ds-status ds-status-closed\">Zatvoreno</span> <span class=\"ds-status ds-status-expired\">Isteklo</span>",
+      "css": ".ds-status { display: inline-block; padding: 3px 11px; border-radius: 9999px; font-size: 12px; font-weight: 600; } .ds-status-active { background: #dcfce7; color: #15803d; } .ds-status-closed { background: var(--color-chip-bg); color: var(--color-chip-text); } .ds-status-expired { background: #fef9c3; color: #a16207; }"
+    },
+    {
+      "name": "Nav Dropdown Item",
+      "kind": "nav",
+      "refersTo": "nav-dropdown-item",
+      "description": "Signature component: two-line title/description menu item with a domain-colored icon tile, used in the Pretraga/Objavi/user-menu dropdowns.",
+      "html": "<button class=\"ds-nav-item\"><span class=\"ds-nav-item-icon ds-nav-item-icon-teal\">📦</span><span class=\"ds-nav-item-text\"><span class=\"ds-nav-item-title\">Objavi teret</span><span class=\"ds-nav-item-desc\">Imate teret za prijevoz</span></span></button>",
+      "css": ".ds-nav-item { display: flex; align-items: flex-start; gap: 12px; width: 100%; text-align: left; background: none; border: none; border-radius: var(--radius-md); padding: 10px 12px; cursor: pointer; } .ds-nav-item:hover, .ds-nav-item:focus-visible { background: oklch(96% 0.005 95); } .ds-nav-item-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 16px; } .ds-nav-item-icon-teal { background: var(--color-teal-soft); color: var(--color-teal); } .ds-nav-item-text { display: flex; flex-direction: column; } .ds-nav-item-title { display: block; font-size: 14px; font-weight: 600; color: var(--color-text-primary); } .ds-nav-item-desc { display: block; font-size: 12.5px; color: var(--color-text-secondary); margin-top: 2px; line-height: 1.4; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Calm Ledger",
+    "overview": "CargoConnect reads like a trustworthy paper record, not a dashboard trying to impress you: flat surfaces, hairline borders instead of resting shadows, generous but not loose whitespace, and a strict two-accent vocabulary (Route Blue for transport, Cargo Teal for cargo) that never bleeds outside its lane. The system was built for a non-technical B2B user — small transport companies and owner-drivers in Bosnia & Herzegovina and Croatia — who needs to scan a route, a date, and a price in seconds, not admire the interface. Density is moderate: public list/detail pages breathe with card layouts and 20-24px padding; admin screens compress into dense, bordered tables because operators there are scanning many rows, not browsing. The system deliberately rejects glassmorphism, gradients (with one narrow exception — the home hero's near-invisible paper-to-bg wash), glow, heavy drop shadows, and decorative motion. Depth is communicated through borders and subtle background-tint shifts, not elevation.",
+    "keyCharacteristics": [
+      "Flat, hairline-bordered surfaces; shadow is earned on hover, not given at rest.",
+      "Exactly two accents — Route Blue (transport/vehicle) and Cargo Teal (cargo) — each with a hover and a soft tint step, never mixed on the same action.",
+      "One typeface family throughout (system sans stack); hierarchy comes from size/weight, not font-switching.",
+      "Restrained, consistent radius scale (8/9/14/16px) — nothing sharp, nothing pill-shaped except true pills (status badges, chips, the user-menu trigger).",
+      "Croatian-first copy; UI chrome (labels, buttons, empty states) is never left in English."
+    ],
+    "rules": [
+      { "name": "The Two-Accent Rule", "body": "Only Route Blue and Cargo Teal ever act as a saturated accent. A new feature that needs \"a third color\" should reach for a neutral or semantic tone (success/danger/warning) before inventing a new hue.", "section": "colors" },
+      { "name": "The Domain-Locked Accent Rule", "body": "Blue means transport/vehicle, teal means cargo. Never swap them for a single screen's sake — the color is how a scanning user tells the two flows apart across the whole app.", "section": "colors" },
+      { "name": "The One Voice Rule", "body": "The entire app uses one font family. A future request for a \"display font\" or \"brand typeface\" is a deviation from the established system and should be confirmed explicitly before introducing a second family.", "section": "typography" },
+      { "name": "The Border-First Rule", "body": "A new content card gets a 1px border and no shadow, full stop. Reach for the card shadow only for genuinely elevated single-purpose surfaces (auth, hero choice cards), and for the dropdown shadow only for floating/overlay panels.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do border every card/table/panel with 1px --color-border and skip the shadow, unless it's one of the named exceptions (auth card, hero CTA cards, dropdowns).",
+      "Do keep every accent use domain-locked: Route Blue for transport/vehicle, Cargo Teal for cargo, never swapped for visual variety.",
+      "Do use the --radius-* scale by role (sm=control, md=button, lg=container, xl=hero-only, pill=token/status) rather than picking a radius by eye.",
+      "Do write all user-facing UI copy in Croatian, including admin screens — this was a deliberate full-localization decision, not a partial one.",
+      "Do use the soft-accent-fill pattern ({accent}-soft background + {accent} text) for active/selected states across nav items, dropdown icon tiles, and route-endpoint chips."
+    ],
+    "donts": [
+      "Don't introduce a third saturated accent color. Reach for a neutral or a semantic (success/danger/warning) tone first.",
+      "Don't add gradients, glassmorphism, glow, or heavy drop shadows anywhere — the one sanctioned gradient is the home hero's near-invisible paper wash, not a pattern to extend.",
+      "Don't give a list/table/form card a resting shadow \"for polish.\" Borders carry rest state in this system; shadow is earned by hover or by being a genuinely floating/overlay surface.",
+      "Don't reach for a second typeface for \"brand personality\" — the one-voice system-sans stack is deliberate; hierarchy comes from size/weight only.",
+      "Don't convert the admin data tables to card layouts to match the public pages — density there is intentional and serves a different (scanning-many-rows) job."
+    ]
+  }
+}
