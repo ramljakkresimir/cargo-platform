@@ -6,6 +6,11 @@ import { extractErrorMessage } from '../../utils/errorUtils';
 import StatusBadge from '../../components/StatusBadge';
 import EmptyState from '../../components/EmptyState';
 import { vehicleTypeLabel } from '../../constants/postTypes';
+import { formatDate } from '../../utils/dateUtils';
+
+function originLabel(post: VehiclePost): string {
+  return post.originCity?.name || post.availableLocation || '—';
+}
 
 const LIMIT = 20;
 const STATUSES = [
@@ -92,7 +97,7 @@ export default function AdminVehiclePostsPage() {
   };
 
   const handleDelete = async (post: VehiclePost) => {
-    if (!window.confirm(`Obrisati oglas vozila iz ${post.availableLocation}?`)) return;
+    if (!window.confirm(`Obrisati oglas vozila iz ${originLabel(post)}?`)) return;
     setActionError('');
     setActionSuccess('');
     try {
@@ -168,21 +173,21 @@ export default function AdminVehiclePostsPage() {
                   <tr key={post.id}>
                     <td>
                       <Link to={`/vehicles/${post.id}`} className="table-link">
-                        {post.availableLocation}
+                        {originLabel(post)}
                       </Link>
                     </td>
                     <td>{vehicleTypeLabel(post.vehicleType)}</td>
-                    <td>{post.availableFromDate}</td>
+                    <td>{formatDate(post.availableFromDate)}</td>
                     <td>{post.company?.companyName || '—'}</td>
                     <td>
                       <StatusBadge status={post.status} />
                     </td>
-                    <td>{new Date(post.createdAt).toLocaleDateString('hr-HR')}</td>
+                    <td>{formatDate(post.createdAt)}</td>
                     <td>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <div className="table-action-group">
                         <select
                           value={post.status}
-                          style={{ padding: '5px 8px', fontSize: 13, borderRadius: 6, border: '1px solid var(--color-border-strong)' }}
+                          className="table-select-sm"
                           onChange={(e) => handleStatusChange(post, e.target.value)}
                         >
                           <option value="active">Aktivno</option>
@@ -190,8 +195,7 @@ export default function AdminVehiclePostsPage() {
                           <option value="expired">Isteklo</option>
                         </select>
                         <button
-                          className="btn-danger"
-                          style={{ padding: '4px 10px', fontSize: 13 }}
+                          className="btn-danger btn-sm"
                           onClick={() => handleDelete(post)}
                         >
                           Obriši

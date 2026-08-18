@@ -7,7 +7,8 @@ import { extractErrorMessage } from '../utils/errorUtils';
 import CityAutocomplete from '../components/CityAutocomplete';
 import RouteMap from '../components/RouteMap';
 import StatusBadge from '../components/StatusBadge';
-import { VEHICLE_TYPES, vehicleTypeLabel } from '../constants/postTypes';
+import { VEHICLE_TYPES, vehicleTypeLabel, companyTypeLabel } from '../constants/postTypes';
+import { formatDate } from '../utils/dateUtils';
 
 const STATUSES = [
   { value: 'active', label: 'Aktivno' },
@@ -253,7 +254,7 @@ export default function VehicleDetailPage() {
                   placeholder="Neobavezno"
                 />
               </div>
-              <div className="form-group" style={{ maxWidth: '160px' }}>
+              <div className="form-group form-group-w-sm">
                 <label>Status</label>
                 <select name="status" value={editForm.status} onChange={handleEditChange}>
                   {STATUSES.map((s) => (
@@ -290,7 +291,7 @@ export default function VehicleDetailPage() {
             <div className="detail-grid">
               <div><span className="label">Vrsta vozila</span><p>{vehicleTypeLabel(post.vehicleType)}</p></div>
               <div><span className="label">Trenutna lokacija</span><p>{originLabel(post)}</p></div>
-              <div><span className="label">Dostupno od</span><p>{post.availableFromDate}</p></div>
+              <div><span className="label">Dostupno od</span><p>{formatDate(post.availableFromDate)}</p></div>
               <div><span className="label">Kapacitet</span><p>{post.capacity ? `${post.capacity} t` : '—'}</p></div>
               <div><span className="label">Željeno odredište</span><p>{destLabel(post)}</p></div>
             </div>
@@ -307,7 +308,7 @@ export default function VehicleDetailPage() {
               <h2>Kontakt / Tvrtka</h2>
               <div className="detail-grid">
                 <div><span className="label">Tvrtka</span><p>{post.company.companyName}</p></div>
-                <div><span className="label">Vrsta</span><p>{post.company.companyType}</p></div>
+                <div><span className="label">Vrsta</span><p>{companyTypeLabel(post.company.companyType)}</p></div>
                 <div><span className="label">Lokacija</span><p>{post.company.city}, {post.company.country}</p></div>
                 {post.company.phone && <div><span className="label">Telefon</span><p>{post.company.phone}</p></div>}
                 {post.company.email && <div><span className="label">E-mail</span><p>{post.company.email}</p></div>}

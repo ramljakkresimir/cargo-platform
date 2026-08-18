@@ -223,14 +223,14 @@ export default function Navbar() {
                 {user.role === 'admin' && (
                   <Link to="/admin" className="mobile-drawer-item">Administracija</Link>
                 )}
-                <button type="button" className="mobile-drawer-item" style={{ color: 'var(--color-danger)' }} onClick={handleLogout}>
+                <button type="button" className="mobile-drawer-item danger" onClick={handleLogout}>
                   Odjava
                 </button>
               </>
             ) : (
               <>
                 <Link to="/login" className="mobile-drawer-item">Prijava</Link>
-                <Link to="/register" className="mobile-drawer-item" style={{ color: 'var(--color-blue)' }}>Registracija</Link>
+                <Link to="/register" className="mobile-drawer-item accent-blue">Registracija</Link>
               </>
             )}
           </div>

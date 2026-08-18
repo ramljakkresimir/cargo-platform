@@ -5,6 +5,12 @@ import { CargoPost, PaginatedResult } from '../../types';
 import { extractErrorMessage } from '../../utils/errorUtils';
 import StatusBadge from '../../components/StatusBadge';
 import EmptyState from '../../components/EmptyState';
+import { formatDate } from '../../utils/dateUtils';
+
+function cityLabel(post: CargoPost, type: 'loading' | 'unloading'): string {
+  if (type === 'loading') return post.loadingCity?.name || post.loadingLocation || '—';
+  return post.unloadingCity?.name || post.unloadingLocation || '—';
+}
 
 const LIMIT = 20;
 const STATUSES = [
@@ -91,7 +97,7 @@ export default function AdminCargoPostsPage() {
   };
 
   const handleDelete = async (post: CargoPost) => {
-    if (!window.confirm(`Obrisati oglas tereta ${post.loadingLocation} → ${post.unloadingLocation}?`)) return;
+    if (!window.confirm(`Obrisati oglas tereta ${cityLabel(post, 'loading')} → ${cityLabel(post, 'unloading')}?`)) return;
     setActionError('');
     setActionSuccess('');
     try {
@@ -166,20 +172,20 @@ export default function AdminCargoPostsPage() {
                   <tr key={post.id}>
                     <td>
                       <Link to={`/cargo/${post.id}`} className="table-link">
-                        {post.loadingLocation} → {post.unloadingLocation}
+                        {cityLabel(post, 'loading')} → {cityLabel(post, 'unloading')}
                       </Link>
                     </td>
-                    <td>{post.loadingDate}</td>
+                    <td>{formatDate(post.loadingDate)}</td>
                     <td>{post.company?.companyName || '—'}</td>
                     <td>
                       <StatusBadge status={post.status} />
                     </td>
-                    <td>{new Date(post.createdAt).toLocaleDateString('hr-HR')}</td>
+                    <td>{formatDate(post.createdAt)}</td>
                     <td>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <div className="table-action-group">
                         <select
                           value={post.status}
-                          style={{ padding: '5px 8px', fontSize: 13, borderRadius: 6, border: '1px solid var(--color-border-strong)' }}
+                          className="table-select-sm"
                           onChange={(e) => handleStatusChange(post, e.target.value)}
                         >
                           <option value="active">Aktivno</option>
@@ -187,8 +193,7 @@ export default function AdminCargoPostsPage() {
                           <option value="expired">Isteklo</option>
                         </select>
                         <button
-                          className="btn-danger"
-                          style={{ padding: '4px 10px', fontSize: 13 }}
+                          className="btn-danger btn-sm"
                           onClick={() => handleDelete(post)}
                         >
                           Obriši

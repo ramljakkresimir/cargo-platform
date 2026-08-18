@@ -10,17 +10,17 @@ interface RouteMapProps {
   destinationName?: string;
 }
 
-const makeCircleIcon = (color: string) =>
+const makeCircleIcon = (colorVar: string) =>
   L.divIcon({
-    html: `<div style="width:14px;height:14px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>`,
+    html: `<div style="width:14px;height:14px;background:var(${colorVar});border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>`,
     className: '',
     iconSize: [14, 14],
     iconAnchor: [7, 7],
     popupAnchor: [0, -10],
   });
 
-const originIcon = makeCircleIcon('#16a34a');
-const destIcon = makeCircleIcon('#dc2626');
+const originIcon = makeCircleIcon('--color-success');
+const destIcon = makeCircleIcon('--color-danger');
 
 export default function RouteMap({ coordinates, originName, destinationName }: RouteMapProps) {
   const positions = useMemo<[number, number][]>(
@@ -36,7 +36,6 @@ export default function RouteMap({ coordinates, originName, destinationName }: R
   return (
     <MapContainer
       bounds={bounds}
-      style={{ height: '360px', width: '100%', borderRadius: '8px' }}
       scrollWheelZoom={false}
       className="route-map"
     >

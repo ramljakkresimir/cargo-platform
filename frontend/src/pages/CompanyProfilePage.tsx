@@ -3,14 +3,7 @@ import { isAxiosError } from 'axios';
 import { companiesService } from '../services/companies.service';
 import { Company } from '../types';
 import { extractErrorMessage } from '../utils/errorUtils';
-
-const COMPANY_TYPES = [
-  { value: 'transport', label: 'Prijevoznička tvrtka' },
-  { value: 'freight_forwarder', label: 'Špediter' },
-  { value: 'manufacturer', label: 'Proizvođač' },
-  { value: 'trader', label: 'Trgovac' },
-  { value: 'other', label: 'Ostalo' },
-];
+import { COMPANY_TYPES, companyTypeLabel } from '../constants/postTypes';
 
 export default function CompanyProfilePage() {
   const [company, setCompany] = useState<Company | null>(null);
@@ -121,7 +114,7 @@ export default function CompanyProfilePage() {
         <div className="detail-card">
           <div className="detail-grid">
             <div><span className="label">Naziv tvrtke</span><p>{company.companyName}</p></div>
-            <div><span className="label">Vrsta</span><p>{company.companyType}</p></div>
+            <div><span className="label">Vrsta</span><p>{companyTypeLabel(company.companyType)}</p></div>
             <div><span className="label">Država</span><p>{company.country}</p></div>
             <div><span className="label">Grad</span><p>{company.city}</p></div>
             {company.address && <div><span className="label">Adresa</span><p>{company.address}</p></div>}

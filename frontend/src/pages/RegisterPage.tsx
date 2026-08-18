@@ -101,7 +101,7 @@ export default function RegisterPage() {
             />
           </div>
 
-          <button type="submit" className="btn-primary" style={{ width: '100%' }} disabled={loading}>
+          <button type="submit" className="btn-primary btn-block" disabled={loading}>
             {loading ? 'Otvaranje računa...' : 'Otvori račun'}
           </button>
         </form>

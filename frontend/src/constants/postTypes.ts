@@ -26,3 +26,16 @@ export function vehicleTypeLabel(value?: string | null): string {
   if (!value) return '—';
   return VEHICLE_TYPES.find((t) => t.value === value)?.label ?? value;
 }
+
+export const COMPANY_TYPES = [
+  { value: 'transport', label: 'Prijevoznička tvrtka' },
+  { value: 'freight_forwarder', label: 'Špediter' },
+  { value: 'manufacturer', label: 'Proizvođač' },
+  { value: 'trader', label: 'Trgovac' },
+  { value: 'other', label: 'Ostalo' },
+];
+
+export function companyTypeLabel(value?: string | null): string {
+  if (!value) return '—';
+  return COMPANY_TYPES.find((t) => t.value === value)?.label ?? value;
+}

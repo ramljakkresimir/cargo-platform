@@ -19,8 +19,8 @@ export default function AdminRoute({ children }: Props) {
   if (user?.role !== 'admin') {
     return (
       <div className="page-container">
-        <div className="empty-state" style={{ marginTop: 60 }}>
-          <h2 style={{ marginBottom: 8, color: '#dc2626' }}>Pristup odbijen</h2>
+        <div className="empty-state empty-state-alert">
+          <h2 className="empty-state-alert-title">Pristup odbijen</h2>
           <p>Nemate dozvolu za pristup ovoj stranici.</p>
         </div>
       </div>

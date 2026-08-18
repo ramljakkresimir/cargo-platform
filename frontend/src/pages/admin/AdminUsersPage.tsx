@@ -4,6 +4,7 @@ import { PaginatedResult, User } from '../../types';
 import { extractErrorMessage } from '../../utils/errorUtils';
 import { useAuth } from '../../context/AuthContext';
 import EmptyState from '../../components/EmptyState';
+import { formatDate } from '../../utils/dateUtils';
 
 const LIMIT = 20;
 
@@ -100,8 +101,8 @@ export default function AdminUsersPage() {
 
       <div className="filter-card">
         <form onSubmit={handleSearch}>
-          <div className="filter-grid" style={{ gridTemplateColumns: '1fr auto auto' }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
+          <div className="filter-grid filter-grid-compact">
+            <div className="form-group">
               <label>Pretraga po imenu, e-mailu ili telefonu</label>
               <input
                 value={search}
@@ -110,7 +111,7 @@ export default function AdminUsersPage() {
               />
             </div>
           </div>
-          <div className="filter-actions" style={{ marginTop: 12 }}>
+          <div className="filter-actions filter-actions-tight">
             <button type="submit" className="btn-primary">Pretraži</button>
             <button type="button" className="btn-secondary" onClick={handleClear}>Poništi filtre</button>
           </div>
@@ -153,13 +154,12 @@ export default function AdminUsersPage() {
                         {u.role === 'admin' ? 'Administrator' : 'Korisnik'}
                       </span>
                     </td>
-                    <td>{new Date(u.createdAt!).toLocaleDateString('hr-HR')}</td>
+                    <td>{formatDate(u.createdAt!)}</td>
                     <td>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <div className="table-action-group">
                         {u.role === 'user' ? (
                           <button
-                            className="btn-secondary"
-                            style={{ padding: '4px 10px', fontSize: 13 }}
+                            className="btn-secondary btn-sm"
                             onClick={() => handleRoleChange(u, 'admin')}
                             disabled={u.id === currentUser?.id}
                           >
@@ -167,16 +167,14 @@ export default function AdminUsersPage() {
                           </button>
                         ) : (
                           <button
-                            className="btn-secondary"
-                            style={{ padding: '4px 10px', fontSize: 13 }}
+                            className="btn-secondary btn-sm"
                             onClick={() => handleRoleChange(u, 'user')}
                           >
                             Ukloni admin ulogu
                           </button>
                         )}
                         <button
-                          className="btn-danger"
-                          style={{ padding: '4px 10px', fontSize: 13 }}
+                          className="btn-danger btn-sm"
                           onClick={() => handleDelete(u)}
                           disabled={u.id === currentUser?.id}
                         >

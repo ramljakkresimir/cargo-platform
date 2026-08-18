@@ -6,6 +6,7 @@ import CityAutocomplete from '../components/CityAutocomplete';
 import EmptyState from '../components/EmptyState';
 import { TruckIcon } from '../components/Icons';
 import { VEHICLE_TYPES, vehicleTypeLabel } from '../constants/postTypes';
+import { formatDate } from '../utils/dateUtils';
 
 const LIMIT = 10;
 
@@ -181,10 +182,10 @@ export default function VehicleListPage() {
                   <div>
                     <div className="result-card-route">
                       {originLabel(post)} <span className="arrow">→</span> {destLabel(post)}
-                      {routeAware && <span className="chip-match" style={{ marginLeft: 10 }}>Odgovara traženoj ruti</span>}
+                      {routeAware && <span className="chip-match chip-match-inline">Odgovara traženoj ruti</span>}
                     </div>
                     <div className="result-card-subline">
-                      Dostupno od {post.availableFromDate} · {post.company?.companyName || '—'}
+                      Dostupno od {formatDate(post.availableFromDate)} · {post.company?.companyName || '—'}
                     </div>
                   </div>
                 </div>

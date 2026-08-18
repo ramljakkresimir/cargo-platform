@@ -6,6 +6,7 @@ import CityAutocomplete from '../components/CityAutocomplete';
 import EmptyState from '../components/EmptyState';
 import { PackageIcon } from '../components/Icons';
 import { CARGO_TYPES, VEHICLE_TYPES, cargoTypeLabel, vehicleTypeLabel } from '../constants/postTypes';
+import { formatDate } from '../utils/dateUtils';
 
 const LIMIT = 10;
 
@@ -191,7 +192,7 @@ export default function CargoListPage() {
                       {cityLabel(post, 'loading')} <span className="arrow">→</span> {cityLabel(post, 'unloading')}
                     </div>
                     <div className="result-card-subline">
-                      Utovar {post.loadingDate} · {post.company?.companyName || '—'}
+                      Utovar {formatDate(post.loadingDate)} · {post.company?.companyName || '—'}
                     </div>
                   </div>
                 </div>

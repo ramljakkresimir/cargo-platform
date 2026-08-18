@@ -121,7 +121,7 @@ export default function ProfilePage() {
       </div>
 
       {/* ── Personal Information ─────────────────────────────────── */}
-      <div className="form-card" style={{ marginBottom: 24 }}>
+      <div className="form-card">
         <h2>Osobni podaci</h2>
 
         {profileSuccess && <div className="alert alert-success">{profileSuccess}</div>}
@@ -181,7 +181,7 @@ export default function ProfilePage() {
         {passwordError && <div className="alert alert-error">{passwordError}</div>}
 
         <form onSubmit={handlePasswordSubmit}>
-          <div className="form-group" style={{ maxWidth: 400 }}>
+          <div className="form-group form-group-w-xl">
             <label>Trenutna lozinka *</label>
             <input
               type="password"
@@ -192,7 +192,7 @@ export default function ProfilePage() {
             />
           </div>
 
-          <div className="form-row" style={{ maxWidth: 640 }}>
+          <div className="form-row form-row-narrow">
             <div className="form-group">
               <label>Nova lozinka *</label>
               <input

@@ -87,7 +87,7 @@ export default function CityAutocomplete({
           <input
             readOnly
             value={`${value.name}, ${value.country}`}
-            style={{ background: '#f9fafb' }}
+            className="city-autocomplete-selected"
           />
           <button type="button" className="city-clear-btn" onClick={handleClear}>
             ✕

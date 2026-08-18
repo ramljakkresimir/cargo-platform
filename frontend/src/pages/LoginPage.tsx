@@ -69,7 +69,7 @@ export default function LoginPage() {
             />
           </div>
 
-          <button type="submit" className="btn-primary" style={{ width: '100%' }} disabled={loading}>
+          <button type="submit" className="btn-primary btn-block" disabled={loading}>
             {loading ? 'Prijava u tijeku...' : 'Prijavi se'}
           </button>
         </form>

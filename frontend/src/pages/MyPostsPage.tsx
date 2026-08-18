@@ -7,6 +7,7 @@ import { CargoPost, VehiclePost } from '../types';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 import { vehicleTypeLabel } from '../constants/postTypes';
+import { formatDate } from '../utils/dateUtils';
 
 export default function MyPostsPage() {
   const navigate = useNavigate();
@@ -96,9 +97,6 @@ export default function MyPostsPage() {
     }
   };
 
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('hr-HR', { day: '2-digit', month: 'short', year: 'numeric' });
-
   return (
     <div className="page-container">
       <div className="page-header">
@@ -136,7 +134,7 @@ export default function MyPostsPage() {
                     {post.unloadingCity?.name || post.unloadingLocation || '—'}
                   </div>
                   <div className="post-card-meta">
-                    <span>Utovar {post.loadingDate}</span>
+                    <span>Utovar {formatDate(post.loadingDate)}</span>
                     <StatusBadge status={post.status} />
                     <span>Objavljeno {formatDate(post.createdAt)}</span>
                   </div>
@@ -195,6 +193,7 @@ export default function MyPostsPage() {
                   </div>
                   <div className="post-card-meta">
                     <span>{vehicleTypeLabel(post.vehicleType)}</span>
+                    <span>Dostupno od {formatDate(post.availableFromDate)}</span>
                     <StatusBadge status={post.status} />
                     <span>Objavljeno {formatDate(post.createdAt)}</span>
                   </div>

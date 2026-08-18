@@ -96,7 +96,7 @@ export default function CreateCargoPostPage() {
             </div>
           </div>
 
-          <div className="form-group" style={{ maxWidth: '300px' }}>
+          <div className="form-group form-group-w-lg">
             <label>Datum utovara *</label>
             <input
               type="date"
@@ -152,7 +152,7 @@ export default function CreateCargoPostPage() {
             </div>
           </div>
 
-          <div className="form-group" style={{ maxWidth: '300px' }}>
+          <div className="form-group form-group-w-lg">
             <label>Cijena (EUR)</label>
             <input
               type="number"

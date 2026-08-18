@@ -6,7 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import { extractErrorMessage } from '../utils/errorUtils';
 import CityAutocomplete from '../components/CityAutocomplete';
 import StatusBadge from '../components/StatusBadge';
-import { CARGO_TYPES, VEHICLE_TYPES } from '../constants/postTypes';
+import { CARGO_TYPES, VEHICLE_TYPES, cargoTypeLabel, vehicleTypeLabel, companyTypeLabel } from '../constants/postTypes';
+import { formatDate } from '../utils/dateUtils';
 
 const STATUSES = [
   { value: 'active', label: 'Aktivno' },
@@ -232,7 +233,7 @@ export default function CargoDetailPage() {
             </div>
 
             <div className="form-row">
-              <div className="form-group" style={{ maxWidth: '200px' }}>
+              <div className="form-group form-group-w-md">
                 <label>Datum utovara *</label>
                 <input
                   type="date"
@@ -242,7 +243,7 @@ export default function CargoDetailPage() {
                   required
                 />
               </div>
-              <div className="form-group" style={{ maxWidth: '160px' }}>
+              <div className="form-group form-group-w-sm">
                 <label>Status</label>
                 <select name="status" value={editForm.status} onChange={handleEditChange}>
                   {STATUSES.map((s) => (
@@ -297,7 +298,7 @@ export default function CargoDetailPage() {
               </div>
             </div>
 
-            <div className="form-group" style={{ maxWidth: '300px' }}>
+            <div className="form-group form-group-w-lg">
               <label>Cijena (EUR)</label>
               <input
                 type="number"
@@ -336,11 +337,11 @@ export default function CargoDetailPage() {
             <div className="detail-grid">
               <div><span className="label">Mjesto utovara</span><p>{fromLabel}</p></div>
               <div><span className="label">Mjesto istovara</span><p>{toLabel}</p></div>
-              <div><span className="label">Datum utovara</span><p>{post.loadingDate}</p></div>
-              <div><span className="label">Vrsta tereta</span><p>{post.cargoType || '—'}</p></div>
+              <div><span className="label">Datum utovara</span><p>{formatDate(post.loadingDate)}</p></div>
+              <div><span className="label">Vrsta tereta</span><p>{cargoTypeLabel(post.cargoType)}</p></div>
               <div><span className="label">Težina</span><p>{post.weight ? `${post.weight} t` : '—'}</p></div>
               <div><span className="label">Dimenzije</span><p>{post.dimensions || '—'}</p></div>
-              <div><span className="label">Potrebno vozilo</span><p>{post.requiredVehicleType || '—'}</p></div>
+              <div><span className="label">Potrebno vozilo</span><p>{vehicleTypeLabel(post.requiredVehicleType)}</p></div>
               <div><span className="label">Cijena</span><p>{post.price ? `€${post.price}` : 'Po dogovoru'}</p></div>
             </div>
             {post.note && (
@@ -356,7 +357,7 @@ export default function CargoDetailPage() {
               <h2>Kontakt / Tvrtka</h2>
               <div className="detail-grid">
                 <div><span className="label">Tvrtka</span><p>{post.company.companyName}</p></div>
-                <div><span className="label">Vrsta</span><p>{post.company.companyType}</p></div>
+                <div><span className="label">Vrsta</span><p>{companyTypeLabel(post.company.companyType)}</p></div>
                 <div><span className="label">Lokacija</span><p>{post.company.city}, {post.company.country}</p></div>
                 {post.company.phone && <div><span className="label">Telefon</span><p>{post.company.phone}</p></div>}
                 {post.company.email && <div><span className="label">E-mail</span><p>{post.company.email}</p></div>}

@@ -33,30 +33,20 @@ export default function AdminDashboardPage() {
       {loading && <div className="loading">Učitavanje statistike...</div>}
 
       {stats && (
-        <div className="dashboard-grid" style={{ marginBottom: 32 }}>
+        <div className="dashboard-grid stat-grid">
           <div className="dashboard-card">
             <h3>Ukupno korisnika</h3>
-            <p style={{ fontSize: 32, fontWeight: 700, color: 'var(--color-blue)', marginBottom: 0 }}>
-              {stats.totalUsers}
-            </p>
+            <p className="stat-value">{stats.totalUsers}</p>
           </div>
           <div className="dashboard-card">
             <h3>Oglasi tereta</h3>
-            <p style={{ fontSize: 32, fontWeight: 700, color: 'var(--color-blue)', marginBottom: 4 }}>
-              {stats.totalCargoPosts}
-            </p>
-            <p style={{ fontSize: 13, color: 'var(--color-success)', marginBottom: 0 }}>
-              {stats.activeCargoPosts} aktivno
-            </p>
+            <p className="stat-value stat-value-with-delta">{stats.totalCargoPosts}</p>
+            <p className="stat-delta">{stats.activeCargoPosts} aktivno</p>
           </div>
           <div className="dashboard-card">
             <h3>Oglasi vozila</h3>
-            <p style={{ fontSize: 32, fontWeight: 700, color: 'var(--color-blue)', marginBottom: 4 }}>
-              {stats.totalVehiclePosts}
-            </p>
-            <p style={{ fontSize: 13, color: 'var(--color-success)', marginBottom: 0 }}>
-              {stats.activeVehiclePosts} aktivno
-            </p>
+            <p className="stat-value stat-value-with-delta">{stats.totalVehiclePosts}</p>
+            <p className="stat-delta">{stats.activeVehiclePosts} aktivno</p>
           </div>
         </div>
       )}
