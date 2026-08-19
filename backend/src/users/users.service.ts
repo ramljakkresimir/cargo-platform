@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -11,6 +12,8 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -30,6 +33,25 @@ export class UsersService {
   async create(data: Partial<User>): Promise<User> {
     const user = this.userRepository.create(data);
     return this.userRepository.save(user);
+  }
+
+  // Generic save passthrough — used by AuthService for the email-verification /
+  // password-reset / failed-login-tracking flows, which mutate a handful of different
+  // field combinations that don't warrant their own DTO-driven update method each.
+  async save(user: User): Promise<User> {
+    return this.userRepository.save(user);
+  }
+
+  async findByEmailVerificationTokenHash(hash: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { emailVerificationTokenHash: hash },
+    });
+  }
+
+  async findByPasswordResetTokenHash(hash: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { passwordResetTokenHash: hash },
+    });
   }
 
   async update(id: string, dto: UpdateProfileDto): Promise<User> {
@@ -55,6 +77,7 @@ export class UsersService {
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     user.passwordChangedAt = new Date();
     await this.userRepository.save(user);
+    this.logger.log(`Password changed by user ${id}`);
     return { message: 'Password changed successfully' };
   }
 }

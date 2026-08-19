@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authService } from '../services/auth.service';
 import { extractErrorMessage } from '../utils/errorUtils';
+import Turnstile from '../components/Turnstile';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ export default function RegisterPage() {
     lastName: '',
     phone: '',
   });
+  const [captchaToken, setCaptchaToken] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -23,11 +25,23 @@ export default function RegisterPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
+    if (!captchaToken) {
+      setError('Molimo potvrdite CAPTCHA izazov.');
+      return;
+    }
+
+    setLoading(true);
     try {
-      await authService.register(form);
-      navigate('/login');
+      await authService.register({ ...form, captchaToken });
+      // The backend response is deliberately generic (doesn't confirm whether this
+      // was a new account or an existing one) — show the same message either way.
+      navigate('/login', {
+        state: {
+          registeredMessage:
+            'Registracija je zaprimljena. Ako je adresa nova, poslali smo vam e-mail za potvrdu računa — provjerite pretinac prije prijave.',
+        },
+      });
     } catch (err) {
       setError(extractErrorMessage(err, 'Registracija nije uspjela. Pokušajte ponovo.'));
     } finally {
@@ -100,6 +114,8 @@ export default function RegisterPage() {
               placeholder="+387 61 123 456"
             />
           </div>
+
+          <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
 
           <button type="submit" className="btn-primary btn-block" disabled={loading}>
             {loading ? 'Otvaranje računa...' : 'Otvori račun'}

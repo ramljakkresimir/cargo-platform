@@ -15,6 +15,8 @@ interface HealthResponse {
 describe('AppController (e2e)', () => {
   let app: INestApplication;
 
+  // Full AppModule bootstrap (all feature modules + a real DB connection) now takes
+  // longer than jest's 5s default hook timeout now that the module graph is larger.
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -22,7 +24,7 @@ describe('AppController (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
-  });
+  }, 30_000);
 
   it('/health (GET)', async () => {
     const response = await request(app.getHttpServer())

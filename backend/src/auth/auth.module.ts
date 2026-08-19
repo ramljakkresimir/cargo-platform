@@ -7,11 +7,15 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UsersModule } from '../users/users.module';
+import { CaptchaModule } from '../common/captcha/captcha.module';
+import { MailModule } from '../common/mail/mail.module';
 
 @Module({
   imports: [
     UsersModule, // Needed to look up users during register/login/token validation
     PassportModule, // Required by @nestjs/passport to set up the 'jwt' strategy
+    CaptchaModule, // Server-side Turnstile verification for register/login/reset flows
+    MailModule, // Verification / password-reset / duplicate-registration-notice emails
 
     // Configure JWT signing with values from .env
     JwtModule.registerAsync({

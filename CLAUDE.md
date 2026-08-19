@@ -43,10 +43,11 @@ Inspired by TIMOCOM but scoped as a focused MVP for the local market.
 cargo-platform/
 ├── backend/                  NestJS API (port 3000)
 │   └── src/
-│       ├── auth/             Register, login, JWT strategy, guard
+│       ├── auth/             Register, login, email verification, password reset, JWT strategy, guard
 │       │   ├── decorators/   @Roles() decorator
+│       │   ├── dto/          Register/Login/VerifyEmail/ResendVerification/ForgotPassword/ResetPassword DTOs
 │       │   └── guards/       JwtAuthGuard, RolesGuard
-│       ├── users/            User entity + service
+│       ├── users/            User entity (+ email-verification / password-reset / failed-login columns) + service
 │       ├── companies/        Company profile CRUD
 │       ├── cargo-posts/      Cargo post CRUD + search
 │       ├── vehicle-posts/    Vehicle post CRUD + search
@@ -64,6 +65,11 @@ cargo-platform/
 │       ├── common/
 │       │   ├── enums/        Shared PostStatus enum
 │       │   ├── dto/          Shared PaginationDto
+│       │   ├── captcha/      CaptchaService — server-side Cloudflare Turnstile verification
+│       │   ├── mail/         MailService — nodemailer, console-log fallback in development only
+│       │   ├── guards/       LoggingThrottlerGuard — logs rate-limit triggers
+│       │   ├── validators/   IsNotCommonPassword — common-password denylist validator
+│       │   ├── utils/        token.util.ts — secure random token generation + SHA-256 hashing
 │       │   └── filters/      GlobalExceptionFilter (consistent error shapes)
 │       ├── app.module.ts     Root module wiring (includes ScheduleModule.forRoot())
 │       └── main.ts           Bootstrap, CORS, ValidationPipe with exceptionFactory
@@ -72,9 +78,9 @@ cargo-platform/
     └── src/
         ├── context/          AuthContext (JWT + user state)
         ├── services/         Axios API clients per resource (+ admin.service)
-        ├── components/       Navbar (+ NavDropdown), ProtectedRoute, AdminRoute, CityAutocomplete, Icons, StatusBadge, EmptyState, RouteMap
+        ├── components/       Navbar (+ NavDropdown), ProtectedRoute, AdminRoute, CityAutocomplete, Icons, StatusBadge, EmptyState, RouteMap, Turnstile
         ├── constants/        postTypes.ts — shared Croatian cargo/vehicle type label maps
-        ├── pages/            HomePage + 12 regular pages + 4 admin pages
+        ├── pages/            HomePage + 15 regular pages (incl. VerifyEmailPage, ForgotPasswordPage, ResetPasswordPage) + 4 admin pages
         │   └── admin/        AdminDashboardPage, AdminUsersPage, AdminCargoPostsPage, AdminVehiclePostsPage
         ├── services/         Axios API clients (+ cities.service.ts added)
         ├── utils/            errorUtils.ts — extractErrorMessage / extractFieldErrors helpers
@@ -89,17 +95,29 @@ TypeORM `synchronize: true` auto-creates/updates all tables in development (gate
 A baseline migration matching this schema exists since Session 19 — see "TypeORM with `synchronize: true`" under Key Decisions for the migration workflow.
 
 ### users
-| Column       | Type      | Notes                      |
-|--------------|-----------|----------------------------|
-| id           | uuid (PK) | auto-generated             |
-| email        | varchar   | unique                     |
-| passwordHash | varchar   | bcrypt, never returned     |
-| firstName    | varchar   |                            |
-| lastName     | varchar   |                            |
-| phone        | varchar   | nullable                   |
-| role         | varchar   | default: 'user'            |
-| createdAt    | timestamp |                            |
-| updatedAt    | timestamp |                            |
+| Column                        | Type      | Notes                      |
+|-------------------------------|-----------|----------------------------|
+| id                            | uuid (PK) | auto-generated             |
+| email                         | varchar   | unique                     |
+| passwordHash                  | varchar   | bcrypt, never returned     |
+| firstName                     | varchar   |                            |
+| lastName                      | varchar   |                            |
+| phone                         | varchar   | nullable                   |
+| role                          | varchar   | default: 'user'            |
+| passwordChangedAt             | timestamp | nullable — set on password change/reset; any JWT with an earlier `iat` is rejected (Session 18, M9) |
+| emailVerified                 | boolean   | default: false. Login is blocked until true (Session 20). Existing rows were backfilled to `true` by the migration that introduced this column — see Session 20 |
+| emailVerificationTokenHash    | varchar   | nullable — SHA-256 hash of the active verification token; raw token is never stored |
+| emailVerificationExpiresAt    | timestamp | nullable                   |
+| emailVerificationLastSentAt   | timestamp | nullable — drives the resend cooldown |
+| passwordResetTokenHash        | varchar   | nullable — SHA-256 hash of the active reset token; raw token is never stored |
+| passwordResetExpiresAt        | timestamp | nullable                   |
+| passwordResetLastSentAt       | timestamp | nullable — drives the forgot-password resend cooldown |
+| failedLoginAttempts           | int       | default: 0. Drives the login CAPTCHA escalation (Session 20); reset to 0 on successful login or password reset. Never used for lockout |
+| lastFailedLoginAt             | timestamp | nullable                   |
+| createdAt                     | timestamp |                            |
+| updatedAt                     | timestamp |                            |
+
+`passwordHash`, `emailVerificationTokenHash`, `emailVerificationExpiresAt`, `emailVerificationLastSentAt`, `passwordResetTokenHash`, `passwordResetExpiresAt`, `passwordResetLastSentAt`, `failedLoginAttempts`, and `lastFailedLoginAt` are all `@Exclude()`d from API responses.
 
 ### companies
 | Column      | Type      | Notes                          |
@@ -203,10 +221,18 @@ Response: JSON array of `{ id, name, country, region, latitude, longitude }`.
 Seed: `npm run seed:cities` — idempotent, uses name + country uniqueness. Seeded with 49 cities (BA + HR).
 
 ### Auth (public)
-| Method | Path             | Description          |
-|--------|------------------|----------------------|
-| POST   | /auth/register   | Create account       |
-| POST   | /auth/login      | Login, get JWT token |
+| Method | Path                        | Description                                              |
+|--------|-----------------------------|------------------------------------------------------------|
+| POST   | /auth/register              | Create account (unverified) — requires `captchaToken`    |
+| POST   | /auth/login                 | Login, get JWT token — rejects unverified accounts (403); requires `captchaToken` once an account has enough recent failed attempts (see Session 20) |
+| POST   | /auth/verify-email           | Body: `{ token }` — marks the account verified            |
+| POST   | /auth/resend-verification    | Body: `{ email, captchaToken }` — generic response regardless of account state |
+| POST   | /auth/forgot-password        | Body: `{ email, captchaToken }` — generic response regardless of account state |
+| POST   | /auth/reset-password          | Body: `{ token, newPassword }` — single-use, invalidates existing sessions |
+
+**Registration is deliberately non-enumerating (Session 20):** every request returns the same generic message whether or not the email is already registered. A duplicate email does not create a second account — the existing account is emailed a notice instead. `resend-verification` and `forgot-password` are generic in the same way. See "Authentication & Security (Session 20)" under Key Decisions for the full design.
+
+All six endpoints are rate-limited per IP (see `RATE_LIMIT_*` env vars below); register/login/verify-email/resend-verification/forgot-password/reset-password all sit on their own configurable throttle rather than the app-wide default.
 
 ### Companies (protected)
 | Method | Path           | Description                  |
@@ -285,8 +311,11 @@ All `/admin/*` endpoints require `Authorization: Bearer <token>` where the token
 | Route                  | Component              | Auth?  | Description             |
 |------------------------|------------------------|--------|-------------------------|
 | /                      | HomePage               | No     | Landing page — dual-path hero ("Trebam prijevoz" / "Imam vozilo") + 3-step explainer *(Session 17, was a redirect to /cargo)* |
-| /login                 | LoginPage              | No     | Sign-in form            |
-| /register              | RegisterPage           | No     | Registration form       |
+| /login                 | LoginPage              | No     | Sign-in form — shows a CAPTCHA widget once the backend requests one, an unverified-account notice with inline resend, and a "Zaboravili ste lozinku?" link *(Session 20)* |
+| /register              | RegisterPage           | No     | Registration form — always requires solving a Turnstile CAPTCHA *(Session 20)* |
+| /verify-email          | VerifyEmailPage        | No     | Consumes `?token=` from the verification email link *(Session 20)* |
+| /forgot-password       | ForgotPasswordPage     | No     | Request a password reset link (CAPTCHA required) *(Session 20)* |
+| /reset-password        | ResetPasswordPage      | No     | Consumes `?token=` from the reset email link, sets a new password *(Session 20)* |
 | /cargo                 | CargoListPage          | No     | Browse + filter cargo   |
 | /cargo/:id             | CargoDetailPage        | No     | Cargo post details + inline edit (owner only) |
 | /vehicles              | VehicleListPage        | No     | Browse + filter vehicles|
@@ -324,8 +353,38 @@ JWT_EXPIRES_IN=7d
 
 PORT=3000
 
-# Frontend origin allowed to make CORS requests to this API
+# Frontend origin allowed to make CORS requests to this API — also used to build the
+# verification/reset links sent in emails
 CORS_ORIGIN=http://localhost:5173
+
+# Cloudflare Turnstile — server-side CAPTCHA verification (Session 20)
+TURNSTILE_SECRET_KEY=
+
+# SMTP — verification / password-reset emails (Session 20)
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_FROM=CargoConnect <no-reply@cargoconnect.local>
+
+# Email verification / password reset token lifetimes and resend cooldown (Session 20)
+EMAIL_VERIFICATION_TOKEN_TTL_MINUTES=1440
+PASSWORD_RESET_TOKEN_TTL_MINUTES=60
+EMAIL_RESEND_COOLDOWN_SECONDS=60
+
+# Login CAPTCHA escalation — require a CAPTCHA after this many recent failed attempts
+# on an account, within this window (Session 20)
+LOGIN_CAPTCHA_FAILED_ATTEMPTS_THRESHOLD=3
+LOGIN_CAPTCHA_WINDOW_MINUTES=15
+
+# Per-route rate limits, requests per minute per IP (Session 20)
+RATE_LIMIT_DEFAULT_PER_MIN=60
+RATE_LIMIT_REGISTER_PER_MIN=5
+RATE_LIMIT_LOGIN_PER_MIN=5
+RATE_LIMIT_VERIFY_EMAIL_PER_MIN=10
+RATE_LIMIT_RESEND_VERIFICATION_PER_MIN=3
+RATE_LIMIT_FORGOT_PASSWORD_PER_MIN=3
+RATE_LIMIT_RESET_PASSWORD_PER_MIN=5
 
 # Routing — get a free key at https://openrouteservice.org/dev/#/signup
 OPENROUTESERVICE_API_KEY=
@@ -336,9 +395,17 @@ ROUTE_CITY_MAX_DISTANCE_KM=15
 **frontend/.env** *(optional — defaults to `http://localhost:3000` if unset)*
 ```
 VITE_API_URL=http://localhost:3000
+
+# Cloudflare Turnstile site key (public, safe to expose client-side) — must match the
+# backend's TURNSTILE_SECRET_KEY (Session 20)
+VITE_TURNSTILE_SITE_KEY=
 ```
 
+Full lists with inline comments and defaults live in `backend/.env.example` and `frontend/.env.example` — treat those files as the source of truth; this section is a summary.
+
 *(Session 18: `CORS_ORIGIN` and `VITE_API_URL` added so the app can be deployed without editing source; `JWT_SECRET`, `DATABASE_HOST/USER/PASSWORD/NAME` are now validated at backend startup via Joi — a missing or too-short value fails fast instead of surfacing later at first sign/verify.)*
+
+*(Session 20: `TURNSTILE_SECRET_KEY` and `SMTP_HOST`/`SMTP_FROM` are validated the same way — required whenever `NODE_ENV=production`, optional otherwise. `SMTP_PORT` defaults to 587 regardless of environment. See "Authentication & Security (Session 20)" below for the reasoning.)*
 
 ---
 
@@ -439,7 +506,43 @@ In development, TypeORM automatically creates and updates database tables based 
 TypeORM integrates natively with NestJS using decorators on entity classes. Entities serve both as database schema definitions and as TypeScript classes. Prisma is also excellent but requires a separate schema file and generated client. TypeORM's decorator approach is more cohesive with NestJS's style.
 
 ### JWT Authentication
-Passwords are hashed with bcrypt (cost factor 10) before storing. JWT tokens are signed with HS256 using the `JWT_SECRET` from .env and expire after 7 days. The token is stored in `localStorage` in the frontend.
+Auth is built on `@nestjs/passport` + `passport-jwt` (`JwtStrategy`), not a hand-rolled token check. Passwords are hashed with bcrypt (cost factor 10) before storing — never logged, never stored in plaintext. JWT tokens are signed with HS256 using the `JWT_SECRET` from `.env` and expire after 7 days (`JWT_EXPIRES_IN`, default `7d`). The token is stored in `localStorage` in the frontend and sent as `Authorization: Bearer <token>` — there is no cookie-based session, so CSRF protection is not applicable.
+
+Login itself returns a generic `"Invalid email or password"` for both an unknown email and a wrong password — this has been true since before Session 20 and was not changed.
+
+**JWT invalidation on password change (Session 18, M9; reused by Session 20's password reset):** `User.passwordChangedAt` is set on every password change and every password reset. `JwtStrategy.validate()` rejects any token whose `iat` claim predates `passwordChangedAt`, even if the token hasn't expired yet. This is the *only* session-invalidation mechanism in the app — there is no server-side token blocklist and logout is client-side only (clearing `localStorage`). Verified live in Session 20: resetting a password immediately turns a previously-valid token into a `401 "Token invalidated by password change"`.
+
+**Authorization roles are unchanged by Session 20.** `RolesGuard` + `@Roles('admin')` still work exactly as documented in "Role-Based Access Control" below; the Admin role's permissions were not modified, and no admin-authorization code (`roles.guard.ts`, `roles.decorator.ts`, `admin.*`) was touched.
+
+### Authentication & Security (Session 20) — email verification, password reset, CAPTCHA, rate limiting
+
+Session 20 added the pieces that were listed as open items after Session 18/19: mandatory email verification, a full password-reset flow, bot protection, and account-based rate limiting — on top of the JWT/bcrypt/RBAC foundation above, which was extended, not replaced.
+
+**Email verification.** Registration now creates the account with `emailVerified: false` and generates a cryptographically random 32-byte token (`common/utils/token.util.ts`); only its SHA-256 hash is stored in `emailVerificationTokenHash` — the raw token exists only in the verification email's URL (`{CORS_ORIGIN}/verify-email?token=...`) and is never persisted. The hash has a configurable expiry (`EMAIL_VERIFICATION_TOKEN_TTL_MINUTES`, default 1440 = 24h) and is single-use: a successful verification clears the hash, so a reused link simply finds no matching row. `POST /auth/login` rejects an unverified account with `403 "Please verify your email address before signing in."` — and since login is the *only* place a JWT is ever issued, an unverified user can never obtain a token by any other route, closing the "bypass via direct API call" concern. `POST /auth/resend-verification` re-sends the link, rate-limited both per-IP (throttler) and per-account (a silent `EMAIL_RESEND_COOLDOWN_SECONDS`, default 60s, cooldown that doesn't change the response — so it can't be used to probe account state).
+
+**Existing users were grandfathered in.** The migration that adds these columns (see "Database migration" further below) backfills `emailVerified = true` for every row that existed when it ran — including both existing admin accounts, confirmed directly against Postgres before/after. New rows created after the migration get `emailVerified: false` explicitly from `AuthService.register()`, not from the column's default.
+
+**Password reset.** `POST /auth/forgot-password` and `POST /auth/reset-password` mirror the verification design exactly: random token, SHA-256 hash stored in `passwordResetTokenHash`, configurable expiry (`PASSWORD_RESET_TOKEN_TTL_MINUTES`, default 60), single-use (hash cleared on success), same per-account cooldown. A successful reset sets `passwordChangedAt`, so it invalidates every other outstanding JWT for that account through the existing Session-18 mechanism described above — verified live. `forgot-password` always returns the same generic message regardless of whether the email exists.
+
+**Account enumeration (registration behavior changed from Session 18's documented trade-off — see the corrected note under Session 18 below).** `POST /auth/register` now always returns the same generic response. If the email is already registered, no second account is created; instead the existing account is emailed a notice ("someone tried to register with your email — if this was you, use forgot password"), sent best-effort (a failure to send that notice email is swallowed and logged, never surfaced to the caller, so it can't become a timing/error side-channel). `forgot-password` and `resend-verification` are generic in the same way. Login was already generic before Session 20 and is unchanged.
+
+**Cloudflare Turnstile (`common/captcha/captcha.service.ts`).** Chosen over reCAPTCHA/hCaptcha for no vendor tracking and a simple server-side verify call; loaded on the frontend via a plain `<script>` tag (`components/Turnstile.tsx`), not an npm package. Verification is **always server-side** — `POST` to Cloudflare's `siteverify` endpoint with `TURNSTILE_SECRET_KEY`; the frontend's own pass/fail state is never trusted. Registration always requires a valid `captchaToken`. Login only requires one adaptively: after `LOGIN_CAPTCHA_FAILED_ATTEMPTS_THRESHOLD` (default 3) failed attempts on an account within `LOGIN_CAPTCHA_WINDOW_MINUTES` (default 15), the next login attempt is rejected with `400` unless a valid `captchaToken` is supplied — checked *before* the password comparison, so a client can't keep burning password guesses once the gate is up. `resend-verification` and `forgot-password` always require a token. **Dev/prod behavior:** with `TURNSTILE_SECRET_KEY` unset, verification is bypassed with a warning log when `NODE_ENV !== 'production'` (so local dev and CI don't need real Turnstile keys) and always rejected (fails closed) when `NODE_ENV === 'production'` — mirrors the existing `OPENROUTESERVICE_API_KEY` graceful-degradation pattern in `routing/openroute.service.ts`. For local development, Cloudflare publishes official [always-passing test keys](https://developers.cloudflare.com/turnstile/troubleshooting/testing/) (documented on their site, not reproduced here since they can change) — these are dev-only and must never be used as production credentials.
+
+**Mail (`common/mail/mail.service.ts`).** Uses `nodemailer` against standard SMTP (`SMTP_HOST/PORT/USER/PASSWORD/FROM`), added because no email infrastructure existed at all before this session. **When SMTP is not configured in development** (`SMTP_HOST` unset and `NODE_ENV !== 'production'`), the email body — including the verification/reset URL — is logged to the backend console instead of sent, so a developer can complete the flow without real SMTP credentials. **This must never be treated as acceptable production behavior**: when `NODE_ENV === 'production'` and SMTP is not configured, `MailService` throws and the request fails with a `500` rather than silently pretending an email was sent or logging a live token to production logs. In addition, Joi's startup validation (`app.module.ts`) requires `SMTP_HOST` and `SMTP_FROM` (and `TURNSTILE_SECRET_KEY`) whenever `NODE_ENV=production`, so a production deploy with these unset fails at boot rather than at first request.
+
+**Rate limiting.** Extends the existing `@nestjs/throttler` setup (Session 18 already had 5/min/IP on register+login) with its own configurable limit per auth route — `RATE_LIMIT_REGISTER_PER_MIN`, `RATE_LIMIT_LOGIN_PER_MIN`, `RATE_LIMIT_VERIFY_EMAIL_PER_MIN`, `RATE_LIMIT_RESEND_VERIFICATION_PER_MIN`, `RATE_LIMIT_FORGOT_PASSWORD_PER_MIN`, `RATE_LIMIT_RESET_PASSWORD_PER_MIN` (defaults: 5, 5, 10, 3, 3, 5 per minute per IP) — read from env at module-load time, same pattern the pre-existing `AUTH_THROTTLE` constant already used. `common/guards/logging-throttler.guard.ts` (`LoggingThrottlerGuard`, now the app-wide `APP_GUARD`) logs a warning whenever a client is actually throttled, for the security-logging requirement below. Account-based limiting layers on top of the IP-based throttler: the resend/forgot-password cooldown and the login CAPTCHA-escalation counter described above. **There is no permanent account lockout anywhere** — a wrong password never locks an account, it only (temporarily) raises the bar to "correct password + CAPTCHA," and that state naturally expires after `LOGIN_CAPTCHA_WINDOW_MINUTES` of no further failures. **If this app is later deployed behind a reverse proxy or load balancer**, `@nestjs/throttler`'s IP-based limiting relies on Express's `req.ip`, which requires `app.set('trust proxy', ...)` to be configured correctly (not currently set) — otherwise every request appears to originate from the proxy's IP and the per-IP limits become effectively global.
+
+**Password policy.** Minimum 6 characters (unchanged from before Session 20) and a new maximum of 128 characters (a practical DoS/sanity guard against hashing pathologically large input, not an artificial restriction — well above any realistic passphrase) on register/reset-password/change-password. A short, hand-curated common-password denylist (`common/validators/not-common-password.validator.ts`, ~38 entries — not a full breach-corpus check) rejects the most obviously weak choices. No composition rules (no forced uppercase/symbol/digit) were added — the existing security model didn't require them and the task explicitly asked not to invent stricter rules than necessary. Hashing is still bcrypt (cost 10); plaintext passwords are never logged (`console.error`/`Logger` calls throughout `AuthService` log only emails, IPs, and attempt counts, never credentials or tokens).
+
+**Security logging.** `AuthService` logs (via `Logger`, never at `console.log`) failed logins (with running attempt count), CAPTCHA verification failures (`CaptchaService`), rate-limit triggers (`LoggingThrottlerGuard`), verification requests/successes, password-reset requests/completions, and password changes (`UsersService.changePassword`) — all by email/IP/timestamp, never by token, password, or CAPTCHA secret.
+
+**Testing.** `backend/src/auth/auth.service.spec.ts` (new) covers registration (captcha failure, normal registration, duplicate-email non-enumeration, unverified-account state), email verification (valid/invalid/expired/reused token, resend + cooldown), login (verified/unverified, invalid credentials, CAPTCHA escalation and its time-window expiry), and password reset (valid/invalid/expired/reused token, JWT invalidation, cooldown) — plus `common/captcha/captcha.service.spec.ts` and a validator spec. The pre-existing `admin.service.spec.ts` (self-delete guard, last-admin guard, transactional cascade) was left untouched and still passes, confirming no Admin-authorization regression. Beyond unit tests, the full flow (register → console-logged link → blocked login → verify → login; duplicate registration; forgot/reset password → old JWT invalidated; repeated failed logins → CAPTCHA path exercised → rate-limit 429) was exercised live against the real dev backend and Postgres, not just mocked. Run `npx jest` from `backend/` for current pass/fail counts — the exact test count isn't pinned here since it will drift as the suite grows.
+
+**Remaining/deferred items:**
+- Production SMTP and Turnstile credentials must be provisioned and `NODE_ENV=production` set correctly before any production deploy — Joi will refuse to boot otherwise, which is intentional.
+- `trust proxy` needs review once real hosting behind a proxy/load balancer is chosen (see rate-limiting note above).
+- **MFA/TOTP for Admin accounts is recommended as a future, standalone improvement** — Admin endpoints have full user/post CRUD and currently no second factor. Not implemented in Session 20; the `User` entity and the login flow's existing "extra verification step" branch point (the CAPTCHA escalation logic) would make it a natural fit later.
+- Background email queueing could be considered if registration/reset volume grows enough that the synchronous bcrypt+captcha+email-send path in the request becomes a bottleneck — not needed at current scale.
 
 ### Public Browse, Protected Post
 Anyone can browse cargo/vehicle posts without logging in (good for SEO and low friction). Creating, editing, or deleting posts requires a valid JWT. Ownership is enforced in the service layer by comparing `companyId`.
@@ -860,6 +963,8 @@ The app uses a simple two-tier role system stored in the `users.role` column:
 
 **Frontend detection:** the login response always includes `role` in the user object, stored in `localStorage`. `AdminRoute` and the Navbar Admin link check `user.role === 'admin'`.
 
+**Unaffected by Session 20:** the role system, both guards, and the Admin role's permissions were not modified when email verification/CAPTCHA/rate limiting were added. `RolesGuard`, `roles.decorator.ts`, and `admin.*` were not touched; `admin.service.spec.ts` was not touched and still passes. Both pre-existing admin accounts were backfilled `emailVerified: true` by the Session 20 migration, so admin login is unaffected by the new verification gate.
+
 ---
 
 ## API Error Response Format
@@ -1195,7 +1300,7 @@ Added a Joi `validationSchema` to `ConfigModule.forRoot` (`DATABASE_*`, `JWT_SEC
 **M3 — No real tests in the repo (`6f58f01`)**
 Added focused unit tests (repositories mocked) for the logic most likely to silently regress: `escape-like.spec.ts` (L4), `cargo-posts.service.spec.ts` / `vehicle-posts.service.spec.ts` (M1 transition rules + past-date guards), `admin.service.spec.ts` (self-delete/last-admin guards, transactional cascade), `posts-expiration.service.spec.ts` (the Session 13 local-date-not-UTC boundary, active-only filter, startup sync). Also fixed the broken e2e scaffold rather than deleting it — updated it to hit the new `GET /health` and switched `import request from 'supertest'` to `require('supertest')` (the former resolved to `.default`/`undefined` at runtime under this project's tsconfig, an interop mismatch the review didn't anticipate but that made the test fail differently than predicted). While wiring up the e2e run, discovered `route-city.service.ts`'s `import ... from '@turf/turf'` barrel pulled in `@turf/convex → concaveman` (ESM-only, with its own nested ESM-only `rbush`/`quickselect`) purely as a side effect of the barrel — none of it is used by this file. Switched to importing `@turf/helpers`, `@turf/nearest-point-on-line`, and `@turf/simplify` directly; verified identical behavior at runtime (same 6-city route, same 364-point polyline) before and after the swap. `npx jest`: 6 suites, 31 tests, all passing. `npx jest --config ./test/jest-e2e.json`: 1 suite, 1 test, passing against the live local Postgres.
 
-**L5 — Registration reveals whether an email exists — deliberately left as-is.** The review itself frames this as a conscious UX/security trade-off rather than a bug (login already uses a generic error; only registration's 409 is specific). No code change; noting the decision here as the review suggested.
+**L5 — Registration reveals whether an email exists — deliberately left as-is (Session 18), later closed (Session 20).** At the time, the review framed this as a conscious UX/security trade-off rather than a bug (login already used a generic error; only registration's 409 was specific), and no code change was made in Session 18. That trade-off was revisited and reversed in Session 20: registration no longer returns 409 for a duplicate email — it always returns the same generic response, and a duplicate no longer creates a second account. See "Authentication & Security (Session 20)" under Key Decisions above for the current behavior.
 
 **Verification approach this session:** every fix that touched runtime behavior (not just types) was exercised against the actual running backend and the live local Postgres — registered/logged in test users, changed passwords, hit admin endpoints with hand-signed JWTs, queried Postgres directly before/after — rather than relying on `tsc`/`vite build` alone. Temporary test rows were cleaned up after each check.
 
@@ -1230,6 +1335,40 @@ The Session 18 estimate of "32 pre-existing frontend errors" turned out to be st
 
 ---
 
+### Session 20 — 2026-08-19
+
+#### Feature: Email verification, password reset, CAPTCHA, and rate-limiting hardening
+
+Closed the security gaps that were open after Session 18/19: registration didn't require email verification, there was no password-reset flow at all, no bot protection existed anywhere, and rate limiting was IP-only. Full design and reasoning is documented in "Authentication & Security (Session 20)" under Key Decisions above — this entry is the changelog summary; see that section for the "why."
+
+**Database migration:** `backend/src/migrations/1787154161858-AddAuthSecurityColumns.ts` adds nine columns to `users` — `emailVerified`, `emailVerificationTokenHash`, `emailVerificationExpiresAt`, `emailVerificationLastSentAt`, `passwordResetTokenHash`, `passwordResetExpiresAt`, `passwordResetLastSentAt`, `failedLoginAttempts`, `lastFailedLoginAt` — then backfills `emailVerified = true` for every pre-existing row in the same migration. Generated by diffing against the real dev DB (not a throwaway one this time, since there was no empty-DB requirement for an additive column migration), and hand-verified: applied to the live dev DB, confirmed all 5 existing users (both admins included) came out `emailVerified: true`, confirmed a follow-up `migration:generate` reports no further diff, and `migration:revert` is available to drop the columns cleanly. **On any other environment (staging, a teammate's machine, production) this migration has not yet been applied — run `npm run migration:run` before relying on any of this session's behavior there.**
+
+**Backend — new/changed:**
+- `common/captcha/` — `CaptchaService` (server-side Cloudflare Turnstile verification, dev-bypass/prod-fail-closed) + module + spec.
+- `common/mail/` — `MailService` (nodemailer SMTP, dev console-log fallback, prod hard-fail if unconfigured) + module.
+- `common/utils/token.util.ts` — secure random token generation + SHA-256 hashing, shared by both verification and reset flows.
+- `common/validators/not-common-password.validator.ts` (+ spec) — `IsNotCommonPassword()`.
+- `common/guards/logging-throttler.guard.ts` — `LoggingThrottlerGuard`, now the app-wide `APP_GUARD`, logs on every rate-limit trigger.
+- `auth/auth.service.ts` — rewritten: `register`, `login`, and new `verifyEmail`, `resendVerification`, `forgotPassword`, `resetPassword`.
+- `auth/auth.controller.ts` — three new `POST` routes, each with its own env-configurable throttle.
+- `auth/dto/{verify-email,resend-verification,forgot-password,reset-password}.dto.ts` — new; `register.dto.ts`/`login.dto.ts`/`change-password.dto.ts` updated with `captchaToken` and the password-length/denylist rules.
+- `users/user.entity.ts` / `users.service.ts` — the nine new columns plus `save()`, `findByEmailVerificationTokenHash()`, `findByPasswordResetTokenHash()`; `changePassword()` now logs the event.
+- `app.module.ts` — Joi validation extended (conditionally required in production: `TURNSTILE_SECRET_KEY`, `SMTP_HOST`, `SMTP_FROM`; always-optional tuning vars with defaults for TTLs/cooldowns/thresholds/rate limits); `ThrottlerModule`'s default limit is now env-driven; `LoggingThrottlerGuard` replaces the plain `ThrottlerGuard` as `APP_GUARD`.
+- New dependency: `nodemailer` (+ `@types/nodemailer` dev dependency). No other new runtime dependencies — Turnstile is loaded via `<script>` tag on the frontend, not an npm package.
+
+**Frontend — new/changed:**
+- `components/Turnstile.tsx` — loads the Turnstile script once, renders the widget, reports the token via a stable ref-based callback (so it doesn't remount on every parent re-render).
+- `pages/VerifyEmailPage.tsx`, `ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx` — new; routes added in `App.tsx`.
+- `pages/LoginPage.tsx` — conditionally shows the CAPTCHA widget only once the backend requests it (most logins never see it); shows an unverified-account notice with an inline resend panel (its own CAPTCHA); "Zaboravili ste lozinku?" link.
+- `pages/RegisterPage.tsx` — always shows the CAPTCHA widget; success now navigates to `/login` with a generic "check your email" banner instead of a page that would otherwise imply the account was definitely new.
+- `services/auth.service.ts` — `verifyEmail`, `resendVerification`, `forgotPassword`, `resetPassword` added; `register`/`login` now carry `captchaToken`.
+
+**Verification performed (live, not just unit tests):** started the real backend against the real local Postgres and, via `curl`, walked register → console-logged verification link → login blocked (403) → invalid/expired/reused-token handling on `/auth/verify-email` → verify → login succeeds; duplicate registration → identical generic response, confirmed no second row created; forgot-password → console-logged reset link → reset → confirmed the pre-reset JWT immediately returns `401 Token invalidated by password change` → login with the new password → confirmed the reset token is rejected on reuse; three failed logins → confirmed the CAPTCHA-escalation branch executes; rapid logins → confirmed a real `429` with a logged `Rate limit exceeded` line. `npm run build` and `npm run lint` are clean on both workspaces (0 new errors — the pre-existing 13 `no-unsafe-argument` warnings from Session 19 are unchanged). Backend unit + e2e suites pass; run `npx jest` / `npx jest --config ./test/jest-e2e.json` from `backend/` for current counts.
+
+**Deliberately not done this session (see "Remaining/deferred items" above for the reasoning):** MFA/TOTP for Admin accounts, background email queueing, `trust proxy` configuration (no reverse proxy exists yet to configure it for).
+
+---
+
 ## TODO / Next Steps
 
 - [x] Mark post as closed from the UI — "Close Post" button on detail pages + inline "Close" in My Posts
@@ -1243,10 +1382,16 @@ The Session 18 estimate of "32 pre-existing frontend errors" turned out to be st
 - [x] Full frontend visual redesign + Croatian localization — new home page, simplified nav with Pretraga/Objavi dropdown menus, card-based list/detail pages, restyled forms/dashboard/My Posts/Admin
 - [x] Code review remediation (Session 18) — all HIGH/MEDIUM findings and 7 of 8 LOW findings from `CODE_REVIEW.md` fixed; L5 (email enumeration on registration) deliberately left as a documented trade-off; `npm run lint`'s pre-existing 32 errors are a separate, still-open item below
 - [x] Fix pre-existing `npm run lint` failures (Session 19) — both frontend and backend now exit 0; frontend also picked up two new rule categories from an `eslint-plugin-react-hooks` v7 upgrade beyond the originally-documented 32
-- [ ] Email validation / verification on registration
+- [x] Email validation / verification on registration (Session 20) — mandatory email verification before login, SHA-256-hashed single-use tokens, configurable expiry, resend with cooldown; existing users backfilled as verified
 - [ ] Docker Compose setup for easy local start
 - [x] Production migrations (TypeORM migration files) — Session 19: shared `entities.ts`, CLI `data-source.ts`, `migration:generate`/`run`/`revert`/`show` scripts, baseline `InitialSchema` migration generated and verified against a throwaway DB, dev DB bootstrapped onto the migration table
-- [ ] Deploy to a VPS or cloud provider
+- [x] Password reset flow (Session 20) — forgot/reset-password endpoints, same single-use SHA-256-hashed-token design as email verification, resets invalidate existing JWTs via the Session-18 `passwordChangedAt` mechanism
+- [x] Bot protection on auth forms (Session 20) — Cloudflare Turnstile, server-side verification, mandatory on registration, adaptive on login after repeated failures, mandatory on resend/forgot-password
+- [x] Rate limiting on auth endpoints (Session 20) — per-route configurable IP throttles on all six `/auth/*` endpoints, plus account-based cooldowns/CAPTCHA-escalation; no permanent lockout
+- [x] Close registration email-enumeration gap (Session 20) — reverses the Session 18 L5 "deliberately left as-is" decision; registration/resend/forgot-password now all return generic, non-enumerating responses
+- [ ] Deploy to a VPS or cloud provider — production deploy now additionally requires `TURNSTILE_SECRET_KEY` and `SMTP_*` to be set (Joi fails startup otherwise) and `trust proxy` to be reviewed once a reverse proxy/load balancer is chosen
+- [ ] MFA/TOTP for Admin accounts — recommended in Session 20 as a follow-up; not implemented
+- [ ] Background email queueing — worth considering if registration/reset volume grows enough that the synchronous send-in-request-path becomes a bottleneck; not needed at current scale
 - [ ] Admin: ability to view/edit a single user's company profile
 - [ ] Admin: bulk-action on posts (e.g. close all expired)
 - [ ] Optional home page "recent cargo/vehicles" preview — deliberately skipped in Session 17 to keep the landing page short
