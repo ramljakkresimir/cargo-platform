@@ -17,6 +17,8 @@ import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UpdatePostStatusDto } from './dto/update-post-status.dto';
 import { RouteCityService } from '../routing/route-city.service';
 import { escapeLikePattern } from '../common/utils/escape-like';
+import { CompaniesService } from '../companies/companies.service';
+import { UpdateCompanyDto } from '../companies/dto/update-company.dto';
 
 @Injectable()
 export class AdminService {
@@ -32,6 +34,7 @@ export class AdminService {
     @InjectRepository(VehiclePost)
     private readonly vehiclePostRepo: Repository<VehiclePost>,
     private readonly routeCityService: RouteCityService,
+    private readonly companiesService: CompaniesService,
   ) {}
 
   async getStats() {
@@ -55,6 +58,71 @@ export class AdminService {
       totalVehiclePosts,
       activeCargoPosts,
       activeVehiclePosts,
+    };
+  }
+
+  // ── Bulk post actions ─────────────────────────────────────────────
+
+  // Preview counts for the "close all expired" confirmation — status = 'expired' is
+  // the existing, authoritative definition of "expired" (see PostsExpirationService),
+  // so this is just a count of rows already in that state, not a re-derivation of the
+  // date rule.
+  async countExpiredPosts(): Promise<{
+    cargoPostsExpired: number;
+    vehiclePostsExpired: number;
+    total: number;
+  }> {
+    const [cargoPostsExpired, vehiclePostsExpired] = await Promise.all([
+      this.cargoPostRepo.count({ where: { status: PostStatus.EXPIRED } }),
+      this.vehiclePostRepo.count({ where: { status: PostStatus.EXPIRED } }),
+    ]);
+    return {
+      cargoPostsExpired,
+      vehiclePostsExpired,
+      total: cargoPostsExpired + vehiclePostsExpired,
+    };
+  }
+
+  // Bulk-transitions every expired cargo/vehicle post to 'closed'. Reuses the same
+  // direct status assignment as updateCargoPostStatus/updateVehiclePostStatus above —
+  // an admin status change already bypasses the owner-only active⇄closed transition
+  // guard in CargoPostsService/VehiclePostsService and has no other side effects to
+  // preserve, so a single bulk UPDATE per post type is safe and avoids an N+1 loop.
+  // Only rows currently 'expired' are touched, so already-closed/active posts are left
+  // alone, and the operation is idempotent — a second run matches zero rows.
+  async closeExpiredPosts(): Promise<{
+    cargoPostsClosed: number;
+    vehiclePostsClosed: number;
+    totalClosed: number;
+    message: string;
+  }> {
+    const cargoResult = await this.cargoPostRepo
+      .createQueryBuilder()
+      .update(CargoPost)
+      .set({ status: PostStatus.CLOSED })
+      .where('status = :status', { status: PostStatus.EXPIRED })
+      .execute();
+
+    const vehicleResult = await this.vehiclePostRepo
+      .createQueryBuilder()
+      .update(VehiclePost)
+      .set({ status: PostStatus.CLOSED })
+      .where('status = :status', { status: PostStatus.EXPIRED })
+      .execute();
+
+    const cargoPostsClosed = cargoResult.affected ?? 0;
+    const vehiclePostsClosed = vehicleResult.affected ?? 0;
+    const totalClosed = cargoPostsClosed + vehiclePostsClosed;
+
+    this.logger.log(
+      `Bulk-closed ${totalClosed} expired post(s): ${cargoPostsClosed} cargo, ${vehiclePostsClosed} vehicle`,
+    );
+
+    return {
+      cargoPostsClosed,
+      vehiclePostsClosed,
+      totalClosed,
+      message: `Closed ${totalClosed} expired post(s): ${cargoPostsClosed} cargo, ${vehiclePostsClosed} vehicle.`,
     };
   }
 
@@ -142,6 +210,29 @@ export class AdminService {
     });
 
     return { message: 'User deleted successfully' };
+  }
+
+  async getUserById(id: string): Promise<User> {
+    const user = await this.userRepo.findOne({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
+
+  // ── User company profile ──────────────────────────────────────────
+  // Reuses CompaniesService — the same model/validation/service normal users go
+  // through on /companies/me — instead of a parallel admin-only implementation.
+
+  async getUserCompany(userId: string): Promise<Company> {
+    await this.getUserById(userId); // 404 "User not found" vs. 404 "Company profile not found"
+    return this.companiesService.findByUserId(userId);
+  }
+
+  async updateUserCompany(
+    userId: string,
+    dto: UpdateCompanyDto,
+  ): Promise<Company> {
+    await this.getUserById(userId);
+    return this.companiesService.updateByUserId(userId, dto);
   }
 
   // ── Cargo Posts ────────────────────────────────────────────────────

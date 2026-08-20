@@ -9,12 +9,14 @@ import { AdminController } from './admin.controller';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { PostsExpirationModule } from '../posts-expiration/posts-expiration.module';
 import { RoutingModule } from '../routing/routing.module';
+import { CompaniesModule } from '../companies/companies.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, Company, CargoPost, VehiclePost]),
     PostsExpirationModule,
     RoutingModule,
+    CompaniesModule,
   ],
   providers: [AdminService, RolesGuard],
   controllers: [AdminController],

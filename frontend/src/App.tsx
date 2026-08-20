@@ -22,6 +22,7 @@ import MyPostsPage from './pages/MyPostsPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
+import AdminUserCompanyPage from './pages/admin/AdminUserCompanyPage';
 import AdminCargoPostsPage from './pages/admin/AdminCargoPostsPage';
 import AdminVehiclePostsPage from './pages/admin/AdminVehiclePostsPage';
 
@@ -70,6 +71,9 @@ export default function App() {
             } />
             <Route path="/admin/users" element={
               <AdminRoute><AdminUsersPage /></AdminRoute>
+            } />
+            <Route path="/admin/users/:id/company" element={
+              <AdminRoute><AdminUserCompanyPage /></AdminRoute>
             } />
             <Route path="/admin/cargo-posts" element={
               <AdminRoute><AdminCargoPostsPage /></AdminRoute>

@@ -80,8 +80,8 @@ cargo-platform/
         ├── services/         Axios API clients per resource (+ admin.service)
         ├── components/       Navbar (+ NavDropdown), ProtectedRoute, AdminRoute, CityAutocomplete, Icons, StatusBadge, EmptyState, RouteMap, Turnstile
         ├── constants/        postTypes.ts — shared Croatian cargo/vehicle type label maps
-        ├── pages/            HomePage + 15 regular pages (incl. VerifyEmailPage, ForgotPasswordPage, ResetPasswordPage) + 4 admin pages
-        │   └── admin/        AdminDashboardPage, AdminUsersPage, AdminCargoPostsPage, AdminVehiclePostsPage
+        ├── pages/            HomePage (+ recent listings preview, Session 21) + 15 regular pages (incl. VerifyEmailPage, ForgotPasswordPage, ResetPasswordPage) + 5 admin pages
+        │   └── admin/        AdminDashboardPage, AdminUsersPage, AdminUserCompanyPage, AdminCargoPostsPage, AdminVehiclePostsPage
         ├── services/         Axios API clients (+ cities.service.ts added)
         ├── utils/            errorUtils.ts — extractErrorMessage / extractFieldErrors helpers
         └── types/            Shared TypeScript interfaces (City added, CargoPost/VehiclePost updated)
@@ -287,9 +287,14 @@ All `/admin/*` endpoints require `Authorization: Bearer <token>` where the token
 | Method | Path                              | Description                              |
 |--------|-----------------------------------|------------------------------------------|
 | GET    | /admin/stats                      | Dashboard counts (users, posts, actives) |
+| GET    | /admin/posts/expired-count        | Preview count of expired cargo/vehicle posts, for the bulk "close all expired" confirmation *(Session 21)* |
+| POST   | /admin/posts/close-expired        | Bulk-close every post with `status: 'expired'` (both cargo and vehicle) *(Session 21)* |
 | GET    | /admin/users                      | Paginated user list (search, page, limit)|
 | PATCH  | /admin/users/:id/role             | Change user role ("user" or "admin")     |
 | DELETE | /admin/users/:id                  | Delete user + cascade (posts, company)   |
+| GET    | /admin/users/:id                  | Single user by id (used by the company-profile page for header context) *(Session 21)* |
+| GET    | /admin/users/:id/company           | View a user's company profile *(Session 21)* |
+| PATCH  | /admin/users/:id/company           | Edit a user's company profile — same fields/validation as `PATCH /companies/me` *(Session 21)* |
 | GET    | /admin/cargo-posts                | Paginated cargo posts (search, status, page, limit) |
 | PATCH  | /admin/cargo-posts/:id/status     | Change cargo post status                 |
 | DELETE | /admin/cargo-posts/:id            | Delete cargo post                        |
@@ -303,6 +308,8 @@ All `/admin/*` endpoints require `Authorization: Bearer <token>` where the token
 - Admin cannot delete their own account → 403
 - Admin cannot remove their own admin role if they are the only admin → 400
 - Deleting a user cascades: cargo posts → vehicle posts → company → user (no orphaned records)
+- `GET /admin/users/:id/company` and `PATCH /admin/users/:id/company` return 404 `"User not found"` if the user id doesn't exist, and 404 `"Company profile not found..."` (the same message `CompaniesService` already uses for `/companies/me`) if the user exists but never created a company profile — the two cases are distinguishable by message *(Session 21)*
+- `POST /admin/posts/close-expired` only ever touches rows where `status = 'expired'` (already-active or already-closed posts are untouched) and is idempotent — running it again after all expired posts are closed affects 0 rows *(Session 21)*
 
 ---
 
@@ -328,6 +335,7 @@ All `/admin/*` endpoints require `Authorization: Bearer <token>` where the token
 | /profile               | ProfilePage            | Yes    | Edit personal info + change password   |
 | /admin                 | AdminDashboardPage     | Admin  | Stats overview + quick links to admin sections |
 | /admin/users           | AdminUsersPage         | Admin  | List, search, change role, delete users |
+| /admin/users/:id/company | AdminUserCompanyPage | Admin  | View and edit a single user's company profile *(Session 21)* |
 | /admin/cargo-posts     | AdminCargoPostsPage    | Admin  | List, search, filter, change status, delete cargo posts |
 | /admin/vehicle-posts   | AdminVehiclePostsPage  | Admin  | List, search, filter, change status, delete vehicle posts |
 
@@ -1196,7 +1204,7 @@ Redesign scope was driven by a design handoff (`CargoConnect Redesign.dc.html` +
 - [x] `frontend/src/pages/HomePage.tsx` replaces the old `<Navigate to="/cargo" />` redirect
 - [x] Hero headline "Pronađite prijevoz ili teret na svojoj ruti" + two large CTA cards: "Trebam prijevoz" (blue, → `/vehicles`) and "Imam vozilo" (teal, → `/cargo`)
 - [x] 3-step explainer ("Odaberite što tražite" → "Unesite polazište i odredište" → "Kontaktirajte odgovarajuću tvrtku") and a 3-column trust section (verified companies / direct contact / real routes)
-- [x] Deliberately skipped the optional "recent cargo/vehicles preview" — spec marked it optional and the page is meant to stay short; can be added later without touching anything else
+- [x] The optional "recent cargo/vehicles preview" was deliberately skipped in this session — spec marked it optional and the page was meant to stay short. **Implemented in Session 21** — see that section below.
 
 **Navigation — `frontend/src/components/Navbar.tsx` (full rewrite):**
 - [x] Collapsed to exactly 4 top-level items: Početna, Pretraga, Objavi, Nadzorna ploča — direct "Cargo"/"Vehicles" links removed
@@ -1369,6 +1377,42 @@ Closed the security gaps that were open after Session 18/19: registration didn't
 
 ---
 
+### Session 21 — 2026-08-20
+
+Three self-contained Admin/marketplace features, none of which touched authentication, JWT handling, CAPTCHA, rate limiting, or the Admin role/guard model from Session 20 — `RolesGuard`, `roles.decorator.ts`, and every existing `admin.*` behavior are unchanged and still covered by the pre-existing `admin.service.spec.ts` tests (which now also cover the new methods below).
+
+#### Feature: Admin — view and edit a single user's company profile
+
+- [x] `AdminService.getUserById(id)` — returns a `User` (passwordHash and every other `@Exclude()`d column are stripped by the existing global `ClassSerializerInterceptor`, same as every other admin/user response); throws 404 `"User not found"` if the id doesn't exist.
+- [x] `AdminService.getUserCompany(userId)` / `updateUserCompany(userId, dto)` — **reuse `CompaniesService.findByUserId` / `updateByUserId` directly** (the same methods `/companies/me` calls for a normal user) rather than a parallel admin-only implementation, so validation (`UpdateCompanyDto`'s class-validator rules) and behavior (`Object.assign` merge-patch semantics) are identical to the self-service flow. `AdminModule` now imports `CompaniesModule` to get `CompaniesService` injected.
+- [x] Distinguishes the two 404 cases: a nonexistent user id → `"User not found"`; an existing user with no company yet → the same `"Company profile not found. Please create one before posting."` message `CompaniesService` already produces. Admin cannot *create* a company on a user's behalf — only view/edit an existing one, per spec.
+- [x] New endpoints, all under the existing `@UseGuards(JwtAuthGuard, RolesGuard) @Roles('admin')` on `AdminController` — no new guard logic: `GET /admin/users/:id`, `GET /admin/users/:id/company`, `PATCH /admin/users/:id/company`.
+- [x] `frontend/src/pages/admin/AdminUserCompanyPage.tsx` (new) — view/edit UI at `/admin/users/:id/company`, styled with the exact same `detail-card`/`form-card` classes and field set as `CompanyProfilePage.tsx` (company name, type, country, city, address, tax number, phone, email, description — no invented fields). Shows the target user's name/email as page context, an empty-state message if no company profile exists yet (no create form), and the same edit-mode toggle pattern as the self-service page.
+- [x] `AdminUsersPage.tsx` — added a "Profil tvrtke" link per row (next to the existing role/delete actions) that navigates to the new page. This is the "extend the existing Admin user-detail area" entry point since there was no prior single-user detail page.
+
+#### Feature: Admin — bulk "close all expired" posts
+
+- [x] Investigated first: `status: 'expired'` is already the authoritative, self-healing definition of "expired" in this app (`PostsExpirationService` — cron + startup sync + manual trigger, see Session 16). Both cargo and vehicle posts use the identical `PostStatus` enum and lifecycle, so the bulk action handles both consistently in one call, matching the existing `/admin/posts/expire-old` pattern of operating across both post types together.
+- [x] `AdminService.closeExpiredPosts()` — bulk `UPDATE ... SET status = 'closed' WHERE status = 'expired'` via TypeORM QueryBuilder, once for `cargo_posts` and once for `vehicle_posts` (no per-row loop, no N+1). Reuses the same direct-field-assignment approach as the existing `updateCargoPostStatus`/`updateVehiclePostStatus` admin methods — an admin status change already bypasses the owner-only active⇄closed transition guard in `CargoPostsService`/`VehiclePostsService` and has no other side effects (no route regeneration, no email, nothing) to preserve, so a plain bulk update is correct here, not a shortcut. Only rows currently `expired` are touched — already-`active` or already-`closed` posts are left alone — and the operation is idempotent (a second run matches zero rows, verified live).
+- [x] `AdminService.countExpiredPosts()` — cheap `COUNT(*) WHERE status = 'expired'` for both post types, used for the "before executing, show how many posts will be affected" confirmation.
+- [x] New endpoints (same guard model as above): `GET /admin/posts/expired-count`, `POST /admin/posts/close-expired`.
+- [x] UI lives on `AdminDashboardPage.tsx` (not duplicated per-post-type page) since the action spans both cargo and vehicle posts in a single click — no manual row selection. Shows the live expired count, a `window.confirm()` guard (same pattern `AdminUsersPage` already uses for delete), a success message with the exact cargo/vehicle breakdown, and refetches both the count and the dashboard stats afterward. The button is disabled once the count is 0.
+
+#### Feature: Home page — recent cargo/vehicle listings preview
+
+- [x] Reverses the Session 17 "deliberately skipped" decision (see that section above, now updated to point here).
+- [x] **No backend changes were needed or added** — `GET /cargo-posts` and `GET /vehicle-posts` already support `?limit=` (max 100, validated by the shared `PaginationDto`), already filter to `status: active` + non-past-dated only, and already order by `createdAt DESC`. `HomePage.tsx` simply calls both with `{ limit: 3 }`, so the preview is exactly "the 3 newest active listings" with zero new queries or endpoints — satisfying "avoid unnecessary additional API requests" by construction.
+- [x] Two compact columns — "Najnoviji tereti" (cargo) and "Najnovija dostupna vozila" (vehicles), 3 items each — rendered between the 3-step explainer and the trust/value-props section, so the hero stays the page's focal point and the page doesn't turn into a scrollable listings page. Each item is a `.preview-card` link straight to the existing `/cargo/:id` / `/vehicles/:id` detail route; each column header has a "View all" link to `/cargo` or `/vehicles`.
+- [x] The whole section is hidden if both lists come back empty (rather than showing two empty-state boxes on the landing page); an individual empty column still shows a one-line message if only one type has no active listings. New CSS (`.recent-listings-*`, `.preview-card*`) added to `index.css`, reusing existing color/radius/spacing tokens; stacks to a single column ≤640px alongside the existing mobile breakpoint rules.
+
+**Database migration:** none required or created — no entity/schema changes in this session (no new columns, no new tables; `PostStatus` and `Company` are unchanged).
+
+**Verification performed:** `tsc --noEmit` and `nest build` (backend), `tsc -b` and `vite build` (frontend) all clean; `npm run lint` clean on both workspaces (0 errors — same pre-existing 13 `no-unsafe-argument` warnings as Session 19/20, unchanged); `npx jest` — 9 suites / 76 tests passing (13 in `admin.service.spec.ts`, up from 5, covering the new company-profile and bulk-close methods including the idempotency case); `npx jest --config ./test/jest-e2e.json` passing. Also exercised live against the real backend and local Postgres via `curl`: registered and promoted a disposable admin test account, registered a second disposable "target" user with a company profile, and confirmed — admin can view/edit that company's profile with the same validation as `/companies/me` (a bad `companyType` enum value correctly 400s); a normal user hitting the same `/admin/users/:id/company` URL gets 403, an unauthenticated request gets 401; a nonexistent user id gives `"User not found"` while an existing user with no company gives the company-specific 404. For the bulk action: inserted test cargo rows with `active`/`closed`/`expired` status directly, confirmed `close-expired` flipped only the `expired` row to `closed`, left `active`/`closed` untouched, and that a second run affected 0 rows. Confirmed `GET /cargo-posts?limit=3` / `GET /vehicle-posts?limit=3` return the expected shape for the home page preview. All test users/companies/posts were deleted after verification.
+
+**Confirmed no regression:** every new endpoint sits under the same `@UseGuards(JwtAuthGuard, RolesGuard) @Roles('admin')` already on `AdminController` — no guard, decorator, or role logic was touched. `admin.service.spec.ts`'s pre-existing self-delete/last-admin-guard/transactional-cascade tests still pass unchanged.
+
+---
+
 ## TODO / Next Steps
 
 - [x] Mark post as closed from the UI — "Close Post" button on detail pages + inline "Close" in My Posts
@@ -1392,6 +1436,6 @@ Closed the security gaps that were open after Session 18/19: registration didn't
 - [ ] Deploy to a VPS or cloud provider — production deploy now additionally requires `TURNSTILE_SECRET_KEY` and `SMTP_*` to be set (Joi fails startup otherwise) and `trust proxy` to be reviewed once a reverse proxy/load balancer is chosen
 - [ ] MFA/TOTP for Admin accounts — recommended in Session 20 as a follow-up; not implemented
 - [ ] Background email queueing — worth considering if registration/reset volume grows enough that the synchronous send-in-request-path becomes a bottleneck; not needed at current scale
-- [ ] Admin: ability to view/edit a single user's company profile
-- [ ] Admin: bulk-action on posts (e.g. close all expired)
-- [ ] Optional home page "recent cargo/vehicles" preview — deliberately skipped in Session 17 to keep the landing page short
+- [x] Admin: ability to view/edit a single user's company profile (Session 21) — `AdminUserCompanyPage`, reuses `CompaniesService`
+- [x] Admin: bulk-action on posts — "close all expired" (Session 21) — bulk-closes both cargo and vehicle posts in `status: 'expired'`
+- [x] Optional home page "recent cargo/vehicles" preview (Session 21) — 3 recent cargo + 3 recent vehicle listings, reuses the existing paginated endpoints with `limit=3`

@@ -1,4 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { adminService } from '../../services/admin.service';
 import { PaginatedResult, User } from '../../types';
 import { extractErrorMessage } from '../../utils/errorUtils';
@@ -157,6 +158,9 @@ export default function AdminUsersPage() {
                     <td>{formatDate(u.createdAt!)}</td>
                     <td>
                       <div className="table-action-group">
+                        <Link to={`/admin/users/${u.id}/company`} className="btn-secondary btn-sm">
+                          Profil tvrtke
+                        </Link>
                         {u.role === 'user' ? (
                           <button
                             className="btn-secondary btn-sm"

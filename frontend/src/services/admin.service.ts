@@ -12,6 +12,18 @@ export const adminService = {
 
   deleteUser: (id: string) => api.delete(`/admin/users/${id}`),
 
+  getUserById: (id: string) => api.get(`/admin/users/${id}`),
+
+  getUserCompany: (id: string) => api.get(`/admin/users/${id}/company`),
+
+  updateUserCompany: (id: string, data: Record<string, unknown>) =>
+    api.patch(`/admin/users/${id}/company`, data),
+
+  // Bulk post actions
+  getExpiredPostsCount: () => api.get('/admin/posts/expired-count'),
+
+  closeExpiredPosts: () => api.post('/admin/posts/close-expired'),
+
   // Cargo Posts
   getCargoPosts: (params?: { page?: number; limit?: number; search?: string; status?: string }) =>
     api.get('/admin/cargo-posts', { params }),

@@ -19,6 +19,7 @@ import { PostsExpirationService } from '../posts-expiration/posts-expiration.ser
 import { AdminUsersQueryDto, AdminPostsQueryDto } from './dto/admin-query.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UpdatePostStatusDto } from './dto/update-post-status.dto';
+import { UpdateCompanyDto } from '../companies/dto/update-company.dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -39,6 +40,18 @@ export class AdminController {
   @Post('posts/expire-old')
   expireOldPosts() {
     return this.postsExpirationService.expireOldPosts();
+  }
+
+  // GET /admin/posts/expired-count — preview count for the "close all expired" bulk action
+  @Get('posts/expired-count')
+  getExpiredPostsCount() {
+    return this.adminService.countExpiredPosts();
+  }
+
+  // POST /admin/posts/close-expired — bulk-close every expired cargo/vehicle post
+  @Post('posts/close-expired')
+  closeExpiredPosts() {
+    return this.adminService.closeExpiredPosts();
   }
 
   // ── Users ──────────────────────────────────────────────────────────
@@ -63,6 +76,24 @@ export class AdminController {
   @Delete('users/:id')
   deleteUser(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     return this.adminService.deleteUser(id, req.user.id);
+  }
+
+  // GET /admin/users/:id
+  @Get('users/:id')
+  getUserById(@Param('id') id: string) {
+    return this.adminService.getUserById(id);
+  }
+
+  // GET /admin/users/:id/company
+  @Get('users/:id/company')
+  getUserCompany(@Param('id') id: string) {
+    return this.adminService.getUserCompany(id);
+  }
+
+  // PATCH /admin/users/:id/company
+  @Patch('users/:id/company')
+  updateUserCompany(@Param('id') id: string, @Body() dto: UpdateCompanyDto) {
+    return this.adminService.updateUserCompany(id, dto);
   }
 
   // ── Cargo Posts ────────────────────────────────────────────────────
