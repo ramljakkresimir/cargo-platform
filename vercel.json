@@ -5,12 +5,14 @@
       "framework": "vite"
     },
     "backend": {
-      "root": "backend"
+      "root": "backend",
+      "framework": "nestjs",
+      "entrypoint": "src/main.ts"
     }
   },
   "rewrites": [
     {
-      "source": "/api/(.*)",
+      "source": "/api(/.*)?",
       "destination": {
         "service": "backend"
       }
