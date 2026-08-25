@@ -5,8 +5,35 @@ import { cargoPostsService } from '../services/cargoPosts.service';
 import { vehiclePostsService } from '../services/vehiclePosts.service';
 import { CargoPost, VehiclePost } from '../types';
 import { formatDate } from '../utils/dateUtils';
+import heroPhoto768 from '../assets/home/hero-768.jpg';
+import heroPhoto1280 from '../assets/home/hero-1280.jpg';
+import heroPhoto1920 from '../assets/home/hero-1920.jpg';
+import featureTrustPhoto from '../assets/home/feature-trust.jpg';
+import featureContactPhoto from '../assets/home/feature-contact.jpg';
+import featureRoutesPhoto from '../assets/home/feature-routes.jpg';
 
 const PREVIEW_LIMIT = 3;
+
+const FEATURE_BLOCKS = [
+  {
+    image: featureTrustPhoto,
+    alt: 'Dvije osobe se rukuju nakon dogovora o prijevozu',
+    title: 'Provjerene tvrtke',
+    text: 'Svaka objava povezana je s registriranim profilom tvrtke. Prije dogovora vidite s kim razgovarate — naziv, sjedište i povijest objava.',
+  },
+  {
+    image: featureContactPhoto,
+    alt: 'Muškarac razgovara telefonom dogovarajući prijevoz',
+    title: 'Izravan kontakt',
+    text: 'Razgovarajte izravno s drugom tvrtkom — bez posrednika. Kontakt je vidljiv uz objavu, dogovor ide vašim tempom.',
+  },
+  {
+    image: featureRoutesPhoto,
+    alt: 'Dostavno vozilo s krovnim nosačem vozi autocestom',
+    title: 'Stvarne rute',
+    text: 'Pretražujte po gradovima koji su vama bitni. Objave prate rute koje vozila već voze, pa se kapacitet ne vozi prazan.',
+  },
+];
 
 function cargoRouteLabel(post: CargoPost): string {
   const from = post.loadingCity?.name || post.loadingLocation || '—';
@@ -43,41 +70,38 @@ export default function HomePage() {
   const hasAnyRecent = recentCargo.length > 0 || recentVehicles.length > 0;
 
   return (
-    <div>
-      <div className="hero">
-        <h1>Pronađite prijevoz ili teret na svojoj ruti</h1>
-        <p className="hero-subhead">
-          CargoConnect povezuje tvrtke s dostupnim prijevoznim kapacitetom — brzo, jednostavno i izravno, bez posrednika.
-        </p>
-
-        <div className="hero-cta-grid">
-          <Link to="/vehicles" className="cta-card accent-blue">
-            <div className="cta-card-icon blue">
-              <TruckIcon size={28} />
+    <div className="homepage">
+      <section className="hero">
+        <img
+          src={heroPhoto1920}
+          srcSet={`${heroPhoto768} 768w, ${heroPhoto1280} 1280w, ${heroPhoto1920} 1920w`}
+          sizes="100vw"
+          width={1920}
+          height={1080}
+          alt="Muškarac utovaruje kartonske kutije u dostavno vozilo"
+          className="hero-photo"
+          loading="eager"
+          fetchPriority="high"
+        />
+        <div className="hero-overlay" aria-hidden="true" />
+        <div className="hero-content">
+          <div className="hero-content-inner">
+            <p className="hero-eyebrow">Prijevoz bez posrednika</p>
+            <h1>Pronađite prijevoz ili teret na svojoj ruti</h1>
+            <p className="hero-lead">
+              CargoConnect povezuje tvrtke s dostupnim prijevoznim kapacitetom — brzo, jednostavno i izravno, bez posrednika.
+            </p>
+            <div className="hero-actions">
+              <Link to="/vehicles" className="hero-btn hero-btn-primary">
+                Trebam prijevoz
+              </Link>
+              <Link to="/cargo" className="hero-btn hero-btn-secondary">
+                Imam vozilo
+              </Link>
             </div>
-            <div className="cta-card-title">Trebam prijevoz</div>
-            <div className="cta-card-desc">
-              Pronađite vozilo koje odgovara mjestu utovara i odredištu vašeg tereta.
-            </div>
-            <div className="cta-card-link blue">
-              Pronađi prijevoz <ArrowRightIcon size={14} />
-            </div>
-          </Link>
-
-          <Link to="/cargo" className="cta-card accent-teal">
-            <div className="cta-card-icon teal">
-              <PackageIcon size={28} />
-            </div>
-            <div className="cta-card-title">Imam vozilo</div>
-            <div className="cta-card-desc">
-              Pronađite teret koji odgovara ruti i slobodnom kapacitetu vašeg vozila.
-            </div>
-            <div className="cta-card-link teal">
-              Pronađi teret <ArrowRightIcon size={14} />
-            </div>
-          </Link>
+          </div>
         </div>
-      </div>
+      </section>
 
       <div className="steps-section">
         <div className="steps-grid">
@@ -146,22 +170,21 @@ export default function HomePage() {
         </div>
       )}
 
-      <div className="value-props-section">
-        <div className="value-props">
-          <div className="value-prop">
-            <div className="value-prop-title">Provjerene tvrtke</div>
-            <div className="value-prop-desc">Svaka objava povezana je s registriranim profilom tvrtke.</div>
-          </div>
-          <div className="value-prop">
-            <div className="value-prop-title">Izravan kontakt</div>
-            <div className="value-prop-desc">Razgovarajte izravno s drugom tvrtkom — bez posrednika.</div>
-          </div>
-          <div className="value-prop">
-            <div className="value-prop-title">Stvarne rute</div>
-            <div className="value-prop-desc">Pretražujte po gradovima koji su vama bitni.</div>
-          </div>
+      <section className="features-section">
+        <div className="features-container">
+          {FEATURE_BLOCKS.map((block, i) => (
+            <div className={`feature-row${i % 2 === 1 ? ' reverse' : ''}`} key={block.title}>
+              <div className="feature-text">
+                <h2>{block.title}</h2>
+                <p>{block.text}</p>
+              </div>
+              <div className="feature-image-wrap">
+                <img src={block.image} alt={block.alt} loading="lazy" className="feature-image" />
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
+      </section>
     </div>
   );
 }

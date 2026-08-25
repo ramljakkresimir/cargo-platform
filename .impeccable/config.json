@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "source sans 3",
+        "createdAt": "2026-08-25T13:35:49.359Z",
+        "reason": "user-provided homepage redesign spec explicitly mandates 'Source Sans 3' (Google Fonts, weights 400/600/700) as the homepage font"
+      }
+    ]
+  }
+}
