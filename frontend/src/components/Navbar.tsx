@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useChat } from '../context/ChatContext';
 import NavDropdown from './NavDropdown';
-import { HomeIcon, SearchIcon, PlusIcon, GridIcon, TruckIcon, PackageIcon, MenuIcon, XIcon } from './Icons';
+import { HomeIcon, SearchIcon, PlusIcon, GridIcon, TruckIcon, PackageIcon, MenuIcon, XIcon, MessageIcon } from './Icons';
 
 interface MenuItem {
   to: string;
@@ -36,6 +37,7 @@ function MenuItemRow({ item, onNavigate }: { item: MenuItem; onNavigate: () => v
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const { unreadCount } = useChat();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -72,6 +74,7 @@ export default function Navbar() {
   const postActive = location.pathname === '/cargo/new' || location.pathname === '/vehicles/new';
   const homeActive = location.pathname === '/';
   const dashActive = location.pathname === '/dashboard';
+  const conversationsActive = location.pathname === '/conversations';
 
   const initials = user ? `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase() : '';
 
@@ -121,6 +124,13 @@ export default function Navbar() {
         <Link to="/dashboard" className={`nav-item${dashActive ? ' active' : ''}`}>
           <GridIcon /> Nadzorna ploča
         </Link>
+
+        {user && (
+          <Link to="/conversations" className={`nav-item${conversationsActive ? ' active' : ''}`}>
+            <MessageIcon /> Razgovori
+            {unreadCount > 0 && <span className="nav-item-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+          </Link>
+        )}
       </div>
 
       <div className="navbar-right">
@@ -212,6 +222,13 @@ export default function Navbar() {
             <Link to="/dashboard" className={`mobile-drawer-item${dashActive ? ' active' : ''}`}>
               <GridIcon /> Nadzorna ploča
             </Link>
+
+            {user && (
+              <Link to="/conversations" className={`mobile-drawer-item${conversationsActive ? ' active' : ''}`}>
+                <MessageIcon /> Razgovori
+                {unreadCount > 0 && <span className="mobile-drawer-item-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+              </Link>
+            )}
 
             <div className="mobile-drawer-divider" />
 

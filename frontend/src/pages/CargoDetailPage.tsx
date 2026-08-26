@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { cargoPostsService } from '../services/cargoPosts.service';
 import { CargoPost, City } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { useChat } from '../context/ChatContext';
 import { extractErrorMessage } from '../utils/errorUtils';
 import CityAutocomplete from '../components/CityAutocomplete';
 import StatusBadge from '../components/StatusBadge';
@@ -30,6 +31,7 @@ export default function CargoDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { openChatWithUser } = useChat();
 
   const [post, setPost] = useState<CargoPost | null>(null);
   const [loading, setLoading] = useState(true);
@@ -174,6 +176,15 @@ export default function CargoDetailPage() {
   };
 
   const isOwner = user && post?.company?.userId === user.id;
+
+  const handleContact = () => {
+    if (!post?.company) return;
+    openChatWithUser({
+      recipientUserId: post.company.userId,
+      recipientName: post.company.companyName,
+      cargoPostId: post.id,
+    });
+  };
 
   if (loading) return <div className="page-container"><p className="loading">Učitavanje...</p></div>;
   if (error) return <div className="page-container"><div className="alert alert-error">{error}</div></div>;
@@ -362,6 +373,13 @@ export default function CargoDetailPage() {
                 {post.company.phone && <div><span className="label">Telefon</span><p>{post.company.phone}</p></div>}
                 {post.company.email && <div><span className="label">E-mail</span><p>{post.company.email}</p></div>}
               </div>
+              {!isOwner && (
+                <div className="detail-card-action">
+                  <button type="button" className="btn-primary-teal" onClick={handleContact}>
+                    Pošalji poruku
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

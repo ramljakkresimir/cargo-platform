@@ -84,6 +84,40 @@ export interface RouteCoordinate {
   lng: number;
 }
 
+export interface ConversationOtherUser {
+  id: string;
+  firstName: string;
+  lastName: string;
+  companyName?: string | null;
+}
+
+export interface ConversationLastMessage {
+  content: string;
+  senderId: string;
+  createdAt: string;
+}
+
+export interface Conversation {
+  id: string;
+  otherUser: ConversationOtherUser;
+  listingType: 'cargo' | 'vehicle' | null;
+  cargoPostId?: string | null;
+  vehiclePostId?: string | null;
+  lastMessage: ConversationLastMessage | null;
+  unreadCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  content: string;
+  readAt?: string | null;
+  createdAt: string;
+}
+
 export interface VehiclePost {
   id: string;
   companyId: string;

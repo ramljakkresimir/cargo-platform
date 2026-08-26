@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ChatProvider } from './context/ChatContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
@@ -20,6 +21,7 @@ import CargoDetailPage from './pages/CargoDetailPage';
 import VehicleDetailPage from './pages/VehicleDetailPage';
 import MyPostsPage from './pages/MyPostsPage';
 import ProfilePage from './pages/ProfilePage';
+import ConversationsPage from './pages/ConversationsPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminUserCompanyPage from './pages/admin/AdminUserCompanyPage';
@@ -30,59 +32,64 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Navbar />
-        <main>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<HomePage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/verify-email" element={<VerifyEmailPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/cargo" element={<CargoListPage />} />
-            <Route path="/cargo/:id" element={<CargoDetailPage />} />
-            <Route path="/vehicles" element={<VehicleListPage />} />
-            <Route path="/vehicles/:id" element={<VehicleDetailPage />} />
+        <ChatProvider>
+          <Navbar />
+          <main>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/" element={<HomePage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/cargo" element={<CargoListPage />} />
+              <Route path="/cargo/:id" element={<CargoDetailPage />} />
+              <Route path="/vehicles" element={<VehicleListPage />} />
+              <Route path="/vehicles/:id" element={<VehicleDetailPage />} />
 
-            {/* Protected routes — require login */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute><DashboardPage /></ProtectedRoute>
-            } />
-            <Route path="/company" element={
-              <ProtectedRoute><CompanyProfilePage /></ProtectedRoute>
-            } />
-            <Route path="/cargo/new" element={
-              <ProtectedRoute><CreateCargoPostPage /></ProtectedRoute>
-            } />
-            <Route path="/vehicles/new" element={
-              <ProtectedRoute><CreateVehiclePostPage /></ProtectedRoute>
-            } />
-            <Route path="/my-posts" element={
-              <ProtectedRoute><MyPostsPage /></ProtectedRoute>
-            } />
-            <Route path="/profile" element={
-              <ProtectedRoute><ProfilePage /></ProtectedRoute>
-            } />
+              {/* Protected routes — require login */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute><DashboardPage /></ProtectedRoute>
+              } />
+              <Route path="/company" element={
+                <ProtectedRoute><CompanyProfilePage /></ProtectedRoute>
+              } />
+              <Route path="/cargo/new" element={
+                <ProtectedRoute><CreateCargoPostPage /></ProtectedRoute>
+              } />
+              <Route path="/vehicles/new" element={
+                <ProtectedRoute><CreateVehiclePostPage /></ProtectedRoute>
+              } />
+              <Route path="/my-posts" element={
+                <ProtectedRoute><MyPostsPage /></ProtectedRoute>
+              } />
+              <Route path="/profile" element={
+                <ProtectedRoute><ProfilePage /></ProtectedRoute>
+              } />
+              <Route path="/conversations" element={
+                <ProtectedRoute><ConversationsPage /></ProtectedRoute>
+              } />
 
-            {/* Admin routes — require login + admin role */}
-            <Route path="/admin" element={
-              <AdminRoute><AdminDashboardPage /></AdminRoute>
-            } />
-            <Route path="/admin/users" element={
-              <AdminRoute><AdminUsersPage /></AdminRoute>
-            } />
-            <Route path="/admin/users/:id/company" element={
-              <AdminRoute><AdminUserCompanyPage /></AdminRoute>
-            } />
-            <Route path="/admin/cargo-posts" element={
-              <AdminRoute><AdminCargoPostsPage /></AdminRoute>
-            } />
-            <Route path="/admin/vehicle-posts" element={
-              <AdminRoute><AdminVehiclePostsPage /></AdminRoute>
-            } />
-          </Routes>
-        </main>
+              {/* Admin routes — require login + admin role */}
+              <Route path="/admin" element={
+                <AdminRoute><AdminDashboardPage /></AdminRoute>
+              } />
+              <Route path="/admin/users" element={
+                <AdminRoute><AdminUsersPage /></AdminRoute>
+              } />
+              <Route path="/admin/users/:id/company" element={
+                <AdminRoute><AdminUserCompanyPage /></AdminRoute>
+              } />
+              <Route path="/admin/cargo-posts" element={
+                <AdminRoute><AdminCargoPostsPage /></AdminRoute>
+              } />
+              <Route path="/admin/vehicle-posts" element={
+                <AdminRoute><AdminVehiclePostsPage /></AdminRoute>
+              } />
+            </Routes>
+          </main>
+        </ChatProvider>
       </BrowserRouter>
     </AuthProvider>
   );

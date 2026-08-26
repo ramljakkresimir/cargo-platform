@@ -14,6 +14,7 @@ import { VehiclePostsModule } from './vehicle-posts/vehicle-posts.module';
 import { AdminModule } from './admin/admin.module';
 import { PostsExpirationModule } from './posts-expiration/posts-expiration.module';
 import { CitiesModule } from './cities/cities.module';
+import { MessagingModule } from './messaging/messaging.module';
 import { entities } from './entities';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -105,6 +106,7 @@ import { AppService } from './app.service';
     AdminModule,
     PostsExpirationModule,
     CitiesModule,
+    MessagingModule,
   ],
   controllers: [AppController],
   providers: [

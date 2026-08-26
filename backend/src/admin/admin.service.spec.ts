@@ -19,11 +19,13 @@ import { VehiclePost } from '../vehicle-posts/vehicle-post.entity';
 import { RouteCityService } from '../routing/route-city.service';
 import { CompaniesService } from '../companies/companies.service';
 import { PostStatus } from '../common/enums/post-status.enum';
+import { Conversation } from '../messaging/conversation.entity';
 
 type MockTransactionManager = {
   findOne: jest.Mock;
   delete: jest.Mock;
   remove: jest.Mock;
+  createQueryBuilder: jest.Mock;
 };
 type MockUserRepo = {
   findOne: jest.Mock;
@@ -70,6 +72,12 @@ describe('AdminService', () => {
               findOne: jest.fn().mockResolvedValue(null),
               delete: jest.fn(),
               remove: jest.fn(),
+              createQueryBuilder: jest.fn().mockReturnValue({
+                delete: jest.fn().mockReturnThis(),
+                from: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                execute: jest.fn().mockResolvedValue({ affected: 0 }),
+              }),
             };
             await cb(manager);
             return manager;
@@ -119,6 +127,39 @@ describe('AdminService', () => {
 
       expect(result.message).toMatch(/deleted/i);
       expect(userRepo.manager.transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it("deletes the user's conversations before removing the user, so the userAId/userBId FK (ON DELETE NO ACTION) never blocks the delete", async () => {
+      userRepo.findOne.mockResolvedValue({ id: 'user-2' });
+      let conversationsDeletedBeforeUser = false;
+      const deleteBuilder = {
+        delete: jest.fn().mockReturnThis(),
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockImplementation(() => {
+          conversationsDeletedBeforeUser = true;
+          return Promise.resolve({ affected: 2 });
+        }),
+      };
+      userRepo.manager.transaction.mockImplementationOnce(
+        async (cb: (manager: MockTransactionManager) => Promise<void>) => {
+          const manager: MockTransactionManager = {
+            findOne: jest.fn().mockResolvedValue(null),
+            delete: jest.fn(),
+            remove: jest.fn().mockImplementation(() => {
+              expect(conversationsDeletedBeforeUser).toBe(true);
+              return Promise.resolve();
+            }),
+            createQueryBuilder: jest.fn().mockReturnValue(deleteBuilder),
+          };
+          await cb(manager);
+          return manager;
+        },
+      );
+
+      await service.deleteUser('user-2', 'user-1');
+
+      expect(deleteBuilder.from).toHaveBeenCalledWith(Conversation);
     });
   });
 

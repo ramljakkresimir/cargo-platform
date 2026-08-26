@@ -249,6 +249,8 @@ export default function CargoListPage() {
       distanceKm: dist ?? null,
       postedAtLabel: formatPostedAt(post.createdAt),
       priceLabel: post.price ? `€${post.price}` : null,
+      ownerUserId: post.company?.userId,
+      listingType: 'cargo' as const,
     };
   });
 

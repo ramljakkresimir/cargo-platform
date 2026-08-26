@@ -58,6 +58,11 @@ export interface ResultCardData {
   distanceKm?: number | null;
   postedAtLabel: string;
   priceLabel?: string | null;
+  // Who to message when "Kontakt" is clicked, and which listing started the thread.
+  // Absent when the listing has no resolvable owner (e.g. a company profile deleted
+  // out from under an otherwise-orphaned post) — the card just hides the button then.
+  ownerUserId?: string | null;
+  listingType: 'cargo' | 'vehicle';
 }
 
 export type SortValue = 'newest' | 'date' | 'distance';

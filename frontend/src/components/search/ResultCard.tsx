@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import CompanyAvatar from '../CompanyAvatar';
+import { useAuth } from '../../context/AuthContext';
+import { useChat } from '../../context/ChatContext';
 import { ResultCardData, SearchAccent } from './types';
 
 interface Props {
@@ -12,6 +14,19 @@ interface Props {
 // wrapping buttons would nest interactive elements, which is invalid and breaks
 // keyboard/screen-reader navigation.
 export default function ResultCard({ data, accent }: Props) {
+  const { user } = useAuth();
+  const { openChatWithUser } = useChat();
+  const isOwnListing = Boolean(user && data.ownerUserId && data.ownerUserId === user.id);
+
+  const handleContact = () => {
+    if (!data.ownerUserId) return;
+    openChatWithUser({
+      recipientUserId: data.ownerUserId,
+      recipientName: data.companyName,
+      ...(data.listingType === 'cargo' ? { cargoPostId: data.id } : { vehiclePostId: data.id }),
+    });
+  };
+
   return (
     <article className={`search-result-card accent-${accent}`}>
       <Link
@@ -55,9 +70,11 @@ export default function ResultCard({ data, accent }: Props) {
         <div className="src-posted">{data.postedAtLabel}</div>
         {data.priceLabel && <span className="src-price">{data.priceLabel}</span>}
         <div className="src-footer-actions">
-          <Link to={`${data.href}#kontakt`} className="src-btn src-btn-outline">
-            Kontakt
-          </Link>
+          {data.ownerUserId && !isOwnListing && (
+            <button type="button" className="src-btn src-btn-outline" onClick={handleContact}>
+              Kontakt
+            </button>
+          )}
           <Link to={data.href} className="src-btn src-btn-dark">
             Pregled
           </Link>

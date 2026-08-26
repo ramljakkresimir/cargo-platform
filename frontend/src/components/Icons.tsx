@@ -103,6 +103,14 @@ export function ArrowRightIcon({ size = 15, className }: IconProps) {
   );
 }
 
+export function MessageIcon({ size = 17, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M4 5H20V16H8L4 19.5V5Z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function MoreIcon({ size = 18, className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" className={className}>

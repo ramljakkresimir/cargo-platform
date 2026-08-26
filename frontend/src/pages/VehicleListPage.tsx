@@ -233,6 +233,8 @@ export default function VehicleListPage() {
       dateLabel: formatDate(post.availableFromDate),
       distanceKm: dist ?? null,
       postedAtLabel: formatPostedAt(post.createdAt),
+      ownerUserId: post.company?.userId,
+      listingType: 'vehicle' as const,
     };
   });
 

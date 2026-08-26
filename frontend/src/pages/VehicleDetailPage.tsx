@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { vehiclePostsService } from '../services/vehiclePosts.service';
 import { VehiclePost, VehiclePostRouteCity, City } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { useChat } from '../context/ChatContext';
 import { extractErrorMessage } from '../utils/errorUtils';
 import CityAutocomplete from '../components/CityAutocomplete';
 import RouteMap from '../components/RouteMap';
@@ -32,6 +33,7 @@ export default function VehicleDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { openChatWithUser } = useChat();
 
   const [post, setPost] = useState<VehiclePost | null>(null);
   const [loading, setLoading] = useState(true);
@@ -166,6 +168,15 @@ export default function VehicleDetailPage() {
   };
 
   const isOwner = user && post?.company?.userId === user.id;
+
+  const handleContact = () => {
+    if (!post?.company) return;
+    openChatWithUser({
+      recipientUserId: post.company.userId,
+      recipientName: post.company.companyName,
+      vehiclePostId: post.id,
+    });
+  };
 
   if (loading) return <div className="page-container"><p className="loading">Učitavanje...</p></div>;
   if (error) return <div className="page-container"><div className="alert alert-error">{error}</div></div>;
@@ -313,6 +324,13 @@ export default function VehicleDetailPage() {
                 {post.company.phone && <div><span className="label">Telefon</span><p>{post.company.phone}</p></div>}
                 {post.company.email && <div><span className="label">E-mail</span><p>{post.company.email}</p></div>}
               </div>
+              {!isOwner && (
+                <div className="detail-card-action">
+                  <button type="button" className="btn-primary" onClick={handleContact}>
+                    Pošalji poruku
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

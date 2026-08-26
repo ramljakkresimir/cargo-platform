@@ -64,6 +64,7 @@ cargo-platform/
 │       │   ├── city-distance.service.ts            Batched, cached, order-insensitive distance resolver (Session 22)
 │       │   └── routing.module.ts                   Exports RouteCityService, RoutingService, CityDistanceService
 │       ├── posts-expiration/ PostsExpirationService — daily cron + manual trigger
+│       ├── messaging/         In-app chat — Conversation/Message entities, ConversationsService/Controller (Session 23)
 │       ├── common/
 │       │   ├── enums/        Shared PostStatus enum
 │       │   ├── dto/          Shared PaginationDto
@@ -78,16 +79,17 @@ cargo-platform/
 │
 └── frontend/                 Vite + React app (port 5173)
     └── src/
-        ├── context/          AuthContext (JWT + user state)
-        ├── services/         Axios API clients per resource (+ admin.service, cities.service with getDistances)
+        ├── context/          AuthContext (JWT + user state), ChatContext (open conversation + unread badge, Session 23)
+        ├── services/         Axios API clients per resource (+ admin.service, cities.service with getDistances, conversations.service Session 23)
         ├── components/       Navbar (+ NavDropdown), ProtectedRoute, AdminRoute, CityAutocomplete, Icons, StatusBadge, EmptyState, RouteMap, Turnstile, CompanyAvatar (Session 22)
-        │   └── search/       Shared vehicles/cargo search-page kit (Session 22) — SearchPageHeader, SearchFilterBar, SearchResultsBar, ResultCard, types.ts
+        │   ├── search/       Shared vehicles/cargo search-page kit (Session 22) — SearchPageHeader, SearchFilterBar, SearchResultsBar, ResultCard, types.ts
+        │   └── chat/         ChatDrawer — slide-in chat window, opened via ChatContext (Session 23)
         ├── hooks/             useCityDistances — batches+caches "~ X km" lookups for a page of result cards (Session 22)
         ├── constants/        postTypes.ts — shared Croatian cargo/vehicle type label maps
-        ├── pages/            HomePage (+ recent listings preview, Session 21) + 15 regular pages (incl. VerifyEmailPage, ForgotPasswordPage, ResetPasswordPage) + 5 admin pages
+        ├── pages/            HomePage (+ recent listings preview, Session 21) + ConversationsPage (Session 23) + 15 regular pages (incl. VerifyEmailPage, ForgotPasswordPage, ResetPasswordPage) + 5 admin pages
         │   └── admin/        AdminDashboardPage, AdminUsersPage, AdminUserCompanyPage, AdminCargoPostsPage, AdminVehiclePostsPage
         ├── utils/            errorUtils.ts — extractErrorMessage / extractFieldErrors helpers; dateUtils.ts — local-date helpers + formatPostedAt (Session 22)
-        └── types/            Shared TypeScript interfaces (City added, CargoPost/VehiclePost updated)
+        └── types/            Shared TypeScript interfaces (City added, CargoPost/VehiclePost updated; Conversation/ChatMessage added Session 23)
 ```
 
 ---
@@ -220,6 +222,32 @@ Fallback (when ORS API unavailable): only origin + destination are saved.
 Unique constraint on `(cityAId, cityBId)`. Indexes on both FK columns.  
 Cache for the "~ X km" distance shown on vehicle/cargo search result cards — see `CityDistanceService` under "Key Decisions" below. Rows are only ever inserted, never updated (a cached distance for a city pair never changes).
 
+### conversations *(Session 23)*
+| Column        | Type      | Notes                                                              |
+|---------------|-----------|---------------------------------------------------------------------|
+| id            | uuid (PK) |                                                                     |
+| userAId       | uuid (FK) | → users.id — always the lexicographically smaller of the pair      |
+| userBId       | uuid (FK) | → users.id — always the lexicographically larger of the pair       |
+| cargoPostId   | uuid (FK) | → cargo_posts.id, nullable, `ON DELETE SET NULL`                   |
+| vehiclePostId | uuid (FK) | → vehicle_posts.id, nullable, `ON DELETE SET NULL`                 |
+| lastMessageAt | timestamp | nullable — denormalized for ordering the conversation list          |
+| createdAt     | timestamp |                                                                     |
+| updatedAt     | timestamp |                                                                     |
+
+Unique constraint on `(userAId, userBId)` — **one thread per pair of users**, regardless of which listing (if any) started it or how many different listings they later discuss. `cargoPostId`/`vehiclePostId` are display context only; deleting the listing later never deletes or breaks the conversation.
+
+### messages *(Session 23)*
+| Column         | Type      | Notes                                              |
+|----------------|-----------|-----------------------------------------------------|
+| id             | uuid (PK) |                                                     |
+| conversationId | uuid (FK) | → conversations.id, `ON DELETE CASCADE`             |
+| senderId       | uuid (FK) | → users.id                                         |
+| content        | text      | 1–2000 chars, trimmed server-side                   |
+| readAt         | timestamp | nullable — null means unread                        |
+| createdAt      | timestamp |                                                     |
+
+Index on `conversationId`. See "In-app messaging (Session 23)" under Key Decisions below for the full design and the `AdminService.deleteUser()` cascade fix this table required.
+
 ---
 
 ## API Endpoints
@@ -298,6 +326,17 @@ All six endpoints are rate-limited per IP (see `RATE_LIMIT_*` env vars below); r
 
 `passwordHash` is always stripped from responses via `@Exclude()` + `ClassSerializerInterceptor`.
 
+### Conversations (protected) *(Session 23)*
+| Method | Path                          | Description |
+|--------|-------------------------------|--------------|
+| GET    | /conversations                | List the current user's threads, most recent activity first |
+| GET    | /conversations/unread-count   | `{ count }` — total unread messages, for the navbar badge |
+| POST   | /conversations                | Body: `{ recipientUserId, cargoPostId?, vehiclePostId? }` — find-or-create the thread with that user (the "Kontakt"/"Pošalji poruku" flow); 400 if `recipientUserId` is the caller |
+| GET    | /conversations/:id/messages   | Full message history; also marks the other participant's messages read (no separate mark-read endpoint) |
+| POST   | /conversations/:id/messages   | Body: `{ content }` (1–2000 chars) — send a message |
+
+403 if the caller isn't one of the conversation's two participants; 404 if the conversation doesn't exist. See "In-app messaging (Session 23)" under Key Decisions for the full design, including why it's one thread per user pair rather than one per listing.
+
 ### Admin (protected — admin role required)
 All `/admin/*` endpoints require `Authorization: Bearer <token>` where the token belongs to a user with `role: "admin"`. Non-admins receive HTTP 403.
 
@@ -324,7 +363,7 @@ All `/admin/*` endpoints require `Authorization: Bearer <token>` where the token
 **Admin safety rules:**
 - Admin cannot delete their own account → 403
 - Admin cannot remove their own admin role if they are the only admin → 400
-- Deleting a user cascades: cargo posts → vehicle posts → company → user (no orphaned records)
+- Deleting a user cascades: cargo posts → vehicle posts → company → **conversations (Session 23)** → user (no orphaned records; conversations must be deleted before the user row since `userAId`/`userBId` are deliberately `ON DELETE NO ACTION`, not `CASCADE` — see "In-app messaging (Session 23)" under Key Decisions)
 - `GET /admin/users/:id/company` and `PATCH /admin/users/:id/company` return 404 `"User not found"` if the user id doesn't exist, and 404 `"Company profile not found..."` (the same message `CompaniesService` already uses for `/companies/me`) if the user exists but never created a company profile — the two cases are distinguishable by message *(Session 21)*
 - `POST /admin/posts/close-expired` only ever touches rows where `status = 'expired'` (already-active or already-closed posts are untouched) and is idempotent — running it again after all expired posts are closed affects 0 rows *(Session 21)*
 
@@ -350,6 +389,7 @@ All `/admin/*` endpoints require `Authorization: Bearer <token>` where the token
 | /vehicles/new          | CreateVehiclePostPage  | Yes    | Post available vehicle  |
 | /my-posts              | MyPostsPage            | Yes    | All user's posts with view/edit/close/delete |
 | /profile               | ProfilePage            | Yes    | Edit personal info + change password   |
+| /conversations         | ConversationsPage      | Yes    | List of past conversations; clicking one opens the chat drawer *(Session 23)* |
 | /admin                 | AdminDashboardPage     | Admin  | Stats overview + quick links to admin sections |
 | /admin/users           | AdminUsersPage         | Admin  | List, search, change role, delete users |
 | /admin/users/:id/company | AdminUserCompanyPage | Admin  | View and edit a single user's company profile *(Session 21)* |
@@ -1463,6 +1503,54 @@ Full visual redesign of `/vehicles` and `/cargo` from a design handoff (referenc
 
 ---
 
+### Session 23 — 2026-08-26
+
+#### Feature: In-app chat/messaging on the freight-matching listings ("Razgovori")
+
+Replaces the old "Kontakt" behavior (a dead `#kontakt` anchor scrolling to a static company-info card) with a real conversation between the two users, launched from any listing card or detail page. New `backend/src/messaging/` module + a navbar "Razgovori" entry point listing every past conversation.
+
+**Data model — two new tables, `backend/src/messaging/`:**
+
+- `conversations` (`conversation.entity.ts`) — **one thread per pair of users**, not per listing. `userAId`/`userBId` are always stored in canonical sorted order (`userAId < userBId`) with a `@Unique(['userAId', 'userBId'])` constraint, so the two users can never end up with two threads no matter who messages whom first or how many different listings they discuss — same "sorted-pair unique key + race-safe catch on the unique-constraint violation" pattern `CityDistanceService` already uses for `city_distances`. `cargoPostId`/`vehiclePostId` (nullable, mutually exclusive in practice) record which listing the conversation *started* from, purely for display context — both are `ON DELETE SET NULL`, so deleting the listing later never breaks or deletes the conversation (verified live: deleted a vehicle post mid-conversation, the thread and its full message history survived with `vehiclePostId` nulled out). `lastMessageAt` is denormalized for cheap "most recent first" ordering without joining `messages`.
+- `messages` (`message.entity.ts`) — `conversationId` (`ON DELETE CASCADE`), `senderId`, `content` (text, 1–2000 chars), `readAt` (null = unread, set when the recipient opens the conversation).
+- Migration `1787750597316-AddMessaging` — generated and applied the same way every migration in this project is (see "TypeORM with `synchronize: true`" under Key Decisions); verified with a follow-up `migration:generate` reporting no further diff.
+- **Admin cascade-delete fix (a real bug caught during this session's own verification, not a pre-existing one):** `AdminService.deleteUser()`'s existing cascade (`cargo posts → vehicle posts → company → user`) did not account for the new `conversations` table. Since `userAId`/`userBId` are `ON DELETE NO ACTION` (deliberately — a stray `CASCADE` there would silently wipe a *third* user's message history), deleting a user who had ever been part of a conversation would fail with a foreign-key violation. Fixed by deleting the target's conversations (which cascades their messages automatically) inside the same transaction, immediately before removing the user. Reproduced the failure live before the fix (conversation existed, delete would have 500'd) and confirmed the fix live after (delete succeeds, the conversation and its messages are gone, the other participant's conversation list no longer shows it). `admin.service.spec.ts` gained a test asserting the conversations are deleted *before* the user row, so a future change can't silently reintroduce the ordering bug.
+
+**Backend API — `ConversationsController` (`@Controller('conversations')`, `JwtAuthGuard` only, no admin/public surface):**
+
+| Method | Path                          | Description |
+|--------|-------------------------------|--------------|
+| GET    | /conversations                | List the current user's threads — `otherUser` (id, name, companyName), `listingType` (`'cargo' \| 'vehicle' \| null`), `lastMessage`, `unreadCount`, sorted by most recent activity |
+| GET    | /conversations/unread-count   | `{ count }` — total unread messages across all the user's threads, polled by the navbar badge |
+| POST   | /conversations                | Body: `{ recipientUserId, cargoPostId?, vehiclePostId? }` — find-or-create; this is what the "Kontakt"/"Pošalji poruku" buttons call |
+| GET    | /conversations/:id/messages   | Full message history (all messages, no pagination — simplicity over engineering for an MVP's message volumes) — **also marks every message from the other participant as read**, so there is no separate mark-read endpoint; opening a conversation *is* what "reading" it means here |
+| POST   | /conversations/:id/messages   | Body: `{ content }` — send a message into an existing thread |
+
+**Guards enforced server-side (never trust the client-side hide):** `startOrGet()` rejects `recipientUserId === currentUserId` with 400 (`"Ne možete pokrenuti razgovor sa samim sobom."`) before even looking up the recipient; every other method loads the conversation and calls a shared `assertParticipant()` that 403s anyone who isn't one of the two `userAId`/`userBId` — verified live for both a nonexistent conversation (404) and a real conversation the caller isn't part of. A `cargoPostId`/`vehiclePostId` passed to `startOrGet()` is only attached if the post actually resolves to that exact `recipientUserId`'s company — a stale, deleted, or mismatched listing id is silently dropped rather than failing the whole request, since the point is still to reach the listing owner.
+
+**Frontend — new files:**
+
+- `context/ChatContext.tsx` — mirrors `AuthContext`'s pattern (a provider + `useChat()` hook). Holds `unreadCount` (polled every 25s while logged in — reset to 0 at render time on logout via the render-time "previous value" pattern from Session 19's `set-state-in-effect` fix, not inside an effect), and the currently-open conversation. Exposes `openChatWithUser({ recipientUserId, recipientName, cargoPostId?, vehiclePostId? })` (calls `POST /conversations`, then opens the drawer) and `openConversation(conversation)` (opens the drawer directly with an already-fetched `Conversation`, used by the Razgovori list — no extra network round-trip). Both redirect to `/login` if there's no token. Mounted once in `App.tsx`, inside `BrowserRouter` but wrapping `Navbar` + `<main>`, so the drawer and the navbar badge share one instance app-wide.
+- `components/chat/ChatDrawer.tsx` — the actual chat window: a right-side slide-in panel (backdrop + panel, styled off the same tokens as the existing `.search-sheet`/`.mobile-drawer` patterns) with message bubbles (own messages right/blue, other's left/neutral), a textarea (Enter to send, Shift+Enter for a newline), and **polling every 4 seconds** for new messages while open — this project has no websocket library installed (`@nestjs/websockets`, `socket.io`, `ws` are all absent from `backend/package.json`), so polling is the pragmatic choice over adding new real-time infrastructure for a first version of chat. Handles three states: `conversation === null` (still resolving via `POST /conversations`), a `startOrGet` error (e.g. self-contact reached some other way), and the normal loaded/polling state.
+- `pages/ConversationsPage.tsx` (route `/conversations`, wrapped in `ProtectedRoute` like every other authenticated page) — lists all conversations (`CompanyAvatar` + name + last-message preview + relative timestamp via the existing `formatPostedAt()` + an unread dot), polling every 15s. Clicking a row calls `openConversation()` to reuse the exact same `ChatDrawer`.
+- `services/conversations.service.ts` — thin Axios wrapper, same one-object-per-resource pattern as every other `*.service.ts` file.
+- New `MessageIcon` in `components/Icons.tsx` (hand-drawn inline SVG, matching the existing icon set's style — no icon library added).
+
+**Frontend — wiring into existing pages:**
+
+- `components/Navbar.tsx` — a "Razgovori" `nav-item` (desktop) and mobile-drawer item, visible only when logged in, with a small red count badge (`99+` cap) driven by `useChat().unreadCount`.
+- `components/search/ResultCard.tsx` / `components/search/types.ts` — `ResultCardData` gained `ownerUserId` and `listingType` ('cargo' | 'vehicle'); the "Kontakt" `<Link to="#kontakt">` became a real `<button>` calling `openChatWithUser()`. The button is **omitted entirely** — not just disabled — when the viewer owns the listing (`ownerUserId === user?.id`) or when `ownerUserId` is absent (an orphaned listing whose company/user no longer resolves). Populated in `VehicleListPage.tsx`/`CargoListPage.tsx`'s card-mapping from `post.company?.userId`.
+- `pages/CargoDetailPage.tsx` / `pages/VehicleDetailPage.tsx` — the existing "Kontakt / Tvrtka" card (still showing phone/email/etc. as before — nothing there was removed) gained a "Pošalji poruku" button, hidden for `isOwner` using the same ownership check the Edit/Close/Delete buttons already use (`post.company?.userId === user.id`).
+
+**Edge cases (per the original request) — how each is actually handled:**
+- *Contacting yourself*: hidden client-side (button omitted) on both the card and detail-page paths, and rejected server-side with 400 regardless — verified live via `curl`.
+- *Deleted/inactive listings*: `cargoPostId`/`vehiclePostId` are `ON DELETE SET NULL`; an already-open conversation is completely unaffected by the listing disappearing later (verified live, see above). A *closed* (not deleted) listing's owner can still be messaged — closing a post was never modeled as "unreachable," only "not accepting new applicants" to browse search.
+- *Not logged in*: `openChatWithUser`/`openConversation` check `useAuth().token` and `navigate('/login')` before ever calling the API; `/conversations` itself is behind `ProtectedRoute`.
+
+**Verification performed:** `tsc -b`/`vite build` (frontend) and `tsc --noEmit`/`nest build` (backend) clean; `npm run lint` clean on both workspaces (0 new errors — same 13 pre-existing backend warnings); `npx jest` — 11 suites / 94 tests passing (up from 83: 10 new `conversations.service.spec.ts` tests covering self-contact rejection, canonical pair ordering, thread reuse, participant guards, and the whitespace-only-message guard, plus 1 new `admin.service.spec.ts` test for the cascade-delete ordering fix). Full live walkthrough against the real backend/Postgres and the real browser with two disposable registered/verified test accounts: **(a)** clicked "Kontakt" on a live vehicle listing card as the non-owner — opened a genuinely new conversation; **(b)** exchanged messages in both directions via `curl` and confirmed each is persisted with the correct `senderId`/`content`/timestamp and starts `readAt: null`; **(c)** opening the conversation (`GET /conversations/:id/messages`) correctly flipped `readAt` and dropped `GET /conversations/unread-count` to 0, while the *other* participant's unread count incremented on the next message; **(d)** the "Razgovori" navbar badge and the `/conversations` list both matched the live unread state and picked up a new message via their poll without a manual refresh; **(e)** clicking "Kontakt" a second time on the same listing reopened the *same* thread with full prior history, not a duplicate; **(f)** the owner's own listing showed no "Kontakt"/"Pošalji poruku" control anywhere; **(g)** deleting the listing left the conversation and its history intact; **(h)** admin-deleting a user who had a conversation succeeded and cleanly removed the thread (this is the cascade fix above — reproduced failing pre-fix, passing post-fix). All disposable test accounts/companies/listings were removed after verification.
+
+---
+
 ## TODO / Next Steps
 
 - [x] Mark post as closed from the UI — "Close Post" button on detail pages + inline "Close" in My Posts
@@ -1490,3 +1578,4 @@ Full visual redesign of `/vehicles` and `/cargo` from a design handoff (referenc
 - [x] Admin: bulk-action on posts — "close all expired" (Session 21) — bulk-closes both cargo and vehicle posts in `status: 'expired'`
 - [x] Optional home page "recent cargo/vehicles" preview (Session 21) — 3 recent cargo + 3 recent vehicle listings, reuses the existing paginated endpoints with `limit=3`
 - [x] Redesigned search/listing pages — Vehicles & Cargo (Session 22) — shared `components/search/` kit, quick-filter chips with date-range backend support, cached road-distance API (`POST /cities/distances`), `CompanyAvatar` placeholder, full responsive spec (desktop/tablet/mobile)
+- [x] In-app chat/messaging on listings — "Razgovori" (Session 23) — `messaging/` module (`conversations`/`messages` tables, one thread per user pair), `ChatContext`/`ChatDrawer` with 4s polling, navbar unread badge, `/conversations` list page, "Kontakt" buttons wired on cards + detail pages; also fixed a real `AdminService.deleteUser()` FK-ordering bug this feature exposed

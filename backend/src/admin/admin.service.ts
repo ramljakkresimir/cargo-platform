@@ -19,6 +19,7 @@ import { RouteCityService } from '../routing/route-city.service';
 import { escapeLikePattern } from '../common/utils/escape-like';
 import { CompaniesService } from '../companies/companies.service';
 import { UpdateCompanyDto } from '../companies/dto/update-company.dto';
+import { Conversation } from '../messaging/conversation.entity';
 
 @Injectable()
 export class AdminService {
@@ -195,8 +196,12 @@ export class AdminService {
     const target = await this.userRepo.findOne({ where: { id: targetId } });
     if (!target) throw new NotFoundException('User not found');
 
-    // Cascade delete: posts → company → user, atomically so a mid-sequence failure
-    // can't leave a user without a company or a company without its posts deleted.
+    // Cascade delete: posts → company → conversations → user, atomically so a
+    // mid-sequence failure can't leave a user without a company or a company without
+    // its posts deleted. Conversations must go before the user: userAId/userBId are
+    // ON DELETE NO ACTION (unlike posts' company FK), so removing the user first would
+    // fail with a foreign key violation if they were ever party to a conversation.
+    // Messages cascade automatically (messages.conversationId is ON DELETE CASCADE).
     await this.userRepo.manager.transaction(async (manager) => {
       const company = await manager.findOne(Company, {
         where: { userId: targetId },
@@ -206,6 +211,12 @@ export class AdminService {
         await manager.delete(VehiclePost, { companyId: company.id });
         await manager.remove(Company, company);
       }
+      await manager
+        .createQueryBuilder()
+        .delete()
+        .from(Conversation)
+        .where('userAId = :id OR userBId = :id', { id: targetId })
+        .execute();
       await manager.remove(User, target);
     });
 
