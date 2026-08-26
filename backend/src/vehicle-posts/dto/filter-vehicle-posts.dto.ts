@@ -15,9 +15,18 @@ export class FilterVehiclePostsDto extends PaginationDto {
   @IsString()
   availableLocation?: string;
 
+  // Lower bound — "available on or after this date" (kept as the exact query param
+  // name for backward compatibility, but now inclusive-range rather than exact-match
+  // so the "Danas" / "Ovaj tjedan" quick filters can express a range through the same
+  // field).
   @IsOptional()
   @IsDateString()
   availableFromDate?: string;
+
+  // Optional upper bound, paired with availableFromDate to express a range.
+  @IsOptional()
+  @IsDateString()
+  availableFromDateTo?: string;
 
   @IsOptional()
   @IsString()

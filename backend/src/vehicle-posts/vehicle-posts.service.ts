@@ -126,8 +126,13 @@ export class VehiclePostsService {
         .orderBy('post.createdAt', 'DESC');
 
       if (filters.availableFromDate) {
-        query.andWhere('post.availableFromDate = :afd', {
+        query.andWhere('post.availableFromDate >= :afd', {
           afd: filters.availableFromDate,
+        });
+      }
+      if (filters.availableFromDateTo) {
+        query.andWhere('post.availableFromDate <= :afdTo', {
+          afdTo: filters.availableFromDateTo,
         });
       }
       if (filters.vehicleType) {
@@ -177,8 +182,13 @@ export class VehiclePostsService {
     }
 
     if (filters.availableFromDate) {
-      query.andWhere('post.availableFromDate = :afd', {
+      query.andWhere('post.availableFromDate >= :afd', {
         afd: filters.availableFromDate,
+      });
+    }
+    if (filters.availableFromDateTo) {
+      query.andWhere('post.availableFromDate <= :afdTo', {
+        afdTo: filters.availableFromDateTo,
       });
     }
     if (filters.vehicleType) {

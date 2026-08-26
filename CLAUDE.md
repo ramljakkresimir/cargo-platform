@@ -53,14 +53,16 @@ cargo-platform/
 │       ├── vehicle-posts/    Vehicle post CRUD + search
 │       ├── admin/            Admin CRUD for users/posts (role-protected)
 │       │   └── dto/          AdminUsersQueryDto, AdminPostsQueryDto, UpdateUserRoleDto, UpdatePostStatusDto
-│       ├── cities/           City entity, CitiesService, CitiesController (GET /cities)
-│       │   └── dto/          FilterCitiesDto
-│       ├── routing/          Route-city generation module
+│       ├── cities/           City entity, CitiesService, CitiesController (GET /cities, POST /cities/distances)
+│       │   └── dto/          FilterCitiesDto, CityDistancePairsDto
+│       ├── routing/          Route-city generation module + city-pair distance cache
 │       │   ├── vehicle-post-route-city.entity.ts   Join table: which cities a vehicle route passes through
 │       │   ├── openroute.service.ts                OpenRouteService API client (driving-hgv)
 │       │   ├── routing.service.ts                  Abstraction over routing providers
 │       │   ├── route-city.service.ts               Projection + persistence + route-aware search helper
-│       │   └── routing.module.ts                   Exports RouteCityService, RoutingService
+│       │   ├── city-distance.entity.ts             Cached road-distance lookup between a city pair (Session 22)
+│       │   ├── city-distance.service.ts            Batched, cached, order-insensitive distance resolver (Session 22)
+│       │   └── routing.module.ts                   Exports RouteCityService, RoutingService, CityDistanceService
 │       ├── posts-expiration/ PostsExpirationService — daily cron + manual trigger
 │       ├── common/
 │       │   ├── enums/        Shared PostStatus enum
@@ -77,13 +79,14 @@ cargo-platform/
 └── frontend/                 Vite + React app (port 5173)
     └── src/
         ├── context/          AuthContext (JWT + user state)
-        ├── services/         Axios API clients per resource (+ admin.service)
-        ├── components/       Navbar (+ NavDropdown), ProtectedRoute, AdminRoute, CityAutocomplete, Icons, StatusBadge, EmptyState, RouteMap, Turnstile
+        ├── services/         Axios API clients per resource (+ admin.service, cities.service with getDistances)
+        ├── components/       Navbar (+ NavDropdown), ProtectedRoute, AdminRoute, CityAutocomplete, Icons, StatusBadge, EmptyState, RouteMap, Turnstile, CompanyAvatar (Session 22)
+        │   └── search/       Shared vehicles/cargo search-page kit (Session 22) — SearchPageHeader, SearchFilterBar, SearchResultsBar, ResultCard, types.ts
+        ├── hooks/             useCityDistances — batches+caches "~ X km" lookups for a page of result cards (Session 22)
         ├── constants/        postTypes.ts — shared Croatian cargo/vehicle type label maps
         ├── pages/            HomePage (+ recent listings preview, Session 21) + 15 regular pages (incl. VerifyEmailPage, ForgotPasswordPage, ResetPasswordPage) + 5 admin pages
         │   └── admin/        AdminDashboardPage, AdminUsersPage, AdminUserCompanyPage, AdminCargoPostsPage, AdminVehiclePostsPage
-        ├── services/         Axios API clients (+ cities.service.ts added)
-        ├── utils/            errorUtils.ts — extractErrorMessage / extractFieldErrors helpers
+        ├── utils/            errorUtils.ts — extractErrorMessage / extractFieldErrors helpers; dateUtils.ts — local-date helpers + formatPostedAt (Session 22)
         └── types/            Shared TypeScript interfaces (City added, CargoPost/VehiclePost updated)
 ```
 
@@ -205,6 +208,18 @@ Populated automatically when a vehicle post is created or updated (if origin/des
 Generated via OpenRouteService driving-hgv route + @turf/turf nearest-point projection.  
 Fallback (when ORS API unavailable): only origin + destination are saved.
 
+### city_distances *(Session 22)*
+| Column     | Type      | Notes                                                    |
+|------------|-----------|-----------------------------------------------------------|
+| id         | uuid (PK) |                                                           |
+| cityAId    | uuid (FK) | → cities.id — the lexicographically smaller of the pair  |
+| cityBId    | uuid (FK) | → cities.id — the lexicographically larger of the pair   |
+| distanceKm | float     | road distance, rounded to the nearest 10 km               |
+| createdAt  | timestamp |                                                           |
+
+Unique constraint on `(cityAId, cityBId)`. Indexes on both FK columns.  
+Cache for the "~ X km" distance shown on vehicle/cargo search result cards — see `CityDistanceService` under "Key Decisions" below. Rows are only ever inserted, never updated (a cached distance for a city pair never changes).
+
 ---
 
 ## API Endpoints
@@ -213,11 +228,13 @@ All endpoints return JSON. Protected endpoints require:
 `Authorization: Bearer <jwt_token>`
 
 ### Cities (public)
-| Method | Path     | Description                                  |
-|--------|----------|----------------------------------------------|
-| GET    | /cities  | Search cities — params: `search`, `country`, `limit` (max 50, default 20) |
+| Method | Path             | Description                                  |
+|--------|------------------|----------------------------------------------|
+| GET    | /cities          | Search cities — params: `search`, `country`, `limit` (max 50, default 20) |
+| POST   | /cities/distances | Body: `{ pairs: [{ fromCityId, toCityId }] }` (1–50 pairs) — batched road-distance lookup, cached per city pair *(Session 22)* |
 
-Response: JSON array of `{ id, name, country, region, latitude, longitude }`.  
+Response (`GET /cities`): JSON array of `{ id, name, country, region, latitude, longitude }`.  
+Response (`POST /cities/distances`): `{ results: [{ fromCityId, toCityId, distanceKm }] }` — `distanceKm` is `null` (never `0` or a fallback number) whenever the pair can't be resolved (same city, unknown city id, or the routing provider failed).  
 Seed: `npm run seed:cities` — idempotent, uses name + country uniqueness. Seeded with 49 cities (BA + HR).
 
 ### Auth (public)
@@ -323,9 +340,9 @@ All `/admin/*` endpoints require `Authorization: Bearer <token>` where the token
 | /verify-email          | VerifyEmailPage        | No     | Consumes `?token=` from the verification email link *(Session 20)* |
 | /forgot-password       | ForgotPasswordPage     | No     | Request a password reset link (CAPTCHA required) *(Session 20)* |
 | /reset-password        | ResetPasswordPage      | No     | Consumes `?token=` from the reset email link, sets a new password *(Session 20)* |
-| /cargo                 | CargoListPage          | No     | Browse + filter cargo   |
+| /cargo                 | CargoListPage          | No     | Browse + filter cargo — card-based search UI, see "Search/listing pages" *(Session 22)* |
 | /cargo/:id             | CargoDetailPage        | No     | Cargo post details + inline edit (owner only) |
-| /vehicles              | VehicleListPage        | No     | Browse + filter vehicles|
+| /vehicles              | VehicleListPage        | No     | Browse + filter vehicles — shares the same search UI kit as CargoListPage *(Session 22)* |
 | /vehicles/:id          | VehicleDetailPage      | No     | Vehicle post details + inline edit (owner only) |
 | /dashboard             | DashboardPage          | Yes    | User home + quick links |
 | /company               | CompanyProfilePage     | Yes    | Create/edit company     |
@@ -1413,6 +1430,39 @@ Three self-contained Admin/marketplace features, none of which touched authentic
 
 ---
 
+### Session 22 — 2026-08-26
+
+#### Feature: Redesigned search/listing pages ("Dostupna vozila" / "Dostupni tereti")
+
+Full visual redesign of `/vehicles` and `/cargo` from a design handoff (reference mockups, desktop + mobile, delivered outside the repo — not reproduced here). Both pages now share one component kit, parameterized by mode (`vehicles` | `cargo`) and an accent color, so the layout, filter/results/card structure, and responsive behavior live in one place. No backend business logic changed except the two additions below (date-range filtering, distance API); ownership, validation, and post-lifecycle rules are untouched.
+
+**New shared frontend kit — `frontend/src/components/search/`:**
+- `types.ts` — `SearchFieldConfig` (city/date/select field union), `SearchChipConfig`, `ResultCardData`, `SearchAccent`/`SearchMode`, `SortValue`.
+- `SearchPageHeader.tsx` — accent pill + h1, "Sačuvaj pretragu" (a real, focusable button with a native-tooltip disclaimer that it doesn't persist anything yet — there's no saved-search feature in the app) and the primary "+ Objavi …" action; on mobile the primary action relocates into a sticky bottom bar and "Sačuvaj pretragu" moves into a `NavDropdown`-based overflow menu.
+- `SearchFilterBar.tsx` — the compact bordered-box field grid + "Pretraži" button, the quick-filter chip row with "Poništi filtre", and (mobile only) the "Više filtera (N)" bottom sheet holding every field after the first two (which are always the location fields for both modes). City fields still render `CityAutocomplete`; date/select fields are real `<input type="date">`/`<select>`, just restyled to match the field-box look — no fake inputs.
+- `SearchResultsBar.tsx` — count (correct Croatian plural forms) + the `Sortiraj:` select (Najnovije / date / Udaljenost).
+- `ResultCard.tsx` — the three-zone card (company + badges / route with dashed connector / footer). The whole card is a stretched `<Link>` cover, with "Kontakt" (anchors to `#kontakt` on the detail page's contact card) and "Pregled" layered on top as their own focusable controls — avoids nesting interactive elements inside an `<a>`, which the invalid-HTML approach would otherwise force.
+- `CompanyAvatar.tsx` (`components/`, not `components/search/`, since it's generic) — static neutral placeholder tile showing initials; **no image upload or avatar rendering was implemented**, per the spec's explicit instruction. It's a component specifically so a real logo can drop in later without callers changing.
+- `hooks/useCityDistances.ts` — takes the current page's `{fromCityId, toCityId}` pairs, batches them into one `POST /cities/distances` call, and returns a `Map` that starts empty and fills in asynchronously. Cards render immediately; the "~ X km" line simply appears once (if) the batch resolves. A failed lookup is swallowed silently — the distance line stays hidden, never a fallback number.
+
+**Backend — new city-pair distance cache (`backend/src/routing/city-distance.*`, `backend/src/cities/dto/city-distance-pairs.dto.ts`):**
+- `CityDistanceService.getDistances()` — de-dupes order-insensitive pairs within a batch (so `(A,B)` and `(B,A)` resolve once), checks a `city_distances` cache row keyed by a canonical `(cityAId, cityBId)` (lexicographically sorted so pair order never matters), and on a miss calls the existing `RoutingService`/`OpenRouteService` (the same ORS client route-city generation already uses — no new external dependency), computes the road distance via `@turf/length`, rounds to the nearest 10 km, and caches it. A same-city pair, an unresolvable city id, a routing-provider failure, or a distance that *rounds to 0 km* all return `null` — the last case specifically so a real short trip never renders as the misleading "~ 0 km"; the frontend hides the distance line whenever it's `null`.
+- New table `city_distances` (migration `1787668089124-AddCityDistances`) — see "Database Schema" above. Entity added to the shared `entities.ts` list.
+- `POST /cities/distances` (public, same as `GET /cities`) — validated by `CityDistancePairsDto` (1–50 pairs, each a UUID pair via `class-validator`).
+- Unit-tested in `city-distance.service.spec.ts` (7 tests): new-pair resolution + rounding + caching, cache-hit short-circuit regardless of pair order, batch de-dup, routing failure → `null`/no-cache, unknown city → `null`, and the rounds-to-zero → `null` guard. This was the one piece of Session 21-carried-into-22 work that had no test coverage yet when this session picked it up — added to match the project's established convention (see Session 18's M3) of covering new non-trivial logic, not just lifecycle/transition rules.
+
+**Backend — date-range filtering (small, deliberate behavior change):** `loadingDate`/`availableFromDate` on `FilterCargoPostsDto`/`FilterVehiclePostsDto` changed from exact-match (`=`) to an inclusive lower bound (`>=`), paired with a new optional `loadingDateTo`/`availableFromDateTo` upper bound. This is what lets the "Danas" / "Ovaj tjedan" quick-filter chips express a date *range* through the same query params the manual date field already used — typing a single date into the field still works exactly as before (just the lower bound of an open-ended range), and the chips additionally set the upper bound. `CargoPostsService`/`VehiclePostsService` `findAll()` (both the standard and route-aware search paths) apply both bounds via `andWhere`. Not covered by a new backend test (existing `*.service.spec.ts` files don't test `findAll()`'s query-builder branches at all — consistent with the project's existing test-coverage pattern of focusing on lifecycle/guard logic over query filters), but exercised live via the browser during verification.
+
+**Frontend — page-level wiring (`CargoListPage.tsx`, `VehicleListPage.tsx`):** both pages now just supply mode-specific field/chip/card config to the shared kit — no page-level markup duplication of the header/filter/results/card structure. `dateUtils.ts` gained `todayLocalDateString()`, `addDaysLocalDateString()` (both driving the "Danas"/"Ovaj tjedan" chips), and `formatPostedAt()` ("Objavljeno danas u 09:14" / "Objavljeno jučer" / a formatted date otherwise). Sorting (Najnovije / date / Udaljenost) is client-side over the current page's already-fetched results, not a new backend sort param.
+
+**Design tokens:** implemented as CSS custom properties scoped per accent container (`--search-accent`/`--search-accent-tint`, set once on `.accent-blue`/`.accent-teal`) rather than hardcoded per component, so the shared kit never repeats the accent color name — `index.css`'s `.search-*`/`.src-*` rules (~630 new lines) are the only place the two accent hex values (`#1a5fd0` blue / `#0f6b60` teal) appear. `'Source Sans 3'` is loaded via the Google Fonts `<link>` in `frontend/index.html` (added in the Session 17 redesign, reused here).
+
+**Responsive:** implemented exactly as specified — ≥1024px full grid, 640–1023px tablet (2-column filter grid, full-width "Pretraži"), <640px mobile (sticky bottom CTA bar, only the two location fields visible with "Više filtera (N)" opening a bottom sheet for the rest, horizontally-scrolling chip row, fully-stacked result cards with the footer's price/posted-date on one row and full-width Kontakt/Pregled below).
+
+**Verification performed:** `tsc -b` + `vite build` (frontend) and `tsc --noEmit` + `nest build` (backend) clean; `npm run lint` clean on both workspaces (0 errors — same 13 pre-existing backend `no-unsafe-argument` warnings as prior sessions, unchanged); `npx jest` — 10 suites / 83 tests passing (up from 76, the 7 new `city-distance.service.spec.ts` tests); `npx jest --config ./test/jest-e2e.json` passing. Started the real dev servers against live local Postgres and drove both pages in an actual browser: confirmed the desktop layout, chips, sort, and card zones pixel-match the mockup, and — importantly — that the "~ X km" distance is a genuinely live computed value (not a stub): a Mostar↔Sarajevo/Split pair round-tripped through `POST /cities/distances`, hit the real ORS-backed `RoutingService`, and rendered "~ 120 km" on both the vehicles and cargo cards. Mobile-viewport screenshots could not be captured in this session (the browser-automation tool's window-resize call did not take effect in this environment after several attempts), so the <640px/tablet breakpoints were verified by direct CSS review against the spec's mockups rather than a rendered screenshot — everything else (desktop rendering, all builds, lint, and the full test suite) was verified against the running app.
+
+---
+
 ## TODO / Next Steps
 
 - [x] Mark post as closed from the UI — "Close Post" button on detail pages + inline "Close" in My Posts
@@ -1439,3 +1489,4 @@ Three self-contained Admin/marketplace features, none of which touched authentic
 - [x] Admin: ability to view/edit a single user's company profile (Session 21) — `AdminUserCompanyPage`, reuses `CompaniesService`
 - [x] Admin: bulk-action on posts — "close all expired" (Session 21) — bulk-closes both cargo and vehicle posts in `status: 'expired'`
 - [x] Optional home page "recent cargo/vehicles" preview (Session 21) — 3 recent cargo + 3 recent vehicle listings, reuses the existing paginated endpoints with `limit=3`
+- [x] Redesigned search/listing pages — Vehicles & Cargo (Session 22) — shared `components/search/` kit, quick-filter chips with date-range backend support, cached road-distance API (`POST /cities/distances`), `CompanyAvatar` placeholder, full responsive spec (desktop/tablet/mobile)

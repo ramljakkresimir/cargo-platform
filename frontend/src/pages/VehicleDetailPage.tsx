@@ -304,7 +304,7 @@ export default function VehicleDetailPage() {
           </div>
 
           {post.company && (
-            <div className="detail-card">
+            <div className="detail-card" id="kontakt">
               <h2>Kontakt / Tvrtka</h2>
               <div className="detail-grid">
                 <div><span className="label">Tvrtka</span><p>{post.company.companyName}</p></div>

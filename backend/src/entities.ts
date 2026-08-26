@@ -7,6 +7,7 @@ import { CargoPost } from './cargo-posts/cargo-post.entity';
 import { VehiclePost } from './vehicle-posts/vehicle-post.entity';
 import { City } from './cities/city.entity';
 import { VehiclePostRouteCity } from './routing/vehicle-post-route-city.entity';
+import { CityDistance } from './routing/city-distance.entity';
 
 export const entities = [
   User,
@@ -15,4 +16,5 @@ export const entities = [
   VehiclePost,
   City,
   VehiclePostRouteCity,
+  CityDistance,
 ];

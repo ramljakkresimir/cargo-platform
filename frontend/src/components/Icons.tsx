@@ -102,3 +102,13 @@ export function ArrowRightIcon({ size = 15, className }: IconProps) {
     </svg>
   );
 }
+
+export function MoreIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" className={className}>
+      <circle cx="5" cy="12" r="2" />
+      <circle cx="12" cy="12" r="2" />
+      <circle cx="19" cy="12" r="2" />
+    </svg>
+  );
+}

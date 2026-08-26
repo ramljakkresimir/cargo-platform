@@ -1,12 +1,15 @@
-import { useState, useEffect, FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 import { cargoPostsService } from '../services/cargoPosts.service';
 import { CargoPost, PaginatedResult, City } from '../types';
-import CityAutocomplete from '../components/CityAutocomplete';
+import SearchPageHeader from '../components/search/SearchPageHeader';
+import SearchFilterBar from '../components/search/SearchFilterBar';
+import SearchResultsBar from '../components/search/SearchResultsBar';
+import ResultCard from '../components/search/ResultCard';
 import EmptyState from '../components/EmptyState';
-import { PackageIcon } from '../components/Icons';
+import { SearchChipConfig, SearchFieldConfig, SortValue, ResultCardData } from '../components/search/types';
 import { CARGO_TYPES, VEHICLE_TYPES, cargoTypeLabel, vehicleTypeLabel } from '../constants/postTypes';
-import { formatDate } from '../utils/dateUtils';
+import { formatDate, formatPostedAt, todayLocalDateString, addDaysLocalDateString } from '../utils/dateUtils';
+import { useCityDistances, pairKey } from '../hooks/useCityDistances';
 
 const LIMIT = 10;
 
@@ -14,6 +17,7 @@ interface ActiveFilters {
   loadingCityId: string;
   unloadingCityId: string;
   loadingDate: string;
+  loadingDateTo: string;
   cargoType: string;
   requiredVehicleType: string;
 }
@@ -22,23 +26,31 @@ const emptyActiveFilters: ActiveFilters = {
   loadingCityId: '',
   unloadingCityId: '',
   loadingDate: '',
+  loadingDateTo: '',
   cargoType: '',
   requiredVehicleType: '',
 };
 
-function cityLabel(post: CargoPost, type: 'loading' | 'unloading'): string {
-  if (type === 'loading') {
-    return post.loadingCity?.name || post.loadingLocation || '—';
-  }
+function loadingLabel(post: CargoPost): string {
+  return post.loadingCity?.name || post.loadingLocation || '—';
+}
+
+function unloadingLabel(post: CargoPost): string {
   return post.unloadingCity?.name || post.unloadingLocation || '—';
+}
+
+function cargoCountLabel(n: number): string {
+  return n === 1 ? `${n} oglas pronađen` : `${n} oglasa pronađena`;
 }
 
 export default function CargoListPage() {
   const [loadingCityFilter, setLoadingCityFilter] = useState<City | null>(null);
   const [unloadingCityFilter, setUnloadingCityFilter] = useState<City | null>(null);
   const [dateFilter, setDateFilter] = useState('');
+  const [dateToFilter, setDateToFilter] = useState('');
   const [cargoTypeFilter, setCargoTypeFilter] = useState('');
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState('');
+  const [sort, setSort] = useState<SortValue>('newest');
 
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>(emptyActiveFilters);
   const [page, setPage] = useState(1);
@@ -47,9 +59,6 @@ export default function CargoListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Flip into the loading state during render (React's recommended pattern for
-  // "reset state when an input changes") rather than synchronously inside the
-  // effect below, which the fetch itself only enters asynchronously.
   const [prevFilters, setPrevFilters] = useState(activeFilters);
   const [prevPage, setPrevPage] = useState(page);
   if (activeFilters !== prevFilters || page !== prevPage) {
@@ -65,6 +74,7 @@ export default function CargoListPage() {
       if (activeFilters.loadingCityId) params.loadingCityId = activeFilters.loadingCityId;
       if (activeFilters.unloadingCityId) params.unloadingCityId = activeFilters.unloadingCityId;
       if (activeFilters.loadingDate) params.loadingDate = activeFilters.loadingDate;
+      if (activeFilters.loadingDateTo) params.loadingDateTo = activeFilters.loadingDateTo;
       if (activeFilters.cargoType) params.cargoType = activeFilters.cargoType;
       if (activeFilters.requiredVehicleType) params.requiredVehicleType = activeFilters.requiredVehicleType;
       const res = await cargoPostsService.getAll(params);
@@ -77,137 +87,211 @@ export default function CargoListPage() {
   };
 
   useEffect(() => {
-    // Data fetching over the network — the setState calls in fetchPosts's
-    // catch/finally are the async result of this effect, not derivable at render time.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchPosts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFilters, page]);
 
-  const handleSearch = (e: FormEvent) => {
-    e.preventDefault();
+  const commit = (overrides: Partial<ActiveFilters> = {}) => {
     setPage(1);
     setActiveFilters({
       loadingCityId: loadingCityFilter?.id || '',
       unloadingCityId: unloadingCityFilter?.id || '',
       loadingDate: dateFilter,
+      loadingDateTo: dateToFilter,
       cargoType: cargoTypeFilter,
       requiredVehicleType: vehicleTypeFilter,
+      ...overrides,
     });
   };
 
-  const handleClear = () => {
+  const handleReset = () => {
     setLoadingCityFilter(null);
     setUnloadingCityFilter(null);
     setDateFilter('');
+    setDateToFilter('');
     setCargoTypeFilter('');
     setVehicleTypeFilter('');
     setPage(1);
     setActiveFilters(emptyActiveFilters);
   };
 
-  const posts = result?.data ?? [];
+  const today = todayLocalDateString();
+  const weekEnd = addDaysLocalDateString(today, 6);
+  const isTodayActive = dateFilter === today && dateToFilter === today;
+  const isWeekActive = dateFilter === today && dateToFilter === weekEnd;
+
+  const applyDateChip = (from: string, to: string) => {
+    setDateFilter(from);
+    setDateToFilter(to);
+    commit({ loadingDate: from, loadingDateTo: to });
+  };
+  const clearDateChip = () => {
+    setDateFilter('');
+    setDateToFilter('');
+    commit({ loadingDate: '', loadingDateTo: '' });
+  };
+  const applyCargoTypeChip = (value: string) => {
+    setCargoTypeFilter(value);
+    commit({ cargoType: value });
+  };
+  const clearCargoTypeChip = () => {
+    setCargoTypeFilter('');
+    commit({ cargoType: '' });
+  };
+
+  const chips: SearchChipConfig[] = [
+    {
+      key: 'today',
+      label: 'Danas',
+      active: isTodayActive,
+      onClick: () => (isTodayActive ? clearDateChip() : applyDateChip(today, today)),
+    },
+    {
+      key: 'week',
+      label: 'Ovaj tjedan',
+      active: isWeekActive,
+      onClick: () => (isWeekActive ? clearDateChip() : applyDateChip(today, weekEnd)),
+    },
+    {
+      key: 'palletized',
+      label: 'Paleta',
+      active: cargoTypeFilter === 'palletized',
+      onClick: () => (cargoTypeFilter === 'palletized' ? clearCargoTypeChip() : applyCargoTypeChip('palletized')),
+    },
+    {
+      key: 'liquid',
+      label: 'Tekućina',
+      active: cargoTypeFilter === 'liquid',
+      onClick: () => (cargoTypeFilter === 'liquid' ? clearCargoTypeChip() : applyCargoTypeChip('liquid')),
+    },
+    {
+      key: 'bulk',
+      label: 'Rasuti teret',
+      active: cargoTypeFilter === 'bulk',
+      onClick: () => (cargoTypeFilter === 'bulk' ? clearCargoTypeChip() : applyCargoTypeChip('bulk')),
+    },
+  ];
+
+  const fields: SearchFieldConfig[] = [
+    { key: 'loading', type: 'city', label: 'Utovar', value: loadingCityFilter, onChange: setLoadingCityFilter, placeholder: 'npr. Sarajevo' },
+    { key: 'unloading', type: 'city', label: 'Istovar', value: unloadingCityFilter, onChange: setUnloadingCityFilter, placeholder: 'npr. Zagreb' },
+    { key: 'date', type: 'date', label: 'Datum utovara', value: dateFilter, onChange: setDateFilter },
+    {
+      key: 'cargoType',
+      type: 'select',
+      label: 'Vrsta tereta',
+      value: cargoTypeFilter,
+      onChange: setCargoTypeFilter,
+      options: CARGO_TYPES,
+      placeholder: 'Sve vrste',
+    },
+    {
+      key: 'vehicleType',
+      type: 'select',
+      label: 'Vrsta vozila',
+      value: vehicleTypeFilter,
+      onChange: setVehicleTypeFilter,
+      options: VEHICLE_TYPES,
+      placeholder: 'Sve vrste',
+    },
+  ];
+
+  const posts = useMemo(() => result?.data ?? [], [result]);
+
+  const distancePairs = useMemo(
+    () =>
+      posts
+        .filter((p) => p.loadingCityId && p.unloadingCityId)
+        .map((p) => ({ fromCityId: p.loadingCityId as string, toCityId: p.unloadingCityId as string })),
+    [posts],
+  );
+  const distances = useCityDistances(distancePairs);
+
+  const distanceForPost = (post: CargoPost): number | null | undefined => {
+    if (!post.loadingCityId || !post.unloadingCityId) return undefined;
+    return distances.get(pairKey(post.loadingCityId, post.unloadingCityId));
+  };
+
+  const sortedPosts = useMemo(() => {
+    const arr = [...posts];
+    if (sort === 'date') {
+      arr.sort((a, b) => a.loadingDate.localeCompare(b.loadingDate));
+    } else if (sort === 'distance') {
+      arr.sort((a, b) => {
+        const da = distanceForPost(a);
+        const db = distanceForPost(b);
+        if (da == null && db == null) return 0;
+        if (da == null) return 1;
+        if (db == null) return -1;
+        return da - db;
+      });
+    }
+    return arr;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posts, sort, distances]);
+
+  const cards: ResultCardData[] = sortedPosts.map((post) => {
+    const dist = distanceForPost(post);
+    return {
+      id: post.id,
+      href: `/cargo/${post.id}`,
+      companyName: post.company?.companyName || '—',
+      companyCity: post.company?.city,
+      badges: [
+        ...(post.cargoType ? [{ label: cargoTypeLabel(post.cargoType), tone: 'accent' as const }] : []),
+        ...(post.requiredVehicleType ? [{ label: vehicleTypeLabel(post.requiredVehicleType), tone: 'neutral' as const }] : []),
+        ...(post.weight ? [{ label: `${post.weight} t`, tone: 'neutral' as const }] : []),
+      ],
+      originLabel: loadingLabel(post),
+      destinationLabel: unloadingLabel(post),
+      dateLabel: `Utovar ${formatDate(post.loadingDate)}`,
+      distanceKm: dist ?? null,
+      postedAtLabel: formatPostedAt(post.createdAt),
+      priceLabel: post.price ? `€${post.price}` : null,
+    };
+  });
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1>Dostupni tereti</h1>
-          <p className="page-subtitle">
-            {result ? `${result.total} ${result.total === 1 ? 'oglas' : 'oglasa'} pronađeno` : 'Pregledajte objavljene terete'}
-          </p>
-        </div>
-        <Link to="/cargo/new" className="btn-primary-teal">+ Objavi teret</Link>
-      </div>
+    <div className="search-page">
+      <SearchPageHeader
+        accent="teal"
+        pillLabel="Tereti"
+        title="Dostupni tereti"
+        primaryLabel="+ Objavi teret"
+        primaryHref="/cargo/new"
+      />
 
-      <div className="filter-card">
-        <form onSubmit={handleSearch}>
-          <div className="filter-grid">
-            <div className="form-group">
-              <label>Mjesto utovara</label>
-              <CityAutocomplete
-                value={loadingCityFilter}
-                onChange={setLoadingCityFilter}
-                placeholder="npr. Sarajevo"
-              />
-            </div>
-            <div className="form-group">
-              <label>Mjesto istovara</label>
-              <CityAutocomplete
-                value={unloadingCityFilter}
-                onChange={setUnloadingCityFilter}
-                placeholder="npr. Zagreb"
-              />
-            </div>
-            <div className="form-group">
-              <label>Datum utovara</label>
-              <input
-                type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Vrsta tereta</label>
-              <select value={cargoTypeFilter} onChange={(e) => setCargoTypeFilter(e.target.value)}>
-                <option value="">Sve vrste</option>
-                {CARGO_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Vrsta vozila</label>
-              <select value={vehicleTypeFilter} onChange={(e) => setVehicleTypeFilter(e.target.value)}>
-                <option value="">Sve vrste</option>
-                {VEHICLE_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="filter-actions">
-            <button type="submit" className="btn-primary-teal">Pretraži</button>
-            <button type="button" className="btn-secondary" onClick={handleClear}>Poništi filtre</button>
-          </div>
-        </form>
-      </div>
+      <SearchFilterBar mode="cargo" fields={fields} chips={chips} onSubmit={() => commit()} onReset={handleReset} />
 
       {error && <div className="alert alert-error">{error}</div>}
       {loading && <div className="loading">Učitavanje...</div>}
 
-      {!loading && posts.length === 0 && (
-        <EmptyState message="Nema tereta koji odgovara odabranim filtrima. Pokušajte proširiti pretragu." />
-      )}
-
-      {!loading && posts.length > 0 && (
+      {!loading && (
         <>
-          <div className="result-list">
-            {posts.map((post) => (
-              <div className="result-card" key={post.id}>
-                <div className="result-card-left">
-                  <span className="result-card-icon teal"><PackageIcon size={20} /></span>
-                  <div>
-                    <div className="result-card-route">
-                      {cityLabel(post, 'loading')} <span className="arrow">→</span> {cityLabel(post, 'unloading')}
-                    </div>
-                    <div className="result-card-subline">
-                      Utovar {formatDate(post.loadingDate)} · {post.company?.companyName || '—'}
-                    </div>
-                  </div>
-                </div>
-                <div className="result-card-right">
-                  <span className="chip">{cargoTypeLabel(post.cargoType)}</span>
-                  {post.requiredVehicleType && (
-                    <span className="result-card-meta-text">{vehicleTypeLabel(post.requiredVehicleType)}</span>
-                  )}
-                  <span className="result-card-meta-text">{post.weight ? `${post.weight} t` : '—'}</span>
-                  <span className="result-card-price">{post.price ? `€${post.price}` : 'Po dogovoru'}</span>
-                  <Link to={`/cargo/${post.id}`} className="btn-secondary">Pregled</Link>
-                </div>
-              </div>
-            ))}
-          </div>
+          <SearchResultsBar
+            countLabel={cargoCountLabel(result?.total ?? 0)}
+            sort={sort}
+            onSortChange={setSort}
+            dateSortLabel="Datum utovara"
+          />
+
+          {cards.length === 0 ? (
+            <EmptyState
+              message="Nema tereta koji odgovara odabranim filtrima. Pokušajte proširiti pretragu."
+              action={
+                <button type="button" className="btn-secondary" onClick={handleReset}>
+                  Poništi filtre
+                </button>
+              }
+            />
+          ) : (
+            <div className="search-results-list">
+              {cards.map((card) => (
+                <ResultCard key={card.id} data={card} accent="teal" />
+              ))}
+            </div>
+          )}
 
           {result && result.totalPages > 1 && (
             <div className="pagination">

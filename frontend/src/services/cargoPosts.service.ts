@@ -5,6 +5,7 @@ export const cargoPostsService = {
     loadingCityId?: string;
     unloadingCityId?: string;
     loadingDate?: string;
+    loadingDateTo?: string;
     cargoType?: string;
     requiredVehicleType?: string;
     page?: number;

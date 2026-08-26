@@ -19,9 +19,17 @@ export class FilterCargoPostsDto extends PaginationDto {
   @IsString()
   unloadingLocation?: string;
 
+  // Lower bound — "loading on or after this date" (kept as the exact query param name
+  // for backward compatibility, but now inclusive-range rather than exact-match so the
+  // "Danas" / "Ovaj tjedan" quick filters can express a range through the same field).
   @IsOptional()
   @IsDateString()
   loadingDate?: string;
+
+  // Optional upper bound, paired with loadingDate to express a range.
+  @IsOptional()
+  @IsDateString()
+  loadingDateTo?: string;
 
   @IsOptional()
   @IsString()

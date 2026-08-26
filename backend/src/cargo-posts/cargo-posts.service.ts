@@ -95,7 +95,12 @@ export class CargoPostsService {
     }
 
     if (filters.loadingDate) {
-      query.andWhere('post.loadingDate = :ld', { ld: filters.loadingDate });
+      query.andWhere('post.loadingDate >= :ld', { ld: filters.loadingDate });
+    }
+    if (filters.loadingDateTo) {
+      query.andWhere('post.loadingDate <= :ldTo', {
+        ldTo: filters.loadingDateTo,
+      });
     }
     if (filters.cargoType) {
       query.andWhere('post.cargoType ILIKE :ct', {

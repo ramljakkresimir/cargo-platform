@@ -5,6 +5,7 @@ export const vehiclePostsService = {
     originCityId?: string;
     destinationCityId?: string;
     availableFromDate?: string;
+    availableFromDateTo?: string;
     vehicleType?: string;
     page?: number;
     limit?: number;
