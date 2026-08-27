@@ -1,4 +1,4 @@
-import { City } from '../../types';
+import { City, RatingSummary } from '../../types';
 
 export interface SearchSelectOption {
   value: string;
@@ -63,6 +63,7 @@ export interface ResultCardData {
   // out from under an otherwise-orphaned post) — the card just hides the button then.
   ownerUserId?: string | null;
   listingType: 'cargo' | 'vehicle';
+  ratingSummary?: RatingSummary | null;
 }
 
 export type SortValue = 'newest' | 'date' | 'distance';

@@ -85,6 +85,16 @@ All six endpoints are rate-limited per IP (see `RATE_LIMIT_*` env vars in [Envir
 
 403 if the caller isn't one of the conversation's two participants; 404 if the conversation doesn't exist. See "In-app messaging (Session 23)" in [Key Decisions](key-decisions.md) for the full design, including why it's one thread per user pair rather than one per listing.
 
+### Ratings *(Session 24)*
+| Method | Path                          | Auth?    | Description |
+|--------|-------------------------------|----------|--------------|
+| POST   | /ratings                      | Required | Body: `{ ratedUserId, score, cargoPostId?, vehiclePostId? }` — submit a rating, or update the caller's existing rating for that user (one rating per rater→ratedUser pair; re-rating updates in place). 400 if `ratedUserId` is the caller |
+| POST   | /ratings/summaries            | No       | Body: `{ userIds: string[] }` (1–100) — batched average+count lookup for a page of search result cards |
+| GET    | /ratings/user/:userId/summary | No       | `{ userId, average, count }` for a single user |
+| GET    | /ratings/user/:userId/mine    | Required | The caller's existing rating for `:userId`, or `null` — used to pre-fill the rating picker |
+
+Response shape for both summary endpoints: `average` is `null` (never `0`) when `count` is `0` — the frontend shows "Još nema ocjena" instead of an empty/misleading star row in that case, the same convention `distanceKm: null` uses for unresolvable city pairs. `POST /ratings/summaries` always returns one entry per requested id, including ids with zero ratings. See "User Ratings (Session 24)" in [Key Decisions](key-decisions.md) for the full design, including why the average is computed on read rather than denormalized.
+
 ### Admin (protected — admin role required)
 All `/admin/*` endpoints require `Authorization: Bearer <token>` where the token belongs to a user with `role: "admin"`. Non-admins receive HTTP 403.
 

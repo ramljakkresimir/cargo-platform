@@ -39,21 +39,21 @@ This file is a summary. Detailed, current-state documentation lives under `docs/
 | [docs/key-decisions.md](docs/key-decisions.md) | Why TypeORM, JWT design, the full Session 20 auth/security architecture (email verification, password reset, CAPTCHA, rate limiting), migrations, monorepo tooling choices |
 | [docs/known-issues.md](docs/known-issues.md) | Open caveats plus resolved Windows/npm-workspace port and hoisting bugs (with root causes) |
 | [docs/todo.md](docs/todo.md) | Feature checklist — done vs. open |
-| [docs/changelog/](docs/changelog/README.md) | Full session-by-session implementation history (Sessions 1–23) |
+| [docs/changelog/](docs/changelog/README.md) | Full session-by-session implementation history (Sessions 1–25) |
 
 **When starting work:** read this file for orientation, then open the specific doc(s) relevant to the task — e.g. editing an endpoint → `api-reference.md` + `key-decisions.md`; touching a DB column → `database-schema.md`; onboarding a new page → `frontend-pages.md`. Update the relevant `docs/*.md` file (not this one) when you change behavior, and add a new `docs/changelog/` entry for the session's work.
 
 ---
 
-## Current State (as of Session 23 — 2026-08-26)
+## Current State (as of Session 25 — 2026-08-27)
 
 The MVP is feature-complete for its original scope:
 - Auth: JWT + bcrypt, mandatory email verification, password reset, adaptive CAPTCHA (Cloudflare Turnstile), per-route rate limiting, no permanent lockout
 - Marketplace: cargo/vehicle post CRUD, ownership-scoped editing, public browse, pagination
 - Location intelligence: normalized cities, ORS-driven route-corridor matching, route map visualization, cached road-distance lookups
-- Trust/UX: full Croatian localization, redesigned card-based search/listing pages, in-app chat ("Razgovori") replacing static contact info
+- Trust/UX: full Croatian localization, redesigned card-based search/listing pages, in-app chat ("Razgovori"), user ratings (1–5 stars, shown on profile/listing pages/search cards, given via an always-visible immediate-submit star input) replacing static contact info
 - Admin: user/post CRUD, role management, company-profile view/edit, bulk expired-post closing, dashboard stats
-- Production readiness: TypeORM migrations (no more `synchronize` reliance in prod), Joi env validation, consistent error shapes, test coverage on lifecycle/guard logic (11 suites / 94 tests as of Session 23)
+- Production readiness: TypeORM migrations (no more `synchronize` reliance in prod), Joi env validation, consistent error shapes, test coverage on lifecycle/guard logic (12 suites / 107 tests as of Session 25 — unchanged from Session 24, this session's fixes were frontend-only)
 
 Open items (Docker Compose, actual deployment, MFA for admins, background email queueing) are tracked in **[docs/todo.md](docs/todo.md)**.
 

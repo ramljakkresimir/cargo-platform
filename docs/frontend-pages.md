@@ -8,16 +8,16 @@
 | /verify-email          | VerifyEmailPage        | No     | Consumes `?token=` from the verification email link *(Session 20)* |
 | /forgot-password       | ForgotPasswordPage     | No     | Request a password reset link (CAPTCHA required) *(Session 20)* |
 | /reset-password        | ResetPasswordPage      | No     | Consumes `?token=` from the reset email link, sets a new password *(Session 20)* |
-| /cargo                 | CargoListPage          | No     | Browse + filter cargo — card-based search UI *(Session 22)* |
-| /cargo/:id             | CargoDetailPage        | No     | Cargo post details + inline edit (owner only) |
-| /vehicles              | VehicleListPage        | No     | Browse + filter vehicles — shares the same search UI kit as CargoListPage *(Session 22)* |
-| /vehicles/:id          | VehicleDetailPage      | No     | Vehicle post details + inline edit (owner only) |
+| /cargo                 | CargoListPage          | No     | Browse + filter cargo — card-based search UI, each card shows the poster's rating *(Session 22, ratings Session 24)* |
+| /cargo/:id             | CargoDetailPage        | No     | Cargo post details + inline edit (owner only); contact card shows the poster's rating and an "Ocijeni korisnika" action *(Session 24)* |
+| /vehicles              | VehicleListPage        | No     | Browse + filter vehicles — shares the same search UI kit as CargoListPage, cards show the poster's rating *(Session 22, ratings Session 24)* |
+| /vehicles/:id          | VehicleDetailPage      | No     | Vehicle post details + inline edit (owner only); contact card shows the poster's rating and an "Ocijeni korisnika" action *(Session 24)* |
 | /dashboard             | DashboardPage          | Yes    | User home + quick links |
 | /company               | CompanyProfilePage     | Yes    | Create/edit company     |
 | /cargo/new             | CreateCargoPostPage    | Yes    | Post new cargo          |
 | /vehicles/new          | CreateVehiclePostPage  | Yes    | Post available vehicle  |
 | /my-posts              | MyPostsPage            | Yes    | All user's posts with view/edit/close/delete |
-| /profile               | ProfilePage            | Yes    | Edit personal info + change password   |
+| /profile               | ProfilePage            | Yes    | Edit personal info + change password; header shows the user's name and average rating *(Session 24)* |
 | /conversations         | ConversationsPage      | Yes    | List of past conversations; clicking one opens the chat drawer *(Session 23)* |
 | /admin                 | AdminDashboardPage     | Admin  | Stats overview + quick links to admin sections |
 | /admin/users           | AdminUsersPage         | Admin  | List, search, change role, delete users |

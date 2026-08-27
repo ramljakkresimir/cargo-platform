@@ -151,3 +151,17 @@ Unique constraint on `(userAId, userBId)` — **one thread per pair of users**, 
 | createdAt      | timestamp |                                                     |
 
 Index on `conversationId`. See "In-app messaging (Session 23)" in [Key Decisions](key-decisions.md) for the full design and the `AdminService.deleteUser()` cascade fix this table required.
+
+### ratings *(Session 24)*
+| Column        | Type      | Notes                                                              |
+|---------------|-----------|-----------------------------------------------------------------------|
+| id            | uuid (PK) |                                                                     |
+| raterId       | uuid (FK) | → users.id, `ON DELETE CASCADE` — the user who gave the rating      |
+| ratedUserId   | uuid (FK) | → users.id, `ON DELETE CASCADE` — the user being rated              |
+| score         | smallint  | 1–5                                                                 |
+| cargoPostId   | uuid (FK) | → cargo_posts.id, nullable, `ON DELETE SET NULL`                   |
+| vehiclePostId | uuid (FK) | → vehicle_posts.id, nullable, `ON DELETE SET NULL`                 |
+| createdAt     | timestamp |                                                                     |
+| updatedAt     | timestamp |                                                                     |
+
+Unique constraint on `(raterId, ratedUserId)` — **one rating per rater→ratedUser pair**; rating the same person again updates this row rather than inserting a new one. `cargoPostId`/`vehiclePostId` are display context only (which listing prompted the rating), exactly like `conversations`. Unlike `conversations.userAId`/`userBId` (deliberately `NO ACTION` to avoid a stray cascade through a shared row affecting a third user), both user FKs here are `CASCADE` — a `Rating` row has no such transitive-deletion risk, so deleting a user automatically removes every rating they gave or received with no extra code in `AdminService.deleteUser()`. The average/count shown in the UI is always computed on read (`AVG`/`COUNT` over this table, batched for search cards) — there is no denormalized average column anywhere. See "User Ratings (Session 24)" in [Key Decisions](key-decisions.md).

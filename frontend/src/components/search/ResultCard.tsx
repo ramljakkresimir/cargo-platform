@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import CompanyAvatar from '../CompanyAvatar';
+import RatingStars from '../RatingStars';
 import { useAuth } from '../../context/AuthContext';
 import { useChat } from '../../context/ChatContext';
 import { ResultCardData, SearchAccent } from './types';
@@ -43,6 +44,9 @@ export default function ResultCard({ data, accent }: Props) {
             <div className="src-company-sub">
               Provjerena tvrtka{data.companyCity ? ` · ${data.companyCity}` : ''}
             </div>
+            {data.ratingSummary && data.ratingSummary.count > 0 && (
+              <RatingStars average={data.ratingSummary.average} count={data.ratingSummary.count} size={13} />
+            )}
           </div>
         </div>
         <div className="src-badges">

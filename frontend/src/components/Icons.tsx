@@ -120,3 +120,19 @@ export function MoreIcon({ size = 18, className }: IconProps) {
     </svg>
   );
 }
+
+export function StarIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinejoin="round" className={className}>
+      <path d="M12 3L14.6 8.6L20.7 9.5L16.3 13.8L17.4 19.9L12 17L6.6 19.9L7.7 13.8L3.3 9.5L9.4 8.6L12 3Z" />
+    </svg>
+  );
+}
+
+export function StarFilledIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" className={className}>
+      <path d="M12 3L14.6 8.6L20.7 9.5L16.3 13.8L17.4 19.9L12 17L6.6 19.9L7.7 13.8L3.3 9.5L9.4 8.6L12 3Z" />
+    </svg>
+  );
+}

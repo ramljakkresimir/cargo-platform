@@ -10,6 +10,7 @@ import { SearchChipConfig, SearchFieldConfig, SortValue, ResultCardData } from '
 import { CARGO_TYPES, VEHICLE_TYPES, cargoTypeLabel, vehicleTypeLabel } from '../constants/postTypes';
 import { formatDate, formatPostedAt, todayLocalDateString, addDaysLocalDateString } from '../utils/dateUtils';
 import { useCityDistances, pairKey } from '../hooks/useCityDistances';
+import { useRatingSummaries } from '../hooks/useRatingSummaries';
 
 const LIMIT = 10;
 
@@ -207,6 +208,7 @@ export default function CargoListPage() {
     [posts],
   );
   const distances = useCityDistances(distancePairs);
+  const ratingSummaries = useRatingSummaries(useMemo(() => posts.map((p) => p.company?.userId), [posts]));
 
   const distanceForPost = (post: CargoPost): number | null | undefined => {
     if (!post.loadingCityId || !post.unloadingCityId) return undefined;
@@ -251,6 +253,7 @@ export default function CargoListPage() {
       priceLabel: post.price ? `€${post.price}` : null,
       ownerUserId: post.company?.userId,
       listingType: 'cargo' as const,
+      ratingSummary: post.company?.userId ? ratingSummaries.get(post.company.userId) ?? null : null,
     };
   });
 

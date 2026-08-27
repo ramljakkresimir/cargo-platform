@@ -10,6 +10,7 @@ import { VehiclePostRouteCity } from './routing/vehicle-post-route-city.entity';
 import { CityDistance } from './routing/city-distance.entity';
 import { Conversation } from './messaging/conversation.entity';
 import { Message } from './messaging/message.entity';
+import { Rating } from './ratings/rating.entity';
 
 export const entities = [
   User,
@@ -21,4 +22,5 @@ export const entities = [
   CityDistance,
   Conversation,
   Message,
+  Rating,
 ];

@@ -38,6 +38,8 @@
   --color-warning-bg: #fef9c3;
   --color-warning-text: #a16207;
   --color-warning-action: #c2410c;
+  --color-star-filled: #eab308;
+  --color-star-empty: var(--color-border-strong);
 
   /* Reused near-neutral tints (consolidated from one-off values) */
   --color-surface-hover: oklch(96% 0.005 95);
@@ -414,6 +416,7 @@ button, input, select, textarea { font-family: inherit; }
 }
 .page-header h1 { margin-bottom: 4px; }
 .page-subtitle { color: var(--color-text-secondary); font-size: 14.5px; }
+.page-profile-name { font-weight: 600; font-size: 15.5px; margin: 4px 0; }
 .back-link {
   background: none;
   border: none;
@@ -898,8 +901,43 @@ button, input, select, textarea { font-family: inherit; }
 }
 .detail-grid p { color: var(--color-text-primary); font-size: 15px; font-variant-numeric: tabular-nums; }
 .detail-note { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-divider); }
-.detail-card-action { margin-top: 18px; }
+.detail-card-action { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; }
 .action-buttons { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.detail-card-rating { margin: 6px 0 2px; }
+
+/* Rating display (RatingStars) and submission (RatingPicker) */
+.rating-stars { display: inline-flex; align-items: center; gap: 6px; }
+.rating-stars-row { display: flex; gap: 1px; }
+/* Each star is its own fixed-size box, independently full/empty/partial — never a
+   multi-icon flex row being clipped, which is what caused a previous version of this
+   component to smear a faint gold tint across all 5 stars instead of a clean split. */
+.rating-star-cell { position: relative; display: inline-flex; line-height: 0; }
+.rating-star-cell-empty { color: var(--color-star-empty); display: block; }
+.rating-star-cell-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  color: var(--color-star-filled);
+}
+.rating-stars-label { font-size: 0.85em; color: var(--color-text-muted); }
+.rating-stars-none { font-size: 13px; color: var(--color-text-muted); font-style: italic; }
+
+.rating-picker { display: inline-flex; gap: 4px; }
+.rating-picker-star {
+  display: inline-flex;
+  padding: 2px;
+  border: none;
+  background: none;
+  color: var(--color-star-filled);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.rating-picker-star:hover { background: var(--color-surface-hover); }
+.rating-picker-star:disabled { cursor: not-allowed; opacity: 0.6; }
+
+.rating-inline-picker { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); }
+.rating-picker-label { font-size: 13px; color: var(--color-text-secondary); }
 .detail-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
 .route-cities-hint { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 12px; }
 .route-city-chips { display: flex; flex-wrap: wrap; gap: 8px; }

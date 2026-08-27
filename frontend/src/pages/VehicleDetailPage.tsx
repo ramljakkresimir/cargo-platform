@@ -1,13 +1,16 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { vehiclePostsService } from '../services/vehiclePosts.service';
-import { VehiclePost, VehiclePostRouteCity, City } from '../types';
+import { ratingsService } from '../services/ratings.service';
+import { VehiclePost, VehiclePostRouteCity, City, RatingSummary } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
 import { extractErrorMessage } from '../utils/errorUtils';
 import CityAutocomplete from '../components/CityAutocomplete';
 import RouteMap from '../components/RouteMap';
 import StatusBadge from '../components/StatusBadge';
+import RatingStars from '../components/RatingStars';
+import RatingPicker from '../components/RatingPicker';
 import { VEHICLE_TYPES, vehicleTypeLabel, companyTypeLabel } from '../constants/postTypes';
 import { formatDate } from '../utils/dateUtils';
 
@@ -54,6 +57,11 @@ export default function VehicleDetailPage() {
   const [saveSuccess, setSaveSuccess] = useState('');
   const [closeLoading, setCloseLoading] = useState(false);
 
+  const [ratingSummary, setRatingSummary] = useState<RatingSummary | null>(null);
+  const [myScore, setMyScore] = useState(0);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingError, setRatingError] = useState('');
+
   const fetchPost = async (postId: string) => {
     try {
       const res = await vehiclePostsService.getOne(postId);
@@ -71,6 +79,19 @@ export default function VehicleDetailPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (id) fetchPost(id);
   }, [id]);
+
+  const posterUserId = post?.company?.userId;
+  const isOwner = Boolean(user && posterUserId === user.id);
+
+  useEffect(() => {
+    if (!posterUserId) return;
+    ratingsService.getSummary(posterUserId).then((res) => setRatingSummary(res.data));
+    if (user && !isOwner) {
+      ratingsService.getMine(posterUserId).then((res) => {
+        if (res.data) setMyScore(res.data.score);
+      });
+    }
+  }, [posterUserId, user, isOwner]);
 
   const startEditing = () => {
     if (!post) return;
@@ -167,8 +188,6 @@ export default function VehicleDetailPage() {
     }
   };
 
-  const isOwner = user && post?.company?.userId === user.id;
-
   const handleContact = () => {
     if (!post?.company) return;
     openChatWithUser({
@@ -176,6 +195,28 @@ export default function VehicleDetailPage() {
       recipientName: post.company.companyName,
       vehiclePostId: post.id,
     });
+  };
+
+  const handleRate = async (score: number) => {
+    if (!posterUserId || ratingSubmitting) return;
+    const previous = myScore;
+    setMyScore(score);
+    setRatingSubmitting(true);
+    setRatingError('');
+    try {
+      await ratingsService.submit({
+        ratedUserId: posterUserId,
+        score,
+        vehiclePostId: post?.id,
+      });
+      const res = await ratingsService.getSummary(posterUserId);
+      setRatingSummary(res.data);
+    } catch (err) {
+      setMyScore(previous);
+      setRatingError(extractErrorMessage(err, 'Slanje ocjene nije uspjelo.'));
+    } finally {
+      setRatingSubmitting(false);
+    }
   };
 
   if (loading) return <div className="page-container"><p className="loading">Učitavanje...</p></div>;
@@ -324,6 +365,11 @@ export default function VehicleDetailPage() {
                 {post.company.phone && <div><span className="label">Telefon</span><p>{post.company.phone}</p></div>}
                 {post.company.email && <div><span className="label">E-mail</span><p>{post.company.email}</p></div>}
               </div>
+              {ratingSummary && (
+                <div className="detail-card-rating">
+                  <RatingStars average={ratingSummary.average} count={ratingSummary.count} />
+                </div>
+              )}
               {!isOwner && (
                 <div className="detail-card-action">
                   <button type="button" className="btn-primary" onClick={handleContact}>
@@ -331,6 +377,15 @@ export default function VehicleDetailPage() {
                   </button>
                 </div>
               )}
+              {!isOwner && user && (
+                <div className="rating-inline-picker">
+                  <RatingPicker value={myScore} onChange={handleRate} disabled={ratingSubmitting} />
+                  <span className="rating-picker-label">
+                    {myScore > 0 ? `Vaša ocjena: ${myScore}/5` : 'Ocijeni korisnika'}
+                  </span>
+                </div>
+              )}
+              {ratingError && <div className="alert alert-error">{ratingError}</div>}
             </div>
           )}
 

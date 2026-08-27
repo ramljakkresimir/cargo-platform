@@ -139,3 +139,20 @@ export interface VehiclePost {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface RatingSummary {
+  userId: string;
+  average: number | null;
+  count: number;
+}
+
+export interface Rating {
+  id: string;
+  raterId: string;
+  ratedUserId: string;
+  score: number;
+  cargoPostId?: string | null;
+  vehiclePostId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

@@ -10,6 +10,7 @@ import { SearchChipConfig, SearchFieldConfig, SortValue, ResultCardData } from '
 import { VEHICLE_TYPES, vehicleTypeLabel } from '../constants/postTypes';
 import { formatDate, formatPostedAt, todayLocalDateString, addDaysLocalDateString } from '../utils/dateUtils';
 import { useCityDistances, pairKey } from '../hooks/useCityDistances';
+import { useRatingSummaries } from '../hooks/useRatingSummaries';
 
 const LIMIT = 10;
 
@@ -193,6 +194,7 @@ export default function VehicleListPage() {
     [posts],
   );
   const distances = useCityDistances(distancePairs);
+  const ratingSummaries = useRatingSummaries(useMemo(() => posts.map((p) => p.company?.userId), [posts]));
 
   const distanceForPost = (post: VehiclePost): number | null | undefined => {
     if (!post.originCityId || !post.destinationCityId) return undefined;
@@ -235,6 +237,7 @@ export default function VehicleListPage() {
       postedAtLabel: formatPostedAt(post.createdAt),
       ownerUserId: post.company?.userId,
       listingType: 'vehicle' as const,
+      ratingSummary: post.company?.userId ? ratingSummaries.get(post.company.userId) ?? null : null,
     };
   });
 

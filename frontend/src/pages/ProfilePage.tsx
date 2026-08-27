@@ -1,10 +1,19 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { usersService } from '../services/users.service';
+import { ratingsService } from '../services/ratings.service';
 import { useAuth } from '../context/AuthContext';
 import { extractErrorMessage } from '../utils/errorUtils';
+import RatingStars from '../components/RatingStars';
+import { RatingSummary } from '../types';
 
 export default function ProfilePage() {
   const { user, login, token } = useAuth();
+  const [ratingSummary, setRatingSummary] = useState<RatingSummary | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    ratingsService.getSummary(user.id).then((res) => setRatingSummary(res.data));
+  }, [user]);
 
   // ── Personal Information ─────────────────────────────────────────
   const [profileForm, setProfileForm] = useState({
@@ -116,6 +125,10 @@ export default function ProfilePage() {
       <div className="page-header">
         <div>
           <h1>Moj profil</h1>
+          {user && <p className="page-profile-name">{user.firstName} {user.lastName}</p>}
+          {ratingSummary && (
+            <RatingStars average={ratingSummary.average} count={ratingSummary.count} size={16} />
+          )}
           <p className="page-subtitle">Upravljajte osobnim podacima i lozinkom</p>
         </div>
       </div>
