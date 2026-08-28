@@ -48,6 +48,7 @@ All six endpoints are rate-limited per IP (see `RATE_LIMIT_*` env vars in [Envir
 **Create/Update body:** `loadingCityId` (uuid, required on create), `unloadingCityId` (uuid, required on create), plus optional fields
 **Pagination params:** `page` (default: 1), `limit` (default: 10) — response shape: `{ data, total, page, limit, totalPages }`
 **Note:** `/my` route must remain before `/:id` in the controller to avoid route conflict.
+**Route geometry:** create/update fetches a driving route between `loadingCity`/`unloadingCity` via the same `RoutingService`/ORS integration vehicle posts use, and stores it on `routeGeoJson: {lat,lng}[] | null` (regenerated when either city changes; `null` if ORS is unavailable). No cities-on-route table — that matching feature stays vehicle-only *(Session 26)*.
 
 ### Vehicle Posts
 | Method | Path                | Auth?    | Description            |

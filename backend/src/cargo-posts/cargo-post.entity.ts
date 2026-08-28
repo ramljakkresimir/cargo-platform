@@ -69,6 +69,12 @@ export class CargoPost {
   @Column({ type: 'varchar', default: PostStatus.ACTIVE })
   status: PostStatus;
 
+  // Driving route geometry from OpenRouteService — stored as [{lat, lng}] array.
+  // Null when ORS is unavailable. Mirrors VehiclePost.routeGeoJson; unlike vehicle posts,
+  // cargo posts don't compute cities-on-route (that's vehicle-specific matching tooling).
+  @Column({ type: 'jsonb', nullable: true })
+  routeGeoJson: { lat: number; lng: number }[] | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

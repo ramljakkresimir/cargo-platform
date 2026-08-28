@@ -1,5 +1,5 @@
-import { useState, useEffect, FormEvent } from 'react';
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { useState, useEffect, FormEvent, useMemo } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { cargoPostsService } from '../services/cargoPosts.service';
 import { ratingsService } from '../services/ratings.service';
 import { CargoPost, City, RatingSummary } from '../types';
@@ -7,11 +7,11 @@ import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
 import { extractErrorMessage } from '../utils/errorUtils';
 import CityAutocomplete from '../components/CityAutocomplete';
-import StatusBadge from '../components/StatusBadge';
-import RatingStars from '../components/RatingStars';
-import RatingPicker from '../components/RatingPicker';
-import { CARGO_TYPES, VEHICLE_TYPES, cargoTypeLabel, vehicleTypeLabel, companyTypeLabel } from '../constants/postTypes';
-import { formatDate } from '../utils/dateUtils';
+import DetailView from '../components/detail/DetailView';
+import { DetailData } from '../components/detail/types';
+import { useCityDistances, pairKey } from '../hooks/useCityDistances';
+import { CARGO_TYPES, VEHICLE_TYPES, cargoTypeLabel, vehicleTypeLabel } from '../constants/postTypes';
+import { formatDate, formatPostedAtShort } from '../utils/dateUtils';
 
 const STATUSES = [
   { value: 'active', label: 'Aktivno' },
@@ -227,39 +227,84 @@ export default function CargoDetailPage() {
     }
   };
 
+  const distancePairs = useMemo(
+    () =>
+      post?.loadingCityId && post?.unloadingCityId
+        ? [{ fromCityId: post.loadingCityId, toCityId: post.unloadingCityId }]
+        : [],
+    [post],
+  );
+  const distances = useCityDistances(distancePairs);
+  const distanceKm =
+    post?.loadingCityId && post?.unloadingCityId
+      ? distances.get(pairKey(post.loadingCityId, post.unloadingCityId)) ?? null
+      : null;
+
+  const STATUS_LABELS: Record<string, string> = { active: 'Aktivno', closed: 'Zatvoreno', expired: 'Isteklo' };
+
+  const detailData: DetailData | null = post
+    ? {
+        mode: 'cargo',
+        accent: 'teal',
+        modeLabel: 'Teret',
+        status: post.status,
+        statusLabel: STATUS_LABELS[post.status] ?? post.status,
+        extraPillLabel: post.cargoType ? cargoTypeLabel(post.cargoType) : undefined,
+        originLabel: locationLabel(post, 'loading'),
+        originSubLabel: `Utovar ${formatDate(post.loadingDate)}`,
+        destinationLabel: locationLabel(post, 'unloading'),
+        destinationSubLabel: 'Mjesto istovara',
+        connectorMidLabel: vehicleTypeLabel(post.requiredVehicleType),
+        distanceKm,
+        factTiles: [
+          { label: 'Težina', value: post.weight ? `${post.weight} t` : '—' },
+          { label: 'Dimenzije', value: post.dimensions || '—' },
+          { label: 'Potrebno vozilo', value: vehicleTypeLabel(post.requiredVehicleType) },
+          { label: 'Objavljeno', value: formatPostedAtShort(post.createdAt) },
+        ],
+        notesTitle: 'Napomene naručitelja',
+        notesBody: post.note,
+        chips: post.cargoType ? [{ label: cargoTypeLabel(post.cargoType), tone: 'accent' }] : [],
+        routeCities: post.routeGeoJson && post.routeGeoJson.length >= 2
+          ? [
+              { id: 'loading', name: locationLabel(post, 'loading') },
+              { id: 'unloading', name: locationLabel(post, 'unloading') },
+            ]
+          : [],
+        routeGeoJson: post.routeGeoJson,
+        hasDestinationCity: true,
+        routeExplainerLine: 'Ako vozite ovom rutom, teret se može uklopiti bez velikog skretanja.',
+        company: post.company,
+        ratingSummary,
+        priceBlock: { value: post.price ? `€${post.price}` : 'Po dogovoru', sublabel: 'za cijeli teret' },
+        isOwner,
+        isLoggedIn: Boolean(user),
+        ownerActions: isOwner
+          ? {
+              onEdit: startEditing,
+              onClose: post.status === 'active' ? handleClose : undefined,
+              closeLoading,
+              onDelete: handleDelete,
+            }
+          : undefined,
+        myScore,
+        onRate: handleRate,
+        ratingSubmitting,
+        ratingError,
+        onContact: handleContact,
+        mobileSummaryPrimary: post.price ? `€${post.price}` : 'Po dogovoru',
+        mobileSummarySecondary: `${locationLabel(post, 'loading')} → ${locationLabel(post, 'unloading')}`,
+      }
+    : null;
+
   if (loading) return <div className="page-container"><p className="loading">Učitavanje...</p></div>;
   if (error) return <div className="page-container"><div className="alert alert-error">{error}</div></div>;
-  if (!post) return null;
+  if (!post || !detailData) return null;
 
-  const fromLabel = locationLabel(post, 'loading');
-  const toLabel = locationLabel(post, 'unloading');
-
-  return (
-    <div className="page-container">
-      <div className="page-header">
-        <div>
-          <Link to="/cargo" className="back-link">← Natrag na terete</Link>
-          <div className="detail-title-row">
-            <h1>{fromLabel} → {toLabel}</h1>
-            <StatusBadge status={post.status} />
-          </div>
-        </div>
-        {isOwner && !isEditing && (
-          <div className="action-buttons">
-            {post.status === 'active' && (
-              <button className="btn-secondary" onClick={handleClose} disabled={closeLoading}>
-                {closeLoading ? 'Zatvaranje...' : 'Zatvori oglas'}
-              </button>
-            )}
-            <button className="btn-secondary" onClick={startEditing}>Uredi</button>
-            <button className="btn-danger" onClick={handleDelete}>Obriši</button>
-          </div>
-        )}
-      </div>
-
-      {saveSuccess && <div className="alert alert-success">{saveSuccess}</div>}
-
-      {isEditing ? (
+  if (isEditing) {
+    return (
+      <div className="page-container">
+        {saveSuccess && <div className="alert alert-success">{saveSuccess}</div>}
         <div className="form-card">
           <h2>Uredi oglas tereta</h2>
           {saveError && <div className="alert alert-error">{saveError}</div>}
@@ -382,63 +427,14 @@ export default function CargoDetailPage() {
             </div>
           </form>
         </div>
-      ) : (
-        <div className="detail-layout">
-          <div className="detail-card">
-            <h2>Podaci o teretu</h2>
-            <div className="detail-grid">
-              <div><span className="label">Mjesto utovara</span><p>{fromLabel}</p></div>
-              <div><span className="label">Mjesto istovara</span><p>{toLabel}</p></div>
-              <div><span className="label">Datum utovara</span><p>{formatDate(post.loadingDate)}</p></div>
-              <div><span className="label">Vrsta tereta</span><p>{cargoTypeLabel(post.cargoType)}</p></div>
-              <div><span className="label">Težina</span><p>{post.weight ? `${post.weight} t` : '—'}</p></div>
-              <div><span className="label">Dimenzije</span><p>{post.dimensions || '—'}</p></div>
-              <div><span className="label">Potrebno vozilo</span><p>{vehicleTypeLabel(post.requiredVehicleType)}</p></div>
-              <div><span className="label">Cijena</span><p>{post.price ? `€${post.price}` : 'Po dogovoru'}</p></div>
-            </div>
-            {post.note && (
-              <div className="detail-note">
-                <span className="label">Napomene</span>
-                <p>{post.note}</p>
-              </div>
-            )}
-          </div>
+      </div>
+    );
+  }
 
-          {post.company && (
-            <div className="detail-card" id="kontakt">
-              <h2>Kontakt / Tvrtka</h2>
-              <div className="detail-grid">
-                <div><span className="label">Tvrtka</span><p>{post.company.companyName}</p></div>
-                <div><span className="label">Vrsta</span><p>{companyTypeLabel(post.company.companyType)}</p></div>
-                <div><span className="label">Lokacija</span><p>{post.company.city}, {post.company.country}</p></div>
-                {post.company.phone && <div><span className="label">Telefon</span><p>{post.company.phone}</p></div>}
-                {post.company.email && <div><span className="label">E-mail</span><p>{post.company.email}</p></div>}
-              </div>
-              {ratingSummary && (
-                <div className="detail-card-rating">
-                  <RatingStars average={ratingSummary.average} count={ratingSummary.count} />
-                </div>
-              )}
-              {!isOwner && (
-                <div className="detail-card-action">
-                  <button type="button" className="btn-primary-teal" onClick={handleContact}>
-                    Pošalji poruku
-                  </button>
-                </div>
-              )}
-              {!isOwner && user && (
-                <div className="rating-inline-picker">
-                  <RatingPicker value={myScore} onChange={handleRate} disabled={ratingSubmitting} />
-                  <span className="rating-picker-label">
-                    {myScore > 0 ? `Vaša ocjena: ${myScore}/5` : 'Ocijeni korisnika'}
-                  </span>
-                </div>
-              )}
-              {ratingError && <div className="alert alert-error">{ratingError}</div>}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+  return (
+    <>
+      {saveSuccess && <div className="alert alert-success detail-save-toast">{saveSuccess}</div>}
+      <DetailView data={detailData} backHref="/cargo" backLabel="Natrag na terete" />
+    </>
   );
 }

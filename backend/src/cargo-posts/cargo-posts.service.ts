@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
@@ -12,6 +13,8 @@ import { CreateCargoPostDto } from './dto/create-cargo-post.dto';
 import { UpdateCargoPostDto } from './dto/update-cargo-post.dto';
 import { FilterCargoPostsDto } from './dto/filter-cargo-posts.dto';
 import { CitiesService } from '../cities/cities.service';
+import { RoutingService } from '../routing/routing.service';
+import { simplifyRouteCoordinates } from '../routing/simplify-route';
 import { escapeLikePattern } from '../common/utils/escape-like';
 
 function getLocalDateString(): string {
@@ -25,10 +28,13 @@ function getLocalDateString(): string {
 
 @Injectable()
 export class CargoPostsService {
+  private readonly logger = new Logger(CargoPostsService.name);
+
   constructor(
     @InjectRepository(CargoPost)
     private readonly cargoPostRepository: Repository<CargoPost>,
     private readonly citiesService: CitiesService,
+    private readonly routingService: RoutingService,
   ) {}
 
   async create(companyId: string, dto: CreateCargoPostDto): Promise<CargoPost> {
@@ -58,6 +64,25 @@ export class CargoPostsService {
       unloadingLocation: `${unloadingCity.name}, ${unloadingCity.country}`,
     });
     const saved = await this.cargoPostRepository.save(post);
+
+    // Generate route geometry for the map — failure must not block post creation
+    try {
+      const route = await this.routingService.getRoute(
+        { lat: loadingCity.latitude, lng: loadingCity.longitude },
+        { lat: unloadingCity.latitude, lng: unloadingCity.longitude },
+      );
+      if (route && route.coordinates.length >= 2) {
+        await this.cargoPostRepository.update(saved.id, {
+          routeGeoJson: simplifyRouteCoordinates(route.coordinates),
+        });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        `Route generation failed for cargo post ${saved.id}: ${message}`,
+      );
+    }
+
     return this.findOne(saved.id);
   }
 
@@ -140,6 +165,15 @@ export class CargoPostsService {
       throw new ForbiddenException('You can only edit your own posts');
     }
 
+    const routeChanged =
+      (dto.loadingCityId !== undefined &&
+        dto.loadingCityId !== post.loadingCityId) ||
+      (dto.unloadingCityId !== undefined &&
+        dto.unloadingCityId !== post.unloadingCityId);
+
+    let newLoadingCity = post.loadingCity;
+    let newUnloadingCity = post.unloadingCity;
+
     if (dto.loadingCityId) {
       const city = await this.citiesService
         .findById(dto.loadingCityId)
@@ -149,6 +183,7 @@ export class CargoPostsService {
           );
         });
       post.loadingLocation = `${city.name}, ${city.country}`;
+      newLoadingCity = city;
     }
     if (dto.unloadingCityId) {
       const city = await this.citiesService
@@ -159,6 +194,7 @@ export class CargoPostsService {
           );
         });
       post.unloadingLocation = `${city.name}, ${city.country}`;
+      newUnloadingCity = city;
     }
 
     if (
@@ -196,6 +232,28 @@ export class CargoPostsService {
 
     Object.assign(post, dto);
     await this.cargoPostRepository.save(post);
+
+    if (routeChanged && newLoadingCity && newUnloadingCity) {
+      try {
+        const route = await this.routingService.getRoute(
+          { lat: newLoadingCity.latitude, lng: newLoadingCity.longitude },
+          { lat: newUnloadingCity.latitude, lng: newUnloadingCity.longitude },
+        );
+        // Always update geometry: set new coordinates or clear stale geometry when ORS failed
+        await this.cargoPostRepository.update(id, {
+          routeGeoJson:
+            route && route.coordinates.length >= 2
+              ? simplifyRouteCoordinates(route.coordinates)
+              : null,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.warn(
+          `Route regeneration failed for cargo post ${id}: ${message}`,
+        );
+      }
+    }
+
     return this.findOne(id);
   }
 

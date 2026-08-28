@@ -63,6 +63,7 @@ export interface CargoPost {
   price?: number;
   note?: string;
   status: string;
+  routeGeoJson?: RouteCoordinate[] | null;
   createdAt: string;
   updatedAt: string;
 }

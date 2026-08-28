@@ -9,9 +9,9 @@
 | /forgot-password       | ForgotPasswordPage     | No     | Request a password reset link (CAPTCHA required) *(Session 20)* |
 | /reset-password        | ResetPasswordPage      | No     | Consumes `?token=` from the reset email link, sets a new password *(Session 20)* |
 | /cargo                 | CargoListPage          | No     | Browse + filter cargo — card-based search UI, each card shows the poster's rating *(Session 22, ratings Session 24)* |
-| /cargo/:id             | CargoDetailPage        | No     | Cargo post details + inline edit (owner only); contact card shows the poster's rating and an "Ocijeni korisnika" action *(Session 24)* |
+| /cargo/:id             | CargoDetailPage        | No     | Cargo post details + inline edit (owner only); route-headline header, sticky map/contact/rating layout via shared `components/detail/` kit *(Session 24 ratings, redesigned Session 26)* |
 | /vehicles              | VehicleListPage        | No     | Browse + filter vehicles — shares the same search UI kit as CargoListPage, cards show the poster's rating *(Session 22, ratings Session 24)* |
-| /vehicles/:id          | VehicleDetailPage      | No     | Vehicle post details + inline edit (owner only); contact card shows the poster's rating and an "Ocijeni korisnika" action *(Session 24)* |
+| /vehicles/:id          | VehicleDetailPage      | No     | Vehicle post details + inline edit (owner only); route-headline header, sticky map/contact/rating layout via shared `components/detail/` kit *(Session 24 ratings, redesigned Session 26)* |
 | /dashboard             | DashboardPage          | Yes    | User home + quick links |
 | /company               | CompanyProfilePage     | Yes    | Create/edit company     |
 | /cargo/new             | CreateCargoPostPage    | Yes    | Post new cargo          |

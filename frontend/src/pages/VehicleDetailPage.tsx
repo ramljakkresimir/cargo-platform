@@ -1,18 +1,17 @@
-import { useState, useEffect, FormEvent } from 'react';
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { useState, useEffect, FormEvent, useMemo } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { vehiclePostsService } from '../services/vehiclePosts.service';
 import { ratingsService } from '../services/ratings.service';
-import { VehiclePost, VehiclePostRouteCity, City, RatingSummary } from '../types';
+import { VehiclePost, City, RatingSummary } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
 import { extractErrorMessage } from '../utils/errorUtils';
 import CityAutocomplete from '../components/CityAutocomplete';
-import RouteMap from '../components/RouteMap';
-import StatusBadge from '../components/StatusBadge';
-import RatingStars from '../components/RatingStars';
-import RatingPicker from '../components/RatingPicker';
-import { VEHICLE_TYPES, vehicleTypeLabel, companyTypeLabel } from '../constants/postTypes';
-import { formatDate } from '../utils/dateUtils';
+import DetailView from '../components/detail/DetailView';
+import { DetailData } from '../components/detail/types';
+import { useCityDistances, pairKey } from '../hooks/useCityDistances';
+import { VEHICLE_TYPES, vehicleTypeLabel } from '../constants/postTypes';
+import { formatDate, formatPostedAtShort } from '../utils/dateUtils';
 
 const STATUSES = [
   { value: 'active', label: 'Aktivno' },
@@ -219,36 +218,81 @@ export default function VehicleDetailPage() {
     }
   };
 
+  const distancePairs = useMemo(
+    () =>
+      post?.originCityId && post?.destinationCityId
+        ? [{ fromCityId: post.originCityId, toCityId: post.destinationCityId }]
+        : [],
+    [post],
+  );
+  const distances = useCityDistances(distancePairs);
+  const distanceKm =
+    post?.originCityId && post?.destinationCityId
+      ? distances.get(pairKey(post.originCityId, post.destinationCityId)) ?? null
+      : null;
+
+  const STATUS_LABELS: Record<string, string> = { active: 'Aktivno', closed: 'Zatvoreno', expired: 'Isteklo' };
+
+  const detailData: DetailData | null = post
+    ? {
+        mode: 'vehicle',
+        accent: 'blue',
+        modeLabel: 'Vozilo',
+        status: post.status,
+        statusLabel: STATUS_LABELS[post.status] ?? post.status,
+        originLabel: originLabel(post),
+        originSubLabel: `Dostupno od ${formatDate(post.availableFromDate)}`,
+        destinationLabel: destLabel(post),
+        destinationSubLabel: 'Željeno odredište',
+        connectorMidLabel: vehicleTypeLabel(post.vehicleType),
+        distanceKm,
+        factTiles: [
+          { label: 'Vrsta vozila', value: vehicleTypeLabel(post.vehicleType) },
+          { label: 'Kapacitet', value: post.capacity ? `${post.capacity} t` : '—' },
+          { label: 'Dostupno od', value: formatDate(post.availableFromDate) },
+          { label: 'Objavljeno', value: formatPostedAtShort(post.createdAt) },
+        ],
+        notesTitle: 'Napomene prijevoznika',
+        notesBody: post.note,
+        chips: [],
+        routeCities: (post.routeCities ?? []).map((rc) => ({
+          id: rc.id,
+          name: rc.city?.name ?? '…',
+          country: rc.city?.country,
+        })),
+        routeGeoJson: post.routeGeoJson,
+        hasDestinationCity: Boolean(post.destinationCity),
+        routeExplainerLine: 'Utovar i istovar mogući u bilo kojem gradu na ruti — dogovor s prijevoznikom.',
+        company: post.company,
+        ratingSummary,
+        isOwner,
+        isLoggedIn: Boolean(user),
+        ownerActions: isOwner
+          ? {
+              onEdit: startEditing,
+              onClose: post.status === 'active' ? handleClose : undefined,
+              closeLoading,
+              onDelete: handleDelete,
+            }
+          : undefined,
+        myScore,
+        onRate: handleRate,
+        ratingSubmitting,
+        ratingError,
+        onContact: handleContact,
+        mobileSummaryPrimary: `${vehicleTypeLabel(post.vehicleType)}${post.capacity ? ` · ${post.capacity} t` : ''}`,
+        mobileSummarySecondary: `${originLabel(post)} → ${destLabel(post)}`,
+      }
+    : null;
+
   if (loading) return <div className="page-container"><p className="loading">Učitavanje...</p></div>;
   if (error) return <div className="page-container"><div className="alert alert-error">{error}</div></div>;
-  if (!post) return null;
+  if (!post || !detailData) return null;
 
-  return (
-    <div className="page-container">
-      <div className="page-header">
-        <div>
-          <Link to="/vehicles" className="back-link">← Natrag na vozila</Link>
-          <div className="detail-title-row">
-            <h1>{vehicleTypeLabel(post.vehicleType)} — {originLabel(post)}</h1>
-            <StatusBadge status={post.status} />
-          </div>
-        </div>
-        {isOwner && !isEditing && (
-          <div className="action-buttons">
-            {post.status === 'active' && (
-              <button className="btn-secondary" onClick={handleClose} disabled={closeLoading}>
-                {closeLoading ? 'Zatvaranje...' : 'Zatvori oglas'}
-              </button>
-            )}
-            <button className="btn-secondary" onClick={startEditing}>Uredi</button>
-            <button className="btn-danger" onClick={handleDelete}>Obriši</button>
-          </div>
-        )}
-      </div>
-
-      {saveSuccess && <div className="alert alert-success">{saveSuccess}</div>}
-
-      {isEditing ? (
+  if (isEditing) {
+    return (
+      <div className="page-container">
+        {saveSuccess && <div className="alert alert-success">{saveSuccess}</div>}
         <div className="form-card">
           <h2>Uredi oglas vozila</h2>
           {saveError && <div className="alert alert-error">{saveError}</div>}
@@ -336,98 +380,14 @@ export default function VehicleDetailPage() {
             </div>
           </form>
         </div>
-      ) : (
-        <div className="detail-layout">
-          <div className="detail-card">
-            <h2>Podaci o vozilu</h2>
-            <div className="detail-grid">
-              <div><span className="label">Vrsta vozila</span><p>{vehicleTypeLabel(post.vehicleType)}</p></div>
-              <div><span className="label">Trenutna lokacija</span><p>{originLabel(post)}</p></div>
-              <div><span className="label">Dostupno od</span><p>{formatDate(post.availableFromDate)}</p></div>
-              <div><span className="label">Kapacitet</span><p>{post.capacity ? `${post.capacity} t` : '—'}</p></div>
-              <div><span className="label">Željeno odredište</span><p>{destLabel(post)}</p></div>
-            </div>
-            {post.note && (
-              <div className="detail-note">
-                <span className="label">Napomene</span>
-                <p>{post.note}</p>
-              </div>
-            )}
-          </div>
+      </div>
+    );
+  }
 
-          {post.company && (
-            <div className="detail-card" id="kontakt">
-              <h2>Kontakt / Tvrtka</h2>
-              <div className="detail-grid">
-                <div><span className="label">Tvrtka</span><p>{post.company.companyName}</p></div>
-                <div><span className="label">Vrsta</span><p>{companyTypeLabel(post.company.companyType)}</p></div>
-                <div><span className="label">Lokacija</span><p>{post.company.city}, {post.company.country}</p></div>
-                {post.company.phone && <div><span className="label">Telefon</span><p>{post.company.phone}</p></div>}
-                {post.company.email && <div><span className="label">E-mail</span><p>{post.company.email}</p></div>}
-              </div>
-              {ratingSummary && (
-                <div className="detail-card-rating">
-                  <RatingStars average={ratingSummary.average} count={ratingSummary.count} />
-                </div>
-              )}
-              {!isOwner && (
-                <div className="detail-card-action">
-                  <button type="button" className="btn-primary" onClick={handleContact}>
-                    Pošalji poruku
-                  </button>
-                </div>
-              )}
-              {!isOwner && user && (
-                <div className="rating-inline-picker">
-                  <RatingPicker value={myScore} onChange={handleRate} disabled={ratingSubmitting} />
-                  <span className="rating-picker-label">
-                    {myScore > 0 ? `Vaša ocjena: ${myScore}/5` : 'Ocijeni korisnika'}
-                  </span>
-                </div>
-              )}
-              {ratingError && <div className="alert alert-error">{ratingError}</div>}
-            </div>
-          )}
-
-          {post.routeCities && post.routeCities.length > 0 && (
-            <div className="detail-card">
-              <h2>Gradovi na ruti</h2>
-              <p className="route-cities-hint">
-                Gradovi unutar 15 km od rute ovog vozila, prema redoslijedu
-              </p>
-              <div className="route-city-chips">
-                {post.routeCities.map((rc: VehiclePostRouteCity, i: number) => (
-                  <span
-                    key={rc.id}
-                    className={`route-city-chip${i === 0 || i === post.routeCities!.length - 1 ? ' endpoint' : ''}`}
-                  >
-                    {rc.city?.name ?? '…'}
-                    <span className="route-city-chip-country">{rc.city?.country}</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="detail-card">
-            <h2>Karta rute</h2>
-            {post.routeGeoJson && post.routeGeoJson.length >= 2 ? (
-              <RouteMap
-                coordinates={post.routeGeoJson}
-                originName={originLabel(post)}
-                destinationName={post.destinationCity?.name ? destLabel(post) : undefined}
-              />
-            ) : (
-              <div className="route-map-unavailable">
-                Karta rute nije dostupna za ovaj oglas.
-                {!post.destinationCity && (
-                  <span> Postavite odredišni grad kako biste omogućili prikaz rute.</span>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+  return (
+    <>
+      {saveSuccess && <div className="alert alert-success detail-save-toast">{saveSuccess}</div>}
+      <DetailView data={detailData} backHref="/vehicles" backLabel="Natrag na vozila" />
+    </>
   );
 }

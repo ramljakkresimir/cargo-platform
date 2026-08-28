@@ -76,6 +76,7 @@ Unique constraint on `(name, country)`. Seeded via `npm run seed:cities`.
 | price               | float     | nullable, in EUR                       |
 | note                | text      | nullable                               |
 | status              | varchar   | active / closed / expired              |
+| routeGeoJson        | jsonb     | nullable — `[{lat,lng}]` driving route from ORS between loadingCity/unloadingCity (Session 26). No cities-on-route table for cargo — that matching tooling is vehicle-specific |
 | createdAt           | timestamp |                                        |
 | updatedAt           | timestamp |                                        |
 

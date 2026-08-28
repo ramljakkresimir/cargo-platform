@@ -1114,7 +1114,8 @@ button, input, select, textarea { font-family: inherit; }
 .search-filter-card.accent-blue,
 .search-chips-scroll.accent-blue,
 .search-sheet-backdrop.accent-blue,
-.search-result-card.accent-blue {
+.search-result-card.accent-blue,
+.detail-page.accent-blue {
   --search-accent: #1a5fd0;
   --search-accent-tint: #e8f0fd;
 }
@@ -1122,7 +1123,8 @@ button, input, select, textarea { font-family: inherit; }
 .search-filter-card.accent-teal,
 .search-chips-scroll.accent-teal,
 .search-sheet-backdrop.accent-teal,
-.search-result-card.accent-teal {
+.search-result-card.accent-teal,
+.detail-page.accent-teal {
   --search-accent: #0f6b60;
   --search-accent-tint: #dcf1ef;
 }
@@ -1593,7 +1595,10 @@ button, input, select, textarea { font-family: inherit; }
   .post-card-actions { justify-content: flex-start; }
   .page-header { flex-direction: column; }
   .page-header .action-buttons { width: 100%; }
-  .nav-dropdown-panel { position: fixed; left: 16px; right: 16px; min-width: 0; }
+  /* Stay absolute (anchored below the trigger) rather than switching to fixed —
+     fixed here resolved `top: calc(100% + 8px)` against the viewport height
+     instead of the trigger, sending the panel to the bottom of the screen. */
+  .nav-dropdown-panel { min-width: 0; max-width: calc(100vw - 32px); }
 }
 
 /* ── Home page redesign — mobile (<768px) ────────────────────────── */
@@ -1732,6 +1737,412 @@ button, input, select, textarea { font-family: inherit; }
   .src-price { font-size: 19px; }
   .src-footer-actions { width: 100%; }
   .src-footer-actions .src-btn { flex: 1; height: 46px; border-radius: 11px; }
+}
+
+/* ── Screen-reader-only utility ───────────────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Detail pages (Vehicle & Cargo) ───────────────────────────────────
+   Shared by VehicleDetailPage/CargoDetailPage via DetailView and the
+   components in components/detail/. Reuses the same --search-accent /
+   --search-accent-tint tokens as the search pages (set on .detail-page
+   .accent-blue/.accent-teal above), inherited by every descendant here. ── */
+.detail-page {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 44px 56px;
+  font-family: 'Source Sans 3', var(--font-sans), system-ui, sans-serif;
+}
+.detail-save-toast { max-width: 1200px; margin: 0 auto 16px; }
+
+.detail-page .back-link { display: inline-block; margin-bottom: 14px; }
+
+.detail-card {
+  background: #fff;
+  border-radius: 18px;
+  padding: 26px 28px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+.detail-card-title { font-size: 19px; font-weight: 700; color: #14161a; margin: 0; }
+
+/* Header card */
+.detail-header-card { border-top: 3px solid var(--search-accent); }
+.detail-pills-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.detail-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+.detail-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: #f3f1ec;
+  color: #4a4f57;
+  white-space: nowrap;
+}
+.detail-pill.mode { background: var(--search-accent-tint); color: var(--search-accent); }
+.detail-pill.accent { background: #dcf1ef; color: #0f6b60; }
+.detail-pill.status-active { background: #eaf6ee; color: #1c7a45; }
+.detail-pill.status-closed, .detail-pill.status-expired { background: #f3f1ec; color: #4a4f57; }
+
+.detail-header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.detail-header-actions-desktop { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.detail-header-actions-mobile { display: none; }
+.detail-header-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: #14161a;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.detail-header-btn:hover { background: #faf8f4; }
+.detail-header-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.detail-header-btn.danger { color: #dc2626; border-color: #fecaca; }
+.detail-header-btn.danger:hover { background: #fef2f2; }
+.detail-header-more-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  color: #14161a;
+  cursor: pointer;
+}
+.detail-header-more-trigger:hover { background: #faf8f4; }
+
+.detail-route-headline { display: flex; align-items: flex-start; gap: 20px; margin-top: 22px; flex-wrap: wrap; }
+.detail-route-side { display: flex; flex-direction: column; min-width: 0; }
+.detail-route-side.right { align-items: flex-end; text-align: right; }
+.detail-route-city { font-size: 32px; font-weight: 700; color: #14161a; letter-spacing: -0.01em; margin: 0; line-height: 1.15; }
+.detail-route-subline { font-size: 14px; color: #6b7078; margin: 6px 0 0; }
+.detail-route-connector { display: flex; flex-direction: column; align-items: center; min-width: 120px; flex-shrink: 0; padding-top: 8px; }
+.detail-route-distance { font-size: 13px; font-weight: 600; color: #4a4f57; white-space: nowrap; }
+.detail-route-connector-line {
+  width: 100%;
+  height: 1px;
+  margin: 8px 0;
+  background-image: repeating-linear-gradient(90deg, #c9ccd2 0 6px, transparent 6px 12px);
+}
+.detail-route-connector-mid { font-size: 13px; color: #6b7078; white-space: nowrap; }
+
+.detail-fact-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+.detail-fact-tile {
+  background: #faf8f4;
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.detail-fact-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8b9098;
+}
+.detail-fact-value { font-size: 17px; font-weight: 700; color: #14161a; font-variant-numeric: tabular-nums; }
+
+/* Body grid — map/notes/contact/rating placed by name, order differs per breakpoint */
+.detail-body { display: grid; gap: 22px; margin-top: 22px; }
+.detail-map-card { grid-area: map; }
+.detail-notes-card { grid-area: notes; }
+.detail-contact-card { grid-area: contact; }
+.detail-rating-card { grid-area: rating; }
+
+@media (min-width: 1024px) {
+  .detail-body {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-areas: "map contact" "notes rating";
+    align-items: start;
+  }
+  .detail-contact-card, .detail-rating-card { position: sticky; top: 16px; }
+}
+
+/* Map card */
+.detail-map-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.detail-map-subtitle { font-size: 14px; color: #6b7078; margin: 6px 0 0; }
+.detail-map-open-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--search-accent);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: right;
+}
+.detail-map-open-link:hover { text-decoration: underline; }
+
+.detail-map-card { overflow: hidden; }
+.detail-map-frame { margin: 18px -28px 0; }
+.detail-map-frame .route-map { height: 300px; border-radius: 0; }
+.detail-map-card .route-map-unavailable { margin-top: 18px; }
+
+.detail-stepper-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(0, 0, 0, 0.08); }
+.detail-stepper-header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.detail-stepper-header h3 { font-size: 15.5px; margin: 0; }
+.detail-stepper-hint { font-size: 13px; color: #6b7078; white-space: nowrap; }
+
+.detail-stepper { display: flex; align-items: center; }
+.detail-stepper-item { display: flex; align-items: center; flex: 1; min-width: 0; }
+.detail-stepper-connector { flex: 1; height: 2px; margin: 0 6px; background: #c9ccd2; min-width: 12px; }
+.detail-stepper-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.detail-stepper-dot { width: 8px; height: 8px; border-radius: 50%; background: #c9ccd2; }
+.detail-stepper-node.start .detail-stepper-dot { width: 12px; height: 12px; background: #1c7a45; }
+.detail-stepper-node.end .detail-stepper-dot { width: 12px; height: 12px; background: #c0392b; }
+.detail-stepper-label { font-size: 12.5px; color: #6b7078; white-space: nowrap; }
+.detail-stepper-node.endpoint .detail-stepper-label { font-size: 13px; font-weight: 700; color: #14161a; }
+
+.detail-stepper-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 999px;
+  background: var(--search-accent-tint);
+  color: var(--search-accent);
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.detail-stepper-more:hover { opacity: 0.85; }
+.detail-stepper-more-chevron { transition: transform 0.2s ease; }
+.detail-stepper-more-chevron.open { transform: rotate(180deg); }
+
+.detail-route-explainer { font-size: 13.5px; color: #6b7078; margin: 16px 0 0; line-height: 1.5; }
+
+/* Expanded "Gradovi na ruti" full list — a grid-rows transition (no JS height
+   measurement needed) revealing a multi-column grid of every city in route order. */
+.detail-cities-expand {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+.detail-cities-expand.open { grid-template-rows: 1fr; }
+.detail-cities-expand-inner { overflow: hidden; min-height: 0; }
+.detail-cities-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px 20px;
+  padding-top: 16px;
+}
+.detail-cities-grid-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #4a4f57; min-width: 0; }
+.detail-cities-grid-dot { width: 6px; height: 6px; border-radius: 50%; background: #c9ccd2; flex-shrink: 0; }
+.detail-cities-grid-item.endpoint { font-weight: 700; color: #14161a; }
+.detail-cities-grid-item.endpoint .detail-cities-grid-dot { width: 10px; height: 10px; }
+.detail-cities-grid-item.start .detail-cities-grid-dot { background: #1c7a45; }
+.detail-cities-grid-item.end .detail-cities-grid-dot { background: #c0392b; }
+.detail-cities-grid-country { font-weight: 400; color: #8b9098; }
+.detail-cities-grid-item.endpoint .detail-cities-grid-country { color: #6b7078; }
+
+.detail-map-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 22, 26, 0.5);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.detail-map-modal {
+  background: #fff;
+  border-radius: 18px;
+  width: 100%;
+  max-width: 960px;
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.detail-map-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; flex-shrink: 0; }
+.detail-map-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: none;
+  background: none;
+  color: #6b7078;
+  cursor: pointer;
+}
+.detail-map-modal-close:hover { background: #faf8f4; color: #14161a; }
+.detail-map-modal-frame { flex: 1; min-height: 0; }
+.detail-map-modal-frame .route-map { height: 560px; max-height: calc(100vh - 140px); border-radius: 0; }
+
+/* Notes card */
+.detail-notes-body { font-size: 15.5px; line-height: 1.6; color: #4a4f57; margin: 0; white-space: pre-wrap; }
+.detail-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.detail-chip {
+  padding: 6px 13px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: #f3f1ec;
+  color: #4a4f57;
+  white-space: nowrap;
+}
+.detail-chip.accent { background: #dcf1ef; color: #0f6b60; }
+
+/* Contact card */
+.detail-price-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.detail-price-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #8b9098; }
+.detail-price-value { font-size: 32px; font-weight: 700; color: #14161a; margin-top: 4px; }
+.detail-price-sublabel { font-size: 13px; color: #6b7078; margin-top: 4px; white-space: nowrap; }
+.detail-contact-divider { height: 1px; background: rgba(0, 0, 0, 0.08); margin: 20px 0; }
+
+.detail-company-row { display: flex; align-items: center; gap: 12px; }
+.detail-company-avatar { width: 46px; height: 46px; border-radius: 12px; font-size: 14.5px; flex-shrink: 0; }
+.detail-company-name { font-size: 17px; font-weight: 700; color: #14161a; }
+.detail-company-type { font-size: 13px; color: #6b7078; margin-top: 1px; }
+.detail-rating-row { margin-top: 12px; }
+
+.detail-contact-fields { display: flex; flex-direction: column; gap: 14px; }
+.detail-contact-field { display: flex; flex-direction: column; gap: 4px; }
+.detail-contact-value { font-size: 15px; color: #14161a; }
+.detail-contact-value.link { color: var(--search-accent); }
+.detail-contact-value.link:hover { text-decoration: underline; }
+.detail-contact-value.breakable { word-break: break-word; }
+
+.detail-contact-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 48px;
+  margin-top: 22px;
+  border: none;
+  border-radius: 12px;
+  background: var(--search-accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.detail-contact-primary:hover { opacity: 0.92; }
+.detail-contact-response-note { font-size: 13px; color: #6b7078; text-align: center; margin: 12px 0 0; }
+
+/* Rating card */
+.detail-rating-card-row { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+.detail-rating-card-score { font-size: 14px; font-weight: 600; color: #14161a; }
+.detail-rating-card-hint { font-size: 13px; color: #6b7078; margin: 12px 0 0; }
+
+/* Mobile sticky action bar (<768px only) */
+.detail-mobile-bar {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 120;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 10px 18px 14px;
+}
+.detail-mobile-bar-summary { display: flex; flex-direction: column; min-width: 0; }
+.detail-mobile-bar-primary { font-size: 17px; font-weight: 700; color: #14161a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.detail-mobile-bar-secondary { font-size: 12.5px; color: #6b7078; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.detail-mobile-bar-btn {
+  flex-shrink: 0;
+  height: 46px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 11px;
+  background: var(--search-accent);
+  color: #fff;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ── Tablet (768–1023px): single column, non-sticky contact after the map ── */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .detail-body { grid-template-columns: 1fr; grid-template-areas: "map" "contact" "notes" "rating"; }
+}
+
+/* ── Mobile (<768px) ──────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .detail-page { padding: 16px 18px 24px; }
+  .detail-page.has-mobile-bar { padding-bottom: 96px; }
+  .detail-card { border-radius: 16px; padding: 18px; }
+
+  .detail-header-actions-desktop { display: none; }
+  .detail-header-actions-mobile { display: block; }
+
+  .detail-route-headline { flex-direction: column; align-items: stretch; gap: 0; margin-top: 18px; }
+  .detail-route-city { font-size: 24px; }
+  .detail-route-connector { flex-direction: row; min-width: 0; width: 100%; margin: 10px 0; padding-top: 0; }
+  .detail-route-connector-line { flex: 1; width: auto; margin: 0 8px; }
+  .detail-route-side.right { align-items: flex-start; text-align: left; }
+
+  .detail-fact-tiles { grid-template-columns: 1fr 1fr; margin-top: 18px; padding-top: 18px; }
+  .detail-fact-value { font-size: 16px; }
+
+  .detail-body { grid-template-columns: 1fr; grid-template-areas: "contact" "map" "notes" "rating"; gap: 14px; margin-top: 14px; }
+
+  .detail-map-frame { margin: 14px -18px 0; }
+  .detail-map-frame .route-map { height: 200px; }
+  .detail-stepper { flex-direction: column; align-items: stretch; }
+  .detail-stepper-item { flex-direction: column; align-items: stretch; flex: 0 0 auto; }
+  .detail-stepper-node { flex-direction: row; align-items: center; gap: 10px; padding: 3px 0; }
+  .detail-stepper-more { align-self: flex-start; }
+  .detail-stepper-connector { width: 2px; height: 16px; margin: 0 0 0 3px; }
+
+  .detail-cities-grid { grid-template-columns: repeat(2, 1fr); }
+
+  .detail-contact-primary { height: 46px; }
+
+  .detail-mobile-bar { display: flex; }
 }
 
 /* ── Messaging (Razgovori) — navbar badge, chat drawer, conversations list ─── */

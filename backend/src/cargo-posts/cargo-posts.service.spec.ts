@@ -3,10 +3,17 @@ import { Repository } from 'typeorm';
 import { CargoPostsService } from './cargo-posts.service';
 import { CargoPost } from './cargo-post.entity';
 import { CitiesService } from '../cities/cities.service';
+import { RoutingService } from '../routing/routing.service';
 import { PostStatus } from '../common/enums/post-status.enum';
 
-type MockRepo = { findOne: jest.Mock; save: jest.Mock; create: jest.Mock };
+type MockRepo = {
+  findOne: jest.Mock;
+  save: jest.Mock;
+  create: jest.Mock;
+  update: jest.Mock;
+};
 type MockCitiesService = { findById: jest.Mock };
+type MockRoutingService = { getRoute: jest.Mock };
 
 function localDateString(offsetDays = 0): string {
   const d = new Date();
@@ -22,6 +29,7 @@ describe('CargoPostsService', () => {
   let service: CargoPostsService;
   let repo: MockRepo;
   let citiesService: MockCitiesService;
+  let routingService: MockRoutingService;
 
   const companyId = 'company-1';
 
@@ -42,15 +50,22 @@ describe('CargoPostsService', () => {
       findOne: jest.fn(),
       save: jest.fn((p: unknown) => Promise.resolve(p)),
       create: jest.fn((p: unknown) => p),
+      update: jest.fn(),
     };
     citiesService = {
-      findById: jest
-        .fn()
-        .mockResolvedValue({ id: 'city-a', name: 'Sarajevo', country: 'BA' }),
+      findById: jest.fn().mockResolvedValue({
+        id: 'city-a',
+        name: 'Sarajevo',
+        country: 'BA',
+        latitude: 43.8563,
+        longitude: 18.4131,
+      }),
     };
+    routingService = { getRoute: jest.fn().mockResolvedValue(null) };
     service = new CargoPostsService(
       repo as unknown as Repository<CargoPost>,
       citiesService as unknown as CitiesService,
+      routingService as unknown as RoutingService,
     );
   });
 

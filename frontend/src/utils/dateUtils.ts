@@ -16,19 +16,38 @@ export function addDaysLocalDateString(dateStr: string, days: number): string {
   return toLocalDateString(new Date(y, m - 1, d + days));
 }
 
-// "Objavljeno danas u 09:14" / "Objavljeno jučer" / "Objavljeno 26. kol 2026." for anything older.
-export function formatPostedAt(createdAt: string): string {
+function daysSince(createdAt: string): number {
   const created = new Date(createdAt);
   const now = new Date();
   const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  const diffDays = Math.round((startOfDay(now) - startOfDay(created)) / 86_400_000);
+  return Math.round((startOfDay(now) - startOfDay(created)) / 86_400_000);
+}
+
+// "Objavljeno danas u 09:14" / "Objavljeno jučer" / "Objavljeno 26. kol 2026." for anything older.
+export function formatPostedAt(createdAt: string): string {
+  const diffDays = daysSince(createdAt);
 
   if (diffDays === 0) {
-    const time = created.toLocaleTimeString('hr-HR', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const time = new Date(createdAt).toLocaleTimeString('hr-HR', { hour: '2-digit', minute: '2-digit', hour12: false });
     return `Objavljeno danas u ${time}`;
   }
   if (diffDays === 1) {
     return 'Objavljeno jučer';
   }
   return `Objavljeno ${formatDate(createdAt)}`;
+}
+
+// "Danas, 09:14" / "Jučer" / "26. kol 2026." — same day math as formatPostedAt, without the
+// "Objavljeno" prefix, for use next to a micro-label that already says "OBJAVLJENO".
+export function formatPostedAtShort(createdAt: string): string {
+  const diffDays = daysSince(createdAt);
+
+  if (diffDays === 0) {
+    const time = new Date(createdAt).toLocaleTimeString('hr-HR', { hour: '2-digit', minute: '2-digit', hour12: false });
+    return `Danas, ${time}`;
+  }
+  if (diffDays === 1) {
+    return 'Jučer';
+  }
+  return formatDate(createdAt);
 }

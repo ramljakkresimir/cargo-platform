@@ -8,11 +8,11 @@ import { ConfigService } from '@nestjs/config';
 // this file uses, and it broke ts-jest when the app module tree loaded under test.
 import { point, lineString } from '@turf/helpers';
 import nearestPointOnLine from '@turf/nearest-point-on-line';
-import simplify from '@turf/simplify';
 import { VehiclePostRouteCity } from './vehicle-post-route-city.entity';
 import { City } from '../cities/city.entity';
 import { RoutingService } from './routing.service';
 import { Coordinate } from './openroute.service';
+import { simplifyRouteCoordinates } from './simplify-route';
 
 export interface GenerateResult {
   routeCities: VehiclePostRouteCity[];
@@ -71,7 +71,7 @@ export class RouteCityService {
         // ordering, but store a simplified polyline — the map doesn't need thousands of
         // points per route, and it's shipped on every detail-page request.
         rows = await this.projectCitiesOntoRoute(route.coordinates, maxDistKm);
-        routeCoordinates = this.simplifyRouteCoordinates(route.coordinates);
+        routeCoordinates = simplifyRouteCoordinates(route.coordinates);
       } else {
         // Fallback: origin + destination only; no route geometry
         this.logger.warn(
@@ -106,15 +106,6 @@ export class RouteCityService {
     );
 
     return { routeCities, routeCoordinates };
-  }
-
-  private simplifyRouteCoordinates(coordinates: Coordinate[]): Coordinate[] {
-    if (coordinates.length <= 2) return coordinates;
-    const line = lineString(coordinates.map((c) => [c.lng, c.lat]));
-    // Tolerance is in degrees; ~0.001° is roughly 100m at these latitudes — visually
-    // identical to the full-resolution driving polyline at any map zoom level users view.
-    const simplified = simplify(line, { tolerance: 0.001, highQuality: true });
-    return simplified.geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
   }
 
   private async projectCitiesOntoRoute(
