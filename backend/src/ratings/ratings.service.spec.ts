@@ -201,9 +201,7 @@ describe('RatingsService', () => {
     it('returns the exact score for a single rating', async () => {
       ratingRepo.createQueryBuilder.mockReturnValue(
         makeQueryBuilderMock({
-          getRawOne: jest
-            .fn()
-            .mockResolvedValue({ average: '4', count: '1' }),
+          getRawOne: jest.fn().mockResolvedValue({ average: '4', count: '1' }),
         }),
       );
 
@@ -233,9 +231,7 @@ describe('RatingsService', () => {
         makeQueryBuilderMock({
           getRawMany: jest
             .fn()
-            .mockResolvedValue([
-              { userId: userOne, average: '5', count: '2' },
-            ]),
+            .mockResolvedValue([{ userId: userOne, average: '5', count: '2' }]),
         }),
       );
 

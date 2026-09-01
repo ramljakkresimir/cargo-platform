@@ -144,7 +144,11 @@ export class RatingsService {
     const byId = new Map(
       rows.map((r) => [
         r.userId,
-        { userId: r.userId, average: Number(r.average), count: Number(r.count) },
+        {
+          userId: r.userId,
+          average: Number(r.average),
+          count: Number(r.count),
+        },
       ]),
     );
 
