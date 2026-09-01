@@ -94,7 +94,16 @@ import { AppService } from './app.service';
         username: config.get<string>('DATABASE_USER'),
         password: config.get<string>('DATABASE_PASSWORD'),
         database: config.get<string>('DATABASE_NAME'),
+
+        schema: 'public',
+
+        ssl:
+          config.get<string>('DATABASE_SSL') === 'true'
+            ? { rejectUnauthorized: false }
+            : false,
+
         entities,
+
         synchronize: config.get<string>('NODE_ENV') !== 'production',
       }),
     }),
