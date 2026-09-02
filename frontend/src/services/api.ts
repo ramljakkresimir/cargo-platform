@@ -2,7 +2,9 @@ import axios from 'axios';
 
 // Central axios instance used by all service files
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:3000',
+  // Trailing slash trimmed so a value like "https://api.example.com/" can't produce
+  // double-slash request URLs ("https://api.example.com//auth/login").
+  baseURL: (import.meta.env.VITE_API_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),
   headers: { 'Content-Type': 'application/json' },
 });
 
