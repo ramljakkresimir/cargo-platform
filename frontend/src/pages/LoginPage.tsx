@@ -51,7 +51,7 @@ export default function LoginPage() {
       });
       const { access_token, user } = response.data;
       login(access_token, user);
-      navigate('/dashboard');
+      navigate('/');
     } catch (err) {
       const msg = extractErrorMessage(err, 'Prijava nije uspjela. Pokušajte ponovo.');
       if (msg.toLowerCase().includes('captcha')) {

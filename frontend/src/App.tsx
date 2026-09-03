@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ChatProvider } from './context/ChatContext';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 
@@ -89,6 +90,7 @@ export default function App() {
               } />
             </Routes>
           </main>
+          <Footer />
         </ChatProvider>
       </BrowserRouter>
     </AuthProvider>

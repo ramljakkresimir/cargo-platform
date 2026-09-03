@@ -37,7 +37,7 @@ export default function DetailView({ data, backHref, backLabel }: Props) {
         ownerActions={data.ownerActions}
       />
 
-      <div className={`detail-body${showMobileBar ? ' has-mobile-bar' : ''}`}>
+      <div className="detail-body">
         <RouteMapCard
           originLabel={data.originLabel}
           destinationLabel={data.destinationLabel}

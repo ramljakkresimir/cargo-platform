@@ -73,6 +73,11 @@
 
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   --navbar-height: 68px;
+
+  /* Height of the fixed mobile action bars — .search-mobile-cta-bar (~77px) and
+     .detail-mobile-bar (~71px). One shared constant so the bottom-clearance that keeps
+     page content and the footer out from under those bars isn't a duplicated magic number. */
+  --mobile-action-bar-height: 80px;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -281,6 +286,106 @@ button, input, select, textarea { font-family: inherit; }
 }
 .mobile-drawer {
   display: none;
+}
+
+/* ── Site footer ──────────────────────────────────────────────────── */
+.site-footer {
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border); /* bookends the navbar's border-bottom */
+}
+.site-footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 32px 28px; /* 32px horizontal matches the navbar */
+}
+.site-footer-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr));
+  gap: 32px 48px;
+}
+.site-footer-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.site-footer-wordmark {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+.site-footer-desc {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  max-width: 44ch;
+}
+.site-footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.site-footer-col-title { /* overrides the global h2 */
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-label);
+  margin-bottom: 4px;
+}
+.site-footer-links {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.site-footer-link { /* shared by <Link> and the non-navigating <button> placeholders */
+  display: inline-block;
+  width: fit-content;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1.5;
+  text-align: left;
+  text-decoration: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.site-footer-link:hover {
+  color: var(--color-text-primary);
+  text-decoration: underline;
+}
+.site-footer-bottom {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-divider);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 860px) { /* matches the navbar collapse breakpoint */
+  .site-footer-inner { padding: 32px 16px 24px; }
+  .site-footer-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 28px 24px;
+  }
+  .site-footer-brand { grid-column: 1 / -1; } /* brand spans full width, above the columns */
+}
+/* Clear the fixed .detail-mobile-bar (shown <=767px) so the footer's own content isn't
+   hidden behind it. Scoped with :has() so the padding is added only when that bar is
+   actually rendered — DetailView omits it for a listing's owner. */
+@media (max-width: 767px) {
+  #root:has(.detail-mobile-bar) .site-footer {
+    padding-bottom: calc(var(--mobile-action-bar-height) + var(--space-4));
+  }
+}
+@media (max-width: 639px) {
+  .site-footer-grid { grid-template-columns: 1fr; gap: 24px; }
+  /* Same idea for the fixed .search-mobile-cta-bar (shown <=639px). */
+  #root:has(.search-mobile-cta-bar) .site-footer {
+    padding-bottom: calc(var(--mobile-action-bar-height) + var(--space-4));
+  }
 }
 
 /* ── Buttons ──────────────────────────────────────────────────────── */
@@ -1643,7 +1748,9 @@ button, input, select, textarea { font-family: inherit; }
 
 /* ── Search / listing pages — mobile (<640px) ────────────────────── */
 @media (max-width: 639px) {
-  .search-page { padding: 22px 18px 28px; padding-bottom: 100px; }
+  /* Bottom clearance for the fixed .search-mobile-cta-bar is carried by the site
+     footer (see #root:has(.search-mobile-cta-bar) .site-footer). */
+  .search-page { padding: 22px 18px 28px; }
   .search-header-title { font-size: 27px; line-height: 1.15; }
 
   .search-header-actions { display: none; }
@@ -2113,7 +2220,10 @@ button, input, select, textarea { font-family: inherit; }
 /* ── Mobile (<768px) ──────────────────────────────────────────────── */
 @media (max-width: 767px) {
   .detail-page { padding: 16px 18px 24px; }
-  .detail-page.has-mobile-bar { padding-bottom: 96px; }
+  /* Bottom clearance for the fixed .detail-mobile-bar is carried by the site footer
+     (see #root:has(.detail-mobile-bar) .site-footer). The old rule here targeted
+     .detail-page.has-mobile-bar, but that class is set on .detail-body, so it never
+     matched and detail content sat under the bar. */
   .detail-card { border-radius: 16px; padding: 18px; }
 
   .detail-header-actions-desktop { display: none; }
