@@ -692,9 +692,10 @@ button, input, select, textarea { font-family: inherit; }
   inset: 0;
   display: flex;
   align-items: center;
-  padding: 0 72px;
+  padding: 0 96px;
   pointer-events: none;
 }
+.hero-content-container { width: 100%; max-width: 1200px; margin: 0 auto; }
 .hero-content-inner { max-width: 760px; }
 .hero-eyebrow {
   font-size: 12px;
@@ -769,6 +770,164 @@ button, input, select, textarea { font-family: inherit; }
   flex-shrink: 0;
 }
 .step-title { font-size: 19px; line-height: 1.3; font-weight: 700; color: var(--color-text-primary); margin-top: 16px; }
+
+.steps-header { max-width: 1200px; margin: 0 auto 64px; }
+.steps-header h2 {
+  font-size: 36px;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.step-illustration {
+  position: relative;
+  height: 240px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+.step-connector {
+  position: absolute;
+  top: 0;
+  left: calc(50% + 110px);
+  width: calc(100% - 188px);
+  height: 240px;
+  pointer-events: none;
+}
+.step-connector path {
+  fill: none;
+  stroke: var(--color-blue-border-soft);
+  stroke-width: 3;
+  stroke-dasharray: 1 11;
+  stroke-linecap: round;
+}
+
+/* Step 1 — choice rows */
+.step-mock-choice {
+  width: 100%;
+  max-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--color-surface);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  box-shadow: var(--shadow-card);
+}
+.choice-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-md); font-size: 14px; font-weight: 600; color: var(--color-text-primary); }
+.choice-row-icon { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--color-border-strong); flex-shrink: 0; }
+.choice-row-selected { background: var(--color-blue); color: #fff; box-shadow: var(--shadow-hover-blue); }
+.choice-row-dot { width: 14px; height: 14px; border-radius: 50%; background: #fff; flex-shrink: 0; }
+
+/* Step 2 — route card */
+.step-mock-route {
+  position: relative;
+  width: 100%;
+  max-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--color-surface);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+}
+.route-point { display: flex; align-items: center; gap: 10px; }
+.route-marker { width: 14px; height: 14px; flex-shrink: 0; }
+.route-marker-origin { border-radius: 50%; border: 3px solid var(--color-blue); background: #fff; }
+.route-marker-destination { background: var(--color-blue); transform: rotate(45deg); border-radius: 3px 0; }
+.route-connector { width: 0; height: 18px; margin-left: 6px; border-left: 2px dotted var(--color-blue-border-soft); }
+.route-label { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
+.route-placeholder-bar { width: 84px; height: 8px; margin-top: 4px; border-radius: 4px; background: var(--color-chip-bg); }
+.route-placeholder-bar-short { width: 60px; }
+
+/* Step 3 — offer rows */
+.step-mock-offers { position: relative; width: 100%; max-width: 220px; display: flex; flex-direction: column; gap: 10px; }
+.offer-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--radius-md); background: var(--color-surface); border: 1px solid rgba(0, 0, 0, 0.07); box-shadow: var(--shadow-card); }
+.offer-row-icon { width: 28px; height: 28px; border-radius: 50%; background: var(--color-blue-soft); flex-shrink: 0; }
+.offer-price { font-size: 15px; font-weight: 700; color: var(--color-blue); margin-left: auto; }
+.offer-row-selected { background: var(--color-blue); border-color: var(--color-blue); box-shadow: var(--shadow-hover-blue); }
+.offer-row-selected .offer-row-icon { background: rgba(255, 255, 255, 0.25); }
+.offer-row-selected .offer-price { color: #fff; }
+
+.step-chip {
+  position: absolute;
+  background: var(--color-surface);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-card);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  padding: 7px 13px;
+}
+.step-chip-weight { top: -14px; right: -10px; white-space: nowrap; }
+.step-chip-cta { bottom: -14px; left: -10px; white-space: nowrap; }
+
+/* Tablet & mobile — dedicated vertical timeline (shown only via the ≤1023px block below) */
+.steps-mobile-list {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.steps-mobile-item { display: flex; gap: 16px; }
+.steps-mobile-track { display: flex; flex-direction: column; align-items: center; flex: none; width: 36px; }
+.steps-mobile-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-blue-soft);
+  color: var(--color-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.steps-mobile-line {
+  flex: 1;
+  width: 3px;
+  margin-top: 10px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(var(--color-blue-border-soft) 0 4px, transparent 4px 11px);
+}
+.steps-mobile-content { flex: 1; padding-bottom: 32px; }
+.steps-mobile-title { font-size: 19px; line-height: 1.3; font-weight: 700; color: var(--color-text-primary); margin: 0 0 14px; }
+.steps-mobile-cta-button {
+  margin-top: 6px;
+  background: #14161a;
+  border-radius: var(--radius-pill);
+  padding: 15px 20px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* ── How it works — tablet & mobile (<1024px), dedicated timeline design ──
+   Note: .steps-section's own horizontal padding intentionally stays on the
+   shared 768px breakpoint (see the home page redesign mobile block below) so
+   its left edge keeps matching .hero-content/.recent-listings-section at
+   tablet widths (769–1023px) — only the grid↔timeline layout switch uses the
+   1024px desktop boundary. */
+@media (max-width: 1023px) {
+  .steps-header { margin: 0 0 32px; }
+  .steps-header h2 { font-size: 26px; line-height: 1.2; }
+
+  .steps-grid { display: none; }
+  .steps-mobile-list { display: flex; }
+
+  .step-mock-choice, .step-mock-route, .step-mock-offers { max-width: 420px; }
+}
 
 /* ── Home page: recent listings preview ──────────────────────────── */
 .recent-listings-section {
@@ -1716,14 +1875,9 @@ button, input, select, textarea { font-family: inherit; }
   .hero-content-inner { max-width: 100%; }
   .hero h1 { font-size: 34px; line-height: 1.1; }
   .hero-lead { font-size: 15.5px; max-width: 100%; }
+  .steps-section { padding: 40px 20px; }
   .hero-actions { flex-direction: column; gap: 10px; margin-top: 24px; }
   .hero-btn { width: 100%; height: 50px; border-radius: 13px; padding: 0; }
-
-  .steps-section { padding: 40px 20px; }
-  .steps-grid { grid-template-columns: 1fr; gap: 22px; text-align: left; }
-  .step { flex-direction: row; align-items: center; gap: 14px; }
-  .step-number { width: 38px; height: 38px; font-size: 15px; }
-  .step-title { margin-top: 0; }
 
   .recent-listings-section { padding: 0 20px 56px; }
   .recent-listings-columns { grid-template-columns: 1fr; gap: 0; margin-top: 40px; }

@@ -72,7 +72,7 @@ cargo-platform/
         │   └── chat/         ChatDrawer — slide-in chat window, opened via ChatContext (Session 23)
         ├── hooks/             useCityDistances — batches+caches "~ X km" lookups for a page of result cards (Session 22)
         ├── constants/        postTypes.ts — shared Croatian cargo/vehicle type label maps
-        ├── pages/            HomePage (+ recent listings preview, Session 21) + ConversationsPage (Session 23) + 15 regular pages (incl. VerifyEmailPage, ForgotPasswordPage, ResetPasswordPage) + 5 admin pages
+        ├── pages/            HomePage (+ recent listings preview, Session 21; "how it works" redesign, Session 27) + ConversationsPage (Session 23) + 15 regular pages (incl. VerifyEmailPage, ForgotPasswordPage, ResetPasswordPage) + 5 admin pages
         │   └── admin/        AdminDashboardPage, AdminUsersPage, AdminUserCompanyPage, AdminCargoPostsPage, AdminVehiclePostsPage
         ├── utils/            errorUtils.ts — extractErrorMessage / extractFieldErrors helpers; dateUtils.ts — local-date helpers + formatPostedAt (Session 22)
         └── types/            Shared TypeScript interfaces (City added, CargoPost/VehiclePost updated; Conversation/ChatMessage added Session 23)

@@ -85,37 +85,163 @@ export default function HomePage() {
         />
         <div className="hero-overlay" aria-hidden="true" />
         <div className="hero-content">
-          <div className="hero-content-inner">
-            <p className="hero-eyebrow">Prijevoz bez posrednika</p>
-            <h1>Pronađite prijevoz ili teret na svojoj ruti</h1>
-            <p className="hero-lead">
-              CargoConnect povezuje tvrtke s dostupnim prijevoznim kapacitetom — brzo, jednostavno i izravno, bez posrednika.
-            </p>
-            <div className="hero-actions">
-              <Link to="/vehicles" className="hero-btn hero-btn-primary">
-                Trebam prijevoz
-              </Link>
-              <Link to="/cargo" className="hero-btn hero-btn-secondary">
-                Imam vozilo
-              </Link>
+          <div className="hero-content-container">
+            <div className="hero-content-inner">
+              <p className="hero-eyebrow">Prijevoz bez posrednika</p>
+              <h1>Pronađite prijevoz ili teret na svojoj ruti</h1>
+              <p className="hero-lead">
+                CargoConnect povezuje tvrtke s dostupnim prijevoznim kapacitetom — brzo, jednostavno i izravno, bez posrednika.
+              </p>
+              <div className="hero-actions">
+                <Link to="/vehicles" className="hero-btn hero-btn-primary">
+                  Trebam prijevoz
+                </Link>
+                <Link to="/cargo" className="hero-btn hero-btn-secondary">
+                  Imam vozilo
+                </Link>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       <div className="steps-section">
+        <div className="steps-header">
+          <h2>U tri koraka do prijevoznika</h2>
+        </div>
         <div className="steps-grid">
           <div className="step">
+            <div className="step-illustration">
+              <svg className="step-connector" viewBox="0 0 100 240" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M0 132 Q 50 66 100 102" />
+              </svg>
+              <div className="step-mock step-mock-choice">
+                <div className="choice-row">
+                  <span className="choice-row-icon" aria-hidden="true" />
+                  <span>Tražim prijevoz</span>
+                </div>
+                <div className="choice-row choice-row-selected">
+                  <span className="choice-row-dot" aria-hidden="true" />
+                  <span>Nudim prijevoz</span>
+                </div>
+              </div>
+            </div>
             <div className="step-number">1</div>
             <div className="step-title">Odaberite što tražite</div>
           </div>
           <div className="step">
+            <div className="step-illustration">
+              <svg className="step-connector" viewBox="0 0 100 240" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M0 102 Q 50 168 100 132" />
+              </svg>
+              <div className="step-mock step-mock-route">
+                <div className="route-point">
+                  <span className="route-marker route-marker-origin" />
+                  <div>
+                    <div className="route-label">Polazište</div>
+                    <div className="route-placeholder-bar" />
+                  </div>
+                </div>
+                <div className="route-connector" />
+                <div className="route-point">
+                  <span className="route-marker route-marker-destination" />
+                  <div>
+                    <div className="route-label">Odredište</div>
+                    <div className="route-placeholder-bar route-placeholder-bar-short" />
+                  </div>
+                </div>
+                <span className="step-chip step-chip-weight">18 t</span>
+              </div>
+            </div>
             <div className="step-number">2</div>
             <div className="step-title">Unesite polazište i odredište</div>
           </div>
           <div className="step">
+            <div className="step-illustration">
+              <div className="step-mock step-mock-offers">
+                <div className="offer-row">
+                  <span className="offer-row-icon" aria-hidden="true" />
+                  <span className="offer-price">420 €</span>
+                </div>
+                <div className="offer-row offer-row-selected">
+                  <span className="offer-row-icon" aria-hidden="true" />
+                  <span className="offer-price">380 €</span>
+                </div>
+                <span className="step-chip step-chip-cta">Pošalji upit</span>
+              </div>
+            </div>
             <div className="step-number">3</div>
             <div className="step-title">Kontaktirajte odgovarajuću tvrtku</div>
+          </div>
+        </div>
+
+        <div className="steps-mobile-list">
+          <div className="steps-mobile-item">
+            <div className="steps-mobile-track">
+              <div className="steps-mobile-badge">1</div>
+              <div className="steps-mobile-line" />
+            </div>
+            <div className="steps-mobile-content">
+              <h3 className="steps-mobile-title">Odaberite što tražite</h3>
+              <div className="step-mock step-mock-choice">
+                <div className="choice-row">
+                  <span className="choice-row-icon" aria-hidden="true" />
+                  <span>Tražim prijevoz</span>
+                </div>
+                <div className="choice-row choice-row-selected">
+                  <span className="choice-row-dot" aria-hidden="true" />
+                  <span>Nudim prijevoz</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="steps-mobile-item">
+            <div className="steps-mobile-track">
+              <div className="steps-mobile-badge">2</div>
+              <div className="steps-mobile-line" />
+            </div>
+            <div className="steps-mobile-content">
+              <h3 className="steps-mobile-title">Unesite polazište i odredište</h3>
+              <div className="step-mock step-mock-route">
+                <div className="route-point">
+                  <span className="route-marker route-marker-origin" />
+                  <div>
+                    <div className="route-label">Polazište</div>
+                    <div className="route-placeholder-bar" />
+                  </div>
+                </div>
+                <div className="route-connector" />
+                <div className="route-point">
+                  <span className="route-marker route-marker-destination" />
+                  <div>
+                    <div className="route-label">Odredište</div>
+                    <div className="route-placeholder-bar route-placeholder-bar-short" />
+                  </div>
+                </div>
+                <span className="step-chip step-chip-weight">18 t</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="steps-mobile-item">
+            <div className="steps-mobile-track">
+              <div className="steps-mobile-badge">3</div>
+            </div>
+            <div className="steps-mobile-content">
+              <h3 className="steps-mobile-title">Kontaktirajte odgovarajuću tvrtku</h3>
+              <div className="step-mock step-mock-offers">
+                <div className="offer-row">
+                  <span className="offer-row-icon" aria-hidden="true" />
+                  <span className="offer-price">420 €</span>
+                </div>
+                <div className="offer-row offer-row-selected">
+                  <span className="offer-row-icon" aria-hidden="true" />
+                  <span className="offer-price">380 €</span>
+                </div>
+              </div>
+              <div className="steps-mobile-cta-button">Pošalji upit</div>
+            </div>
           </div>
         </div>
       </div>

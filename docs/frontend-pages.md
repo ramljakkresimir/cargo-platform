@@ -2,7 +2,7 @@
 
 | Route                  | Component              | Auth?  | Description             |
 |------------------------|------------------------|--------|--------------------------|
-| /                      | HomePage               | No     | Landing page — dual-path hero ("Trebam prijevoz" / "Imam vozilo") + 3-step explainer *(Session 17, was a redirect to /cargo)* |
+| /                      | HomePage               | No     | Landing page — dual-path hero ("Trebam prijevoz" / "Imam vozilo") + illustrated 3-step explainer with a dedicated tablet/mobile timeline layout *(Session 17, was a redirect to /cargo; redesigned Session 27)* |
 | /login                 | LoginPage              | No     | Sign-in form — shows a CAPTCHA widget once the backend requests one, an unverified-account notice with inline resend, and a "Zaboravili ste lozinku?" link *(Session 20)* |
 | /register              | RegisterPage           | No     | Registration form — always requires solving a Turnstile CAPTCHA *(Session 20)* |
 | /verify-email          | VerifyEmailPage        | No     | Consumes `?token=` from the verification email link *(Session 20)* |
