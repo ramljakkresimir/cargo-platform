@@ -9,6 +9,11 @@ interface LocationState {
   registeredMessage?: string;
 }
 
+// TEMP: Email verification disabled for demo deployment — hides the email-dependent
+// login UI (forgot-password link, resend-verification panel) while no mail provider is
+// configured. Set back to `false` to restore. See docs/known-issues.md.
+const DEMO_EMAIL_DISABLED: boolean = true;
+
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -125,9 +130,13 @@ export default function LoginPage() {
             />
           </div>
 
-          <div className="auth-links">
-            <Link to="/forgot-password">Zaboravili ste lozinku?</Link>
-          </div>
+          {/* TEMP: Email verification disabled for demo deployment — forgot-password
+              flow needs SMTP; hidden via DEMO_EMAIL_DISABLED. Remove the guard to restore. */}
+          {!DEMO_EMAIL_DISABLED && (
+            <div className="auth-links">
+              <Link to="/forgot-password">Zaboravili ste lozinku?</Link>
+            </div>
+          )}
 
           {captchaRequired && (
             <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
@@ -138,7 +147,9 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {unverifiedEmail && (
+        {/* TEMP: Email verification disabled for demo deployment — resend-verification
+            needs SMTP; hidden via DEMO_EMAIL_DISABLED. Remove the guard to restore. */}
+        {!DEMO_EMAIL_DISABLED && unverifiedEmail && (
           <div className="resend-verification-panel">
             {resendSent ? (
               <p>

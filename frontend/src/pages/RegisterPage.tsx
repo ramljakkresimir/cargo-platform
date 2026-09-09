@@ -36,10 +36,13 @@ export default function RegisterPage() {
       await authService.register({ ...form, captchaToken });
       // The backend response is deliberately generic (doesn't confirm whether this
       // was a new account or an existing one) — show the same message either way.
+      // TEMP: Email verification disabled for demo deployment — new accounts are usable
+      // immediately, so the message no longer tells the user to check their inbox.
+      // Restore the "provjerite pretinac prije prijave" wording when re-enabling email.
       navigate('/login', {
         state: {
           registeredMessage:
-            'Registracija je zaprimljena. Ako je adresa nova, poslali smo vam e-mail za potvrdu računa — provjerite pretinac prije prijave.',
+            'Registracija je uspješna. Sada se možete prijaviti u svoj račun.',
         },
       });
     } catch (err) {

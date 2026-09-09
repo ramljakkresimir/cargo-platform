@@ -90,47 +90,65 @@ export class AuthService {
       this.logger.warn(
         `Registration attempted for an email that already has an account`,
       );
-      try {
-        await this.mailService.sendDuplicateRegistrationNotice(
-          existing.email,
-          existing.firstName,
-          `${this.getFrontendUrl()}/forgot-password`,
-        );
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        this.logger.warn(
-          `Failed to send duplicate-registration notice: ${message}`,
-        );
-      }
+      // TEMP: Email verification disabled for demo deployment — the duplicate-registration
+      // notice email is suppressed. Anti-enumeration behavior is unchanged: no second
+      // account is created and the same generic response is returned below.
+      // To restore: uncomment this block (and see docs/known-issues.md).
+      // try {
+      //   await this.mailService.sendDuplicateRegistrationNotice(
+      //     existing.email,
+      //     existing.firstName,
+      //     `${this.getFrontendUrl()}/forgot-password`,
+      //   );
+      // } catch (err) {
+      //   const message = err instanceof Error ? err.message : String(err);
+      //   this.logger.warn(
+      //     `Failed to send duplicate-registration notice: ${message}`,
+      //   );
+      // }
       return this.genericRegisterResponse();
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
-    const { raw, hash } = generateSecureToken();
 
-    const user = await this.usersService.create({
+    // TEMP: Email verification disabled for demo deployment.
+    // New users are created already-verified (`emailVerified: true`) so they can log in
+    // immediately without receiving a verification email. The verification token is not
+    // generated and no email is sent. Everything else (MailService, token columns,
+    // verify-email / resend-verification endpoints) is left intact for later restoration.
+    // To restore: uncomment the token generation + sendVerificationEmail call below, set
+    // `emailVerified` back to `false`, and restore the emailVerification* fields.
+    // See docs/known-issues.md.
+    // const { raw, hash } = generateSecureToken();
+
+    // TEMP: demo mode — on restore, change this back to `const user = await ...` so the
+    // commented-out sendVerificationEmail call below can reference `user`.
+    await this.usersService.create({
       email: dto.email,
       passwordHash,
       firstName: dto.firstName,
       lastName: dto.lastName,
       phone: dto.phone,
-      emailVerified: false,
-      emailVerificationTokenHash: hash,
-      emailVerificationExpiresAt: new Date(
-        Date.now() + this.verificationTtlMinutes * 60_000,
-      ),
-      emailVerificationLastSentAt: new Date(),
+      emailVerified: true, // TEMP: demo mode — was `false`; see note above
+      // emailVerificationTokenHash: hash,
+      // emailVerificationExpiresAt: new Date(
+      //   Date.now() + this.verificationTtlMinutes * 60_000,
+      // ),
+      // emailVerificationLastSentAt: new Date(),
     });
 
+    // TEMP: Email verification disabled for demo deployment — no verification email sent.
     // Unlike the duplicate-account notice above, a real new registration's verification
     // email is load-bearing — if it can't be sent (e.g. SMTP misconfigured in production),
     // MailService throws and that failure should surface to the caller as a real error.
-    await this.mailService.sendVerificationEmail(
-      user.email,
-      user.firstName,
-      `${this.getFrontendUrl()}/verify-email?token=${raw}`,
+    // await this.mailService.sendVerificationEmail(
+    //   user.email,
+    //   user.firstName,
+    //   `${this.getFrontendUrl()}/verify-email?token=${raw}`,
+    // );
+    this.logger.log(
+      `Registered new account (demo mode — email verification disabled)`,
     );
-    this.logger.log(`Registered new account and sent verification email`);
 
     return this.genericRegisterResponse();
   }

@@ -1,5 +1,20 @@
 # Known Issues / Notes
 
+- **TEMP — email verification disabled for demo deployment.** New users are created with
+  `emailVerified: true` and no verification email is sent; the duplicate-registration
+  notice email and the login page's forgot-password link + resend-verification panel are
+  also suppressed. All changes are marked with the comment
+  `// TEMP: Email verification disabled for demo deployment` in
+  `backend/src/auth/auth.service.ts`, `backend/src/auth/auth.service.spec.ts`,
+  `frontend/src/pages/RegisterPage.tsx`, and `frontend/src/pages/LoginPage.tsx`
+  (flag: `DEMO_EMAIL_DISABLED`). The MailService, SMTP config, token columns, and the
+  `verify-email` / `resend-verification` / `forgot-password` / `reset-password` endpoints
+  are all untouched. **To restore:** revert those hunks (or the commit), set
+  `emailVerified` back to `false` in `AuthService.register()`, restore the
+  `sendVerificationEmail` / `sendDuplicateRegistrationNotice` calls, set
+  `DEMO_EMAIL_DISABLED = false`, and provision `SMTP_*` + `TURNSTILE_SECRET_KEY` with
+  `NODE_ENV=production`. Existing unverified rows can be fixed with
+  `UPDATE users SET "emailVerified" = true WHERE "emailVerified" = false;`.
 - `@types/react-router-dom` v5 is installed alongside react-router-dom v7. They should not conflict due to `skipLibCheck: true`, but ideally remove `@types/react-router-dom` with `npm uninstall @types/react-router-dom` in the frontend folder.
 - `frontend/tsconfig.app.json` must stay comment-free plain JSON. Vite's internal tsconfig loader uses a strict JSON parser (not TypeScript's JSONC parser), so `/* block comments */` or duplicate keys will cause a startup error. *(Fixed session 3.)*
 - TypeORM `float` columns (weight, price, capacity) return JS numbers directly. If you ever need exact decimal precision (e.g. invoicing), switch to `{ type: 'numeric', precision: 10, scale: 2 }` with a transformer.

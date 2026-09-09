@@ -104,36 +104,43 @@ describe('AuthService', () => {
       expect(usersService.create).not.toHaveBeenCalled();
     });
 
-    it('creates an unverified account and sends a verification email', async () => {
+    // TEMP: Email verification disabled for demo deployment — new users are created
+    // pre-verified and no verification email is sent. Restore the assertions to
+    // `emailVerified === false` + `sendVerificationEmail` called when re-enabling.
+    it('creates a pre-verified account and does not send a verification email (demo mode)', async () => {
       usersService.findByEmail.mockResolvedValue(null);
 
       await service.register(dto, '1.2.3.4');
 
       expect(usersService.create).toHaveBeenCalledTimes(1);
       const created = usersService.create.mock.calls[0][0];
-      expect(created.emailVerified).toBe(false);
-      expect(created.emailVerificationTokenHash).toEqual(expect.any(String));
-      expect(mailService.sendVerificationEmail).toHaveBeenCalledTimes(1);
+      expect(created.emailVerified).toBe(true);
+      expect(mailService.sendVerificationEmail).not.toHaveBeenCalled();
     });
 
-    it('does not create a second account for a duplicate email and notifies the existing owner instead', async () => {
+    // TEMP: Email verification disabled for demo deployment — the duplicate-registration
+    // notice email is suppressed. The anti-enumeration guarantee (no second account,
+    // identical generic response) is still asserted. Restore the
+    // `sendDuplicateRegistrationNotice` expectation when re-enabling email.
+    it('does not create a second account for a duplicate email and stays generic (demo mode)', async () => {
       const existing = makeUser({ email: dto.email });
       usersService.findByEmail.mockResolvedValue(existing);
 
       const result = await service.register(dto, '1.2.3.4');
 
       expect(usersService.create).not.toHaveBeenCalled();
-      expect(mailService.sendDuplicateRegistrationNotice).toHaveBeenCalledWith(
-        existing.email,
-        existing.firstName,
-        expect.stringContaining('/forgot-password'),
-      );
+      expect(
+        mailService.sendDuplicateRegistrationNotice,
+      ).not.toHaveBeenCalled();
       // Response must be indistinguishable from the "new account" success response —
       // this is the anti-enumeration guarantee.
       expect(result.message).toEqual(expect.any(String));
     });
 
-    it('still returns the generic response even if the duplicate-notice email fails to send', async () => {
+    // TEMP: Email verification disabled for demo deployment — the duplicate-notice email
+    // is no longer sent, so the mocked rejection below is moot; the test still guards that
+    // a duplicate registration returns the generic response.
+    it('still returns the generic response for a duplicate email', async () => {
       const existing = makeUser({ email: dto.email });
       usersService.findByEmail.mockResolvedValue(existing);
       mailService.sendDuplicateRegistrationNotice.mockRejectedValue(
